@@ -1,0 +1,124 @@
+{
+  "name": "@joe-broadhead/opencode-charts",
+  "version": "0.0.1",
+  "description": "Unofficial OpenCode plugin: deterministic, themed charts from Vega-Lite, Vega and ECharts specs, rendered offline to SVG, PNG and interactive HTML",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "charts",
+    "vega-lite",
+    "vega",
+    "echarts",
+    "dataviz"
+  ],
+  "homepage": "https://github.com/joe-broadhead/opencode-charts#readme",
+  "bugs": {
+    "url": "https://github.com/joe-broadhead/opencode-charts/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joe-broadhead/opencode-charts.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+    "licenses",
+    "CHANGELOG.md"
+  ],
+  "opencode": {
+    "host": ">=2.2.5 <2.3.0"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "node scripts/build.mjs",
+    "test": "bun test test",
+    "gallery": "bun scripts/gallery.ts",
+    "eval": "bun eval/run.ts",
+    "data": "node scripts/data.mjs",
+    "cookbook": "bun scripts/cookbook.ts",
+    "check": "npm run typecheck && npm run build && npm test"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "2.2.5",
+    "@resvg/resvg-wasm": "2.6.2",
+    "@types/bun": "1.4.4",
+    "d3-format": "3.1.0",
+    "echarts": "6.1.0",
+    "esbuild": "0.28.2",
+    "hyparquet": "1.32.0",
+    "hyparquet-writer": "0.18.0",
+    "i18n-iso-countries": "7.14.0",
+    "typescript": "5.9.3",
+    "us-atlas": "3.0.1",
+    "vega": "6.4.0",
+    "vega-embed": "7.3.0",
+    "vega-lite": "6.5.0",
+    "vega-tooltip": "1.1.0",
+    "world-atlas": "2.0.2",
+    "zod": "4.6.7"
+  },
+  "jelly": {
+    "title": "Charts",
+    "tools": [
+      {
+        "name": "charts.render",
+        "permission": "charts_render",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "charts.quick",
+        "permission": "charts_quick",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "charts.validate",
+        "permission": "charts_validate",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "charts.catalogue",
+        "permission": "charts_catalogue",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "charts.themes",
+        "permission": "charts_themes",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "charts.theme_save",
+        "permission": "charts_theme_save",
+        "effect": "allow",
+        "readOnly": false
+      }
+    ],
+    "skills": [
+      "charts",
+      "charts-cookbook"
+    ],
+    "rpc": [],
+    "views": [],
+    "signIns": [],
+    "contributes": {
+      "homeFeeds": [],
+      "homeWidgets": [],
+      "workKinds": [],
+      "settings": []
+    }
+  }
+}

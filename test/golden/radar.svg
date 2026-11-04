@@ -1,0 +1,60 @@
+<svg role="img" aria-labelledby="c133ef266-0 c133ef266-1" width="480" height="420" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 480 420"><title id="c133ef266-0">Product profiles</title><desc id="c133ef266-1">Product profiles.</desc>
+<rect width="480" height="420" x="0" y="0" fill="#FFFFFF"></rect>
+<path d="M240 235.2M240 214.2L220 228.7L227.7 252.2L252.3 252.2L260 228.7L240 214.2M240 193.2L200.1 222.2L215.3 269.2L264.7 269.2L279.9 222.2L240 193.2M240 172.2L180.1 215.7L203 286.2L277 286.2L299.9 215.7L240 172.2M240 151.2L160.1 209.2L190.6 303.2L289.4 303.2L319.9 209.2L240 151.2M240 130.2L140.1 202.8L178.3 320.1L301.7 320.1L339.9 202.8L240 130.2" fill="none" pointer-events="visible" stroke="#E8EAED" class="c133ef266-2"></path>
+<path d="M240.5 235.2L240.5 130.2" fill="none" pointer-events="visible" stroke="#E8EAED" stroke-linecap="round" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:Inter, sans-serif;" y="-3.59765625" transform="translate(240 115.2)" fill="#59636E">Speed</text>
+<path d="M240 235.2L140.1 202.8" fill="none" pointer-events="visible" stroke="#E8EAED" stroke-linecap="round" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:Inter, sans-serif;" transform="translate(125.8732 198.118)" fill="#59636E">Cost</text>
+<path d="M240 235.2L178.3 320.1" fill="none" pointer-events="visible" stroke="#E8EAED" stroke-linecap="round" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:Inter, sans-serif;" transform="translate(169.4658 332.282)" fill="#59636E">Quality</text>
+<path d="M240 235.2L301.7 320.1" fill="none" pointer-events="visible" stroke="#E8EAED" stroke-linecap="round" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:Inter, sans-serif;" transform="translate(310.5342 332.282)" fill="#59636E">Support</text>
+<path d="M240 235.2L339.9 202.8" fill="none" pointer-events="visible" stroke="#E8EAED" stroke-linecap="round" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:Inter, sans-serif;" transform="translate(354.1268 198.118)" fill="#59636E">Features</text>
+<polyline points="240 151.2 190.1 219 196.8 294.7 277 286.2 329.9 206 240 151.2" fill="none" pointer-events="visible" stroke="#4477AA" stroke-width="2" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c133ef266-3"></polyline>
+<polygon points="240 151.2 190.1 219 196.8 294.7 277 286.2 329.9 206 240 151.2" fill="#4477AA" fill-opacity="0.2" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c133ef266-4"></polygon>
+<polyline points="240 172.2 160.1 209.2 190.6 303.2 283.2 294.7 289.9 219 240 172.2" fill="none" pointer-events="visible" stroke="#EE6677" stroke-width="2" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c133ef266-3"></polyline>
+<polygon points="240 172.2 160.1 209.2 190.6 303.2 283.2 294.7 289.9 219 240 172.2" fill="#EE6677" fill-opacity="0.2" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c133ef266-5"></polygon>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,240,151.2)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c133ef266-4"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,190.0695,218.9766)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c133ef266-4"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,196.7978,294.6627)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c133ef266-4"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,277.0305,286.1681)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c133ef266-4"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,329.8748,205.9979)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c133ef266-4"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,240,172.2)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c133ef266-5"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,160.1113,209.2426)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c133ef266-5"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,190.626,303.1574)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c133ef266-5"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,283.2022,294.6627)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c133ef266-5"></path>
+<path d="M1 0A1 1 0 1 1 1 -0.1A1 1 0 0 1 1 0" transform="matrix(4,0,0,4,289.9305,218.9766)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c133ef266-5"></path>
+<path d="M-5 -5l133.7 0l0 20l-133.7 0Z" transform="translate(178.1682 397)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#b7b9be" stroke-width="0" class="c133ef266-2"></path>
+<path d="M10 5A5 5 0 1 1 10 4.5A5 5 0 0 1 10 5" transform="translate(178.1682 397)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="legend" ecmeta_silent="true" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" xml:space="preserve" x="15" y="5" transform="translate(178.1682 397)" fill="#59636E">Model A</text>
+<path d="M0 0l58 0l0 10l-58 0Z" transform="translate(178.1682 397)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="legend" class="c133ef266-6"></path>
+<path d="M10 5A5 5 0 1 1 10 4.5A5 5 0 0 1 10 5" transform="translate(244.196 397)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="legend" ecmeta_silent="true" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" xml:space="preserve" x="15" y="5" transform="translate(244.196 397)" fill="#59636E">Model B</text>
+<path d="M0 0l57.6 0l0 10l-57.6 0Z" transform="translate(244.196 397)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="legend" class="c133ef266-6"></path>
+<path d="M-5 -5l134.1 0l0 19.7l-134.1 0Z" transform="translate(21 13)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="c133ef266-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:16px;font-family:Inter, sans-serif;font-weight:600;" xml:space="preserve" y="4.87109375" transform="translate(21 13)" fill="#1F2328">Product profiles</text>
+<style ><![CDATA[
+.c133ef266-2:hover {
+pointer-events:none;
+}
+.c133ef266-3:hover {
+cursor:pointer;
+}
+.c133ef266-4:hover {
+cursor:pointer;
+fill:rgba(74,130,187,1);
+}
+.c133ef266-5:hover {
+cursor:pointer;
+fill:rgba(255,112,130,1);
+}
+.c133ef266-6:hover {
+cursor:pointer;
+fill:rgba(0,0,0,0);
+}
+
+]]>
+
+</style>
+</svg>

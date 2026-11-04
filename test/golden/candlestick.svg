@@ -1,0 +1,78 @@
+<svg role="img" aria-labelledby="ccc3ea16e-0 ccc3ea16e-1" width="560" height="320" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 560 320"><title id="ccc3ea16e-0">ACME share price, March 2024</title><desc id="ccc3ea16e-1">ACME share price, March 2024. 30 rows; fields: date (date 2024-03-01–2024-03-30); open (number 100–126.27, mean 112.73); close (number 102.50–127.58, mean 112.83); low (number 98.80–124.02, mean 110.25); high (number 103.60–128.68, mean 115.24).</desc>
+<rect width="560" height="320" x="0" y="0" fill="#FFFFFF"></rect>
+<path d="M29.4 288.5L536 288.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<path d="M29.4 256.5L536 256.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<path d="M29.4 224.5L536 224.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<path d="M29.4 192.5L536 192.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<path d="M29.4 160.5L536 160.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<path d="M29.4 128.5L536 128.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<path d="M29.4 96.5L536 96.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<path d="M29.4 64.5L536 64.5" fill="none" pointer-events="visible" stroke="#E8EAED" class="ccc3ea16e-2"></path>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:Inter, sans-serif;" y="-3.59765625" transform="translate(29.353 49)" fill="#1F2328">€</text>
+<path d="M29.5 288L29.5 64" fill="none" pointer-events="visible" stroke="#9AA1A9" stroke-linecap="round" class="ccc3ea16e-2"></path>
+<path d="M29.4 288.5L536 288.5" fill="none" pointer-events="visible" stroke="#9AA1A9" stroke-linecap="round" class="ccc3ea16e-2"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 288)" fill="#59636E">95</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 256)" fill="#59636E">100</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 224)" fill="#59636E">105</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 192)" fill="#59636E">110</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 160)" fill="#59636E">115</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 128)" fill="#59636E">120</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 96)" fill="#59636E">125</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(21.353 64)" fill="#59636E">130</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" y="3.2978515625" transform="translate(37.7971 296)" fill="#59636E">2024-03-01</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" y="3.2978515625" transform="translate(122.2383 296)" fill="#59636E">2024-03-06</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" y="3.2978515625" transform="translate(206.6795 296)" fill="#59636E">2024-03-11</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" y="3.2978515625" transform="translate(291.1206 296)" fill="#59636E">2024-03-16</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" y="3.2978515625" transform="translate(375.5618 296)" fill="#59636E">2024-03-21</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" y="3.2978515625" transform="translate(460.003 296)" fill="#59636E">2024-03-26</text>
+<path d="M33.5 240L41.5 240L41.5 256L33.5 256ZM37.5 233L37.5 240M37.5 263.7L37.5 256" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M50.5 225.6L58.5 225.6L58.5 234L50.5 234ZM54.5 216.6L54.5 225.6M54.5 244.3L54.5 234" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M67.5 225.3L75.5 225.3L75.5 235.7L67.5 235.7ZM71.5 214.4L71.5 225.3M71.5 248.5L71.5 235.7" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M84.5 220L92.5 220L92.5 220.2L84.5 220.2ZM88.5 207.2L88.5 220M88.5 227.8L88.5 220.2" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M101.5 190.7L109.5 190.7L109.5 191.9L101.5 191.9ZM105.5 183.7L105.5 190.7M105.5 202.1L105.5 191.9" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M118.5 176.6L126.5 176.6L126.5 182L118.5 182ZM121.5 167.6L121.5 176.6M121.5 194.8L121.5 182" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="5" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M135.5 189.5L143.5 189.5L143.5 199.3L135.5 199.3ZM138.5 178.6L138.5 189.5M138.5 207L138.5 199.3" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="6" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M152.5 200.3L159.5 200.3L159.5 207.6L152.5 207.6ZM155.5 187.5L155.5 200.3M155.5 217.8L155.5 207.6" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="7" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M168.5 186.5L176.5 186.5L176.5 206.5L168.5 206.5ZM172.5 179.5L172.5 186.5M172.5 219.3L172.5 206.5" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="8" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M185.5 194.1L193.5 194.1L193.5 199.4L185.5 199.4ZM189.5 185.2L189.5 194.1M189.5 207.1L189.5 199.4" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="9" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M202.5 197.6L210.5 197.6L210.5 224.4L202.5 224.4ZM206.5 186.7L206.5 197.6M206.5 234.7L206.5 224.4" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="10" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M219.5 220.9L227.5 220.9L227.5 221.5L219.5 221.5ZM223.5 208.1L223.5 220.9M223.5 234.3L223.5 221.5" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="11" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M236.5 210.8L244.5 210.8L244.5 239.6L236.5 239.6ZM240.5 203.8L240.5 210.8M240.5 247.2L240.5 239.6" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="12" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M253.5 226.5L261.5 226.5L261.5 231L253.5 231ZM257.5 217.5L257.5 226.5M257.5 241.3L257.5 231" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="13" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M270.5 209.9L278.5 209.9L278.5 235.1L270.5 235.1ZM273.5 199L273.5 209.9M273.5 247.9L273.5 235.1" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="14" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M287.5 203.3L295.5 203.3L295.5 211.5L287.5 211.5ZM290.5 190.5L290.5 203.3M290.5 219.1L290.5 211.5" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="15" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M304.5 194L311.5 194L311.5 211.3L304.5 211.3ZM307.5 187L307.5 194M307.5 221.5L307.5 211.3" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="16" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M320.5 198.7L328.5 198.7L328.5 207L320.5 207ZM324.5 189.7L324.5 198.7M324.5 219.8L324.5 207" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="17" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M337.5 177.2L345.5 177.2L345.5 183.9L337.5 183.9ZM341.5 166.3L341.5 177.2M341.5 191.6L341.5 183.9" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="18" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M354.5 142.3L362.5 142.3L362.5 146.9L354.5 146.9ZM358.5 129.5L358.5 142.3M358.5 157.1L358.5 146.9" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="19" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M371.5 128.9L379.5 128.9L379.5 132.5L371.5 132.5ZM375.5 121.9L375.5 128.9M375.5 145.3L375.5 132.5" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="20" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M388.5 132.2L396.5 132.2L396.5 134.9L388.5 134.9ZM392.5 123.3L392.5 132.2M392.5 142.6L392.5 134.9" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="21" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M405.5 113.8L413.5 113.8L413.5 125.2L405.5 125.2ZM409.5 102.9L409.5 113.8M409.5 135.4L409.5 125.2" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="22" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M422.5 87.9L430.5 87.9L430.5 99.6L422.5 99.6ZM425.5 75.1L425.5 87.9M425.5 112.4L425.5 99.6" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="23" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M439.5 79.5L447.5 79.5L447.5 94.6L439.5 94.6ZM442.5 72.4L442.5 79.5M442.5 102.3L442.5 94.6" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="24" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M456.5 86.5L463.5 86.5L463.5 106.7L456.5 106.7ZM459.5 77.5L459.5 86.5M459.5 116.9L459.5 106.7" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="25" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M472.5 93.7L480.5 93.7L480.5 108.1L472.5 108.1ZM476.5 82.8L476.5 93.7M476.5 120.9L476.5 108.1" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="26" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M489.5 89.9L497.5 89.9L497.5 115.6L489.5 115.6ZM493.5 77.1L493.5 89.9M493.5 123.3L493.5 115.6" fill="#CC3344" stroke="#CC3344" ecmeta_series_index="0" ecmeta_data_index="27" ecmeta_ssr_type="chart" class="ccc3ea16e-4"></path>
+<path d="M506.5 104.8L514.5 104.8L514.5 115L506.5 115ZM510.5 97.8L510.5 104.8M510.5 125.2L510.5 115" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="28" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M523.5 100.7L531.5 100.7L531.5 127.2L523.5 127.2ZM527.5 91.8L527.5 100.7M527.5 140L527.5 127.2" fill="#228833" stroke="#228833" ecmeta_series_index="0" ecmeta_data_index="29" ecmeta_ssr_type="chart" class="ccc3ea16e-3"></path>
+<path d="M-5 -5l252.6 0l0 19.7l-252.6 0Z" transform="translate(21 13)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="ccc3ea16e-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:16px;font-family:Inter, sans-serif;font-weight:600;" xml:space="preserve" y="4.87109375" transform="translate(21 13)" fill="#1F2328">ACME share price, March 2024</text>
+<style ><![CDATA[
+.ccc3ea16e-2:hover {
+pointer-events:none;
+}
+.ccc3ea16e-3:hover {
+cursor:pointer;
+fill:rgba(37,149,56,1);
+stroke-width:2;
+}
+.ccc3ea16e-4:hover {
+cursor:pointer;
+fill:rgba(224,56,74,1);
+stroke-width:2;
+}
+
+]]>
+
+</style>
+</svg>
