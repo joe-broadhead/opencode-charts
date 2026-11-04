@@ -1,0 +1,27 @@
+<svg role="img" aria-labelledby="c072f39a0-0 c072f39a0-1" width="400" height="320" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 400 320"><title id="c072f39a0-0">Uptime this month</title><desc id="c072f39a0-1">Uptime this month.</desc>
+<rect width="400" height="320" x="0" y="0" fill="#FFFFFF"></rect>
+<path d="M86.4 244.8A131.2 131.2 0 1 1 313.6 244.8L301.5 237.8A117.2 117.2 0 1 0 98.5 237.8Z" fill="#E8EAED" class="c072f39a0-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" x="122.75053444947818" y="223.8000008089545" fill="#59636E">99</text>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" x="122.750533515378" y="134.60000080895452" fill="#59636E">99.25</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" x="199.9999990658998" y="93.29785156250003" fill="#59636E">99.5</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" x="277.24946555052185" y="134.59999919104555" fill="#59636E">99.75</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" x="277.24946648462196" y="223.79999919104557" fill="#59636E">100</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:16px;font-family:Inter, sans-serif;" x="200" y="223.80800000000002" fill="#59636E">Uptime</text>
+<path d="M140 164.4l120 0l0 40l-120 0Z" fill="rgb(0,0,0)" fill-opacity="0" class="c072f39a0-2"></path>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:28px;font-family:Inter, sans-serif;font-weight:bold;" x="200" y="184.448" fill="#1F2328">99.94%</text>
+<path d="M86.4 244.8A131.2 131.2 0 1 1 326.4 214.5L312.9 210.7A117.2 117.2 0 1 0 98.5 237.8Z" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c072f39a0-3"></path>
+<path d="M-5 -5l151.3 0l0 19.7l-151.3 0Z" transform="translate(21 13)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="c072f39a0-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:16px;font-family:Inter, sans-serif;font-weight:600;" xml:space="preserve" y="4.87109375" transform="translate(21 13)" fill="#1F2328">Uptime this month</text>
+<style ><![CDATA[
+.c072f39a0-2:hover {
+pointer-events:none;
+}
+.c072f39a0-3:hover {
+cursor:pointer;
+fill:rgba(74,130,187,1);
+}
+
+]]>
+
+</style>
+</svg>

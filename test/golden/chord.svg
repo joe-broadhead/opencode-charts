@@ -1,0 +1,43 @@
+<svg role="img" aria-labelledby="c8a3ff501-0 c8a3ff501-1" width="460" height="440" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 460 440"><title id="c8a3ff501-0">Customer moves between plans</title><desc id="c8a3ff501-1">Customer moves between plans.</desc>
+<rect width="460" height="440" x="0" y="0" fill="#FFFFFF"></rect>
+<path d="M230 92.4A154 154 0 0 1 375 194.5C273.5 230.8 276.2 247.1 384 248.8A154 154 0 0 1 279.7 392.2C244.9 290.1 230 200.2 230 92.4Z" fill="#4477AA" fill-opacity="0.4" stroke="source" stroke-width="0" stroke-opacity="0.4" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c8a3ff501-2"></path>
+<path d="M279.7 392.2A154 154 0 0 1 164.6 385.8C210.4 288.2 190.1 269.7 97 324A154 154 0 0 1 80.4 209.9C185.1 235.5 244.9 290.1 279.7 392.2Z" fill="#EE6677" fill-opacity="0.4" stroke="source" stroke-width="0" stroke-opacity="0.4" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c8a3ff501-3"></path>
+<path d="M80.4 209.9A154 154 0 0 1 103.5 158.5C192.1 220 206.1 206.8 150.4 114.6A154 154 0 0 1 203.2 94.8C222 200.9 185.1 235.5 80.4 209.9Z" fill="#228833" fill-opacity="0.4" stroke="source" stroke-width="0" stroke-opacity="0.4" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="c8a3ff501-4"></path>
+<path d="M164.6 385.8A154 154 0 0 1 125.6 359.6C198.7 280.4 273.5 230.8 375 194.5A154 154 0 0 1 383.9 240.7C276.2 244.7 210.4 288.2 164.6 385.8Z" fill="#EE6677" fill-opacity="0.4" stroke="source" stroke-width="0" stroke-opacity="0.4" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="c8a3ff501-3"></path>
+<path d="M103.5 158.5A154 154 0 0 1 128.7 130.4C199.6 211.6 198.7 280.4 125.6 359.6A154 154 0 0 1 101.2 330.8C191.4 271.7 192.1 220 103.5 158.5Z" fill="#228833" fill-opacity="0.4" stroke="source" stroke-width="0" stroke-opacity="0.4" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="chart" class="c8a3ff501-4"></path>
+<path d="M203.2 94.8A154 154 0 0 1 221.9 92.6C227.6 200.3 199.6 211.6 128.7 130.4A154 154 0 0 1 143.6 118.9C204.1 208.2 222 200.9 203.2 94.8Z" fill="#CCBB44" fill-opacity="0.4" stroke="source" stroke-width="0" stroke-opacity="0.4" ecmeta_series_index="0" ecmeta_data_index="5" ecmeta_ssr_type="chart" class="c8a3ff501-5"></path>
+<path d="M230 79.9A5 5 0 0 1 235.2 74.9A171.6 171.6 0 0 1 401.2 234.9A5 5 0 0 1 396.4 240.2L383.9 240.7A154 154 0 0 0 230 92.4Z" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c8a3ff501-2"></path>
+<path d="M396.5 249A5 5 0 0 1 401.4 254.2A171.6 171.6 0 0 1 89.4 344.7A5 5 0 0 1 90.7 337.7L101.2 330.8A154 154 0 0 0 384 248.8Z" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c8a3ff501-3"></path>
+<path d="M86.1 330.3A5 5 0 0 1 79.2 328.3A171.6 171.6 0 0 1 129.5 107.3A5 5 0 0 1 136.6 108.5L143.6 118.9A154 154 0 0 0 97 324Z" fill="#228833" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="c8a3ff501-4"></path>
+<path d="M143.9 103.8A5 5 0 0 1 145.8 96.9A171.6 171.6 0 0 1 215.9 75.4A5 5 0 0 1 221.3 80.1L221.9 92.6A154 154 0 0 0 150.4 114.6Z" fill="#CCBB44" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="c8a3ff501-5"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:Inter, sans-serif;" y="-3.59765625" transform="translate(352.5422 119.2349)" fill="#1F2328">Free</text>
+<text dominant-baseline="central" text-anchor="start" style="font-size:12px;font-family:Inter, sans-serif;" y="3.59765625" transform="translate(279.216 416.0035)" fill="#1F2328">Basic</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:Inter, sans-serif;" y="-3.59765625" transform="translate(57.801 207.2199)" fill="#1F2328">Pro</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:Inter, sans-serif;" y="-3.59765625" transform="translate(178.1885 77.5713)" fill="#1F2328">Team</text>
+<path d="M-5 -5l259 0l0 19.7l-259 0Z" transform="translate(21 13)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="c8a3ff501-6"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:16px;font-family:Inter, sans-serif;font-weight:600;" xml:space="preserve" y="4.87109375" transform="translate(21 13)" fill="#1F2328">Customer moves between plans</text>
+<style ><![CDATA[
+.c8a3ff501-2:hover {
+cursor:pointer;
+fill:rgba(74,130,187,1);
+}
+.c8a3ff501-3:hover {
+cursor:pointer;
+fill:rgba(255,112,130,1);
+}
+.c8a3ff501-4:hover {
+cursor:pointer;
+fill:rgba(37,149,56,1);
+}
+.c8a3ff501-5:hover {
+cursor:pointer;
+fill:rgba(224,205,74,1);
+}
+.c8a3ff501-6:hover {
+pointer-events:none;
+}
+
+]]>
+
+</style>
+</svg>
