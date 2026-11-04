@@ -69,6 +69,8 @@
   },
   "jelly": {
     "title": "Charts",
+    "summary": "Charts, maps and diagrams from data, in any theme.",
+    "icon": "assets/icon.svg",
     "tools": [
       {
         "name": "charts.render",
