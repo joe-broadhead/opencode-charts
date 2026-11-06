@@ -3,7 +3,12 @@
 [Jelly](https://heyjelly.ai) runs OpenCode agents. It reads the `jelly` section of this package's `package.json` as
 JSON, without loading the plugin, when a person reviews the exact version.
 
-Jelly names the plugin **Charts** (`jelly.title`), with the package name and version beneath it.
+Jelly names the plugin **Charts** (`jelly.title`), with the package name and version beneath it. Under that name
+it shows the one line in `jelly.summary`, and beside it the mark in `jelly.icon` (`assets/icon.svg`, shipped in the
+package). Jelly reads that file once, when it records the plugin, and keeps it only if it is a clean SVG of drawing
+elements, with no script, style, link or outside reference. This one is `rect`, `path` and `circle` only, which
+`test/plugin.test.ts` checks. A Jelly whose declaration schema lacks `summary` or `icon` refuses this declaration,
+because that schema accepts no unknown keys.
 
 ## Tools and permissions
 

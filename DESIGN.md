@@ -60,7 +60,7 @@ Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities
   - File effects assert the host's own `read` and `edit` actions (utilities `src/runtime/permissions.ts`).
   - Errors read `CODE: what happened. Next step.` (utilities `AGENTS.md`).
 - **Build.** esbuild bundles each output to one self-contained file that imports only `node:` modules and `@opencode/plugin`; the build fails otherwise (tavily `tools/build.mjs`).
-- **Branches.** `master` is released; `jelly` is master plus the newest `jelly` declaration fields. `git diff master jelly` on tavily is exactly `summary`, `icon` and `assets/icon.svg`.
+- **Branches.** One branch: releases are cut from a `v<version>` tag on the default branch, `master`. (The `jelly` branches read above were merged into each default branch and retired on 6 November 2026; tag `jelly-retired` keeps each old head.)
 
 **This repo follows all of it**, with two deliberate differences:
 
@@ -76,7 +76,7 @@ From `hey-jelly-wt/integrate`.
 - **Declaration.**
   - `protocol/contracts/src/plugin-contract.ts` `PluginDeclarationSchema`: `title` (≤60), `tools[] {name, permission, effect, readOnly}`, `skills`, `rpc`, `views`, `signIns`, `contributes`. It is `.strict()`, so unknown keys are refused.
   - `summary` and `icon` are not in this checkout's schema yet; lane DESIGN is adding them.
-  - The owner's plugins already declare them on their `jelly` branches, and so does this one: `jelly.summary` is "Charts, maps and diagrams…" and `jelly.icon` is `assets/icon.svg`, a clean SVG of `rect`, `path` and `circle` only, checked by `test/plugin.test.ts`.
+  - The owner's plugins already declared them on their `jelly` branches (now merged into each default branch), and so does this one: `jelly.summary` is "Charts, maps and diagrams…" and `jelly.icon` is `assets/icon.svg`, a clean SVG of `rect`, `path` and `circle` only, checked by `test/plugin.test.ts`.
   - **Jelly hard-codes nothing:** the title, summary and icon all come from the package.
 - **Sign-ins.** `plugin-sign-ins.ts`: none declared (`signIns: []`).
 - **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `catalogue` and `themes` are `readOnly: true`, and `render`, `quick` and `theme_save` (which write files) are not.
