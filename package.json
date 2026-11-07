@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-charts",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Unofficial OpenCode plugin: deterministic, themed charts from Vega-Lite, Vega and ECharts specs, rendered offline to SVG, PNG and interactive HTML",
   "keywords": [
     "opencode",
@@ -22,7 +22,10 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./icon.svg": "./assets/icon.svg",
+    "./icon-128.png": "./assets/icon-128.png",
+    "./icon-256.png": "./assets/icon-256.png"
   },
   "files": [
     "dist",
@@ -36,17 +39,41 @@
     "CHANGELOG.md"
   ],
   "opencode": {
-    "host": ">=2.2.5 <2.3.0"
+    "host": ">=2.2.5 <2.3.0",
+    "icons": [
+      {
+        "src": "assets/icon.svg",
+        "mimeType": "image/svg+xml",
+        "sizes": [
+          "any"
+        ]
+      },
+      {
+        "src": "assets/icon-128.png",
+        "mimeType": "image/png",
+        "sizes": [
+          "128x128"
+        ]
+      },
+      {
+        "src": "assets/icon-256.png",
+        "mimeType": "image/png",
+        "sizes": [
+          "256x256"
+        ]
+      }
+    ]
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json",
-    "build": "node scripts/build.mjs",
-    "test": "bun test test",
+    "check": "node scripts/check.mjs",
+    "typecheck": "node scripts/check.mjs typecheck",
+    "build": "node scripts/check.mjs build",
+    "test": "node scripts/check.mjs unit",
+    "test:pack": "node scripts/check.mjs pack",
     "gallery": "bun scripts/gallery.ts",
     "eval": "bun eval/run.ts",
     "data": "node scripts/data.mjs",
-    "cookbook": "bun scripts/cookbook.ts",
-    "check": "npm run typecheck && npm run build && npm test"
+    "cookbook": "bun scripts/cookbook.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "2.2.5",
@@ -69,19 +96,19 @@
   },
   "jelly": {
     "title": "Charts",
-    "summary": "Charts, maps and diagrams from data, in any theme.",
+    "summary": "Charts, maps and diagrams drawn from your data and workspace files.",
     "icon": "assets/icon.svg",
     "tools": [
       {
         "name": "charts.render",
         "permission": "charts_render",
-        "effect": "allow",
+        "effect": "ask",
         "readOnly": false
       },
       {
         "name": "charts.quick",
         "permission": "charts_quick",
-        "effect": "allow",
+        "effect": "ask",
         "readOnly": false
       },
       {
@@ -105,7 +132,7 @@
       {
         "name": "charts.theme_save",
         "permission": "charts_theme_save",
-        "effect": "allow",
+        "effect": "ask",
         "readOnly": false
       }
     ],

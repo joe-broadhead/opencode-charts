@@ -1,0 +1,85 @@
+name: release
+
+# Publishes a v* tag to npm with trusted publishing (OIDC) and provenance, after approval in the release environment.
+# The guard refuses a private package or a tag that differs from the version. A rerun skips a version already on npm.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Refuse unapproved or mismatched releases
+        run: |
+          node -e '
+            const pkg = require("./package.json")
+            if (pkg.private !== false && pkg.private !== undefined) {
+              console.error("::error::package.json has \"private\": true, so nothing was published. Remove it in the release commit.")
+              process.exit(1)
+            }
+            if (process.env.GITHUB_REF_NAME !== "v" + pkg.version) {
+              console.error("::error::Tag " + process.env.GITHUB_REF_NAME + " does not match package.json version " + pkg.version + ".")
+              process.exit(1)
+            }
+          '
+
+  publish:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false # no caches in release builds
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4 # the Bun inside stock OpenCode 2.2.5
+          no-cache: true
+      - name: Require npm 11.5.1 or later for trusted publishing
+        run: node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); if (a < 11 || (a === 11 && (b < 5 || (b === 5 && c < 1)))) { console.error("::error::npm " + process.argv[1] + " cannot use trusted publishing."); process.exit(1) }' "$(npm --version)"
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - name: Pack the checked tree
+        run: npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
+      - name: Run the pack test against that tarball
+        run: PACK_TARBALL="$(ls "$RUNNER_TEMP"/*.tgz)" node scripts/check.mjs pack
+      - name: Publish with provenance
+        run: |
+          name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+          # A 404 means the version is not on npm yet; any other failure stops the release.
+          if published="$(npm view "$name@$version" version 2>"$RUNNER_TEMP/npm-view.log")"; then
+            if [ "$published" = "$version" ]; then
+              echo "::notice::$name@$version is already on npm; nothing to publish."
+              exit 0
+            fi
+          elif ! grep -q E404 "$RUNNER_TEMP/npm-view.log"; then
+            cat "$RUNNER_TEMP/npm-view.log"
+            echo "::error::Could not check whether $name@$version is already on npm."
+            exit 1
+          fi
+          tag=latest
+          case "$GITHUB_REF_NAME" in *-*) tag=next ;; esac
+          npm publish "$RUNNER_TEMP"/*.tgz --provenance --access public --tag "$tag"
