@@ -65,7 +65,7 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
 }
 
 const pickOutputs = (input: Record<string, unknown>): Partial<RenderRequest> => {
-  const keys = ["theme", "locale", "currency", "currencyFields", "formats", "scales", "name", "title", "description", "outDir", "svgText", "seed", "width", "height"] as const
+  const keys = ["theme", "locale", "currency", "currencyFields", "formats", "scales", "name", "title", "description", "outDir", "svgText", "seed", "width", "height", "marks"] as const
   return Object.fromEntries(keys.filter(k => input[k] !== undefined).map(k => [k, input[k]])) as Partial<RenderRequest>
 }
 

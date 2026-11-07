@@ -115,6 +115,21 @@ describe("the figure tree", () => {
   })
 })
 
+describe("the marks option, through the tool", () => {
+  test("reaches the pipeline: marks \"all\" changes the preview, marks \"none\" leaves it alone", async () => {
+    const { runTool } = await import("../src/tools.ts")
+    const env = { ...ws.env, assertFiles: async () => undefined }
+    const spec = { mark: "bar", encoding: { x: { field: "region", type: "nominal" }, y: { field: "revenue", type: "quantitative" } } }
+    const png = (result: { content: readonly { type: string; uri?: string }[] }) =>
+      Buffer.from(String(result.content.find(part => part.type === "file")!.uri).split(",")[1] ?? "", "base64")
+    const all = await runTool(env as never, "validate", { spec, data: { rows: ROWS }, marks: "all" })
+    const none = await runTool(env as never, "validate", { spec, data: { rows: ROWS }, marks: "none" })
+    expect(all.content.some(part => part.type === "file")).toBe(true)
+    expect(png(all as never).length).not.toBe(png(none as never).length)
+    expect(all.output.figure).toBeDefined()
+  })
+})
+
 describe("fonts and the scripts they cover", () => {
   test("knows which glyphs it has, so a label it cannot draw is named rather than drawn as a box", () => {
     expect(fonts.covers("A".codePointAt(0)!)).toBe(true)
