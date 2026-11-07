@@ -78,16 +78,17 @@ for (const file of ["dist/index.js", "dist/vega-worker.js", "dist/resvg.wasm", "
 function writeNotices(inputs) {
   const packages = new Map()
   for (const input of inputs) {
-    const m = /(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(input)
+    // The innermost package: npm nests a second version (echarts' own tslib) under its dependant's node_modules.
+    const m = /^(?:.*?\/)??(node_modules\/(?:.*\/node_modules\/)?(?:@[^/]+\/)?[^/]+)\//.exec(input)
     if (!m) continue
-    const dir = `${ROOT}node_modules/${m[1]}`
+    const dir = `${ROOT}${m[1]}`
     const pkg = JSON.parse(readFileSync(`${dir}/package.json`, "utf8"))
-    packages.set(pkg.name, { name: pkg.name, version: pkg.version, license: typeof pkg.license === "string" ? pkg.license : pkg.license?.type ?? "SEE LICENSE", dir, repo: typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url ?? "" })
+    packages.set(`${pkg.name}@${pkg.version}`, { name: pkg.name, version: pkg.version, license: typeof pkg.license === "string" ? pkg.license : pkg.license?.type ?? "SEE LICENSE", dir, repo: typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url ?? "" })
   }
   rmSync(`${ROOT}licenses/packages`, { recursive: true, force: true })
   mkdirSync(`${ROOT}licenses/packages`, { recursive: true })
   const rows = []
-  for (const p of [...packages.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const p of [...packages.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version))) {
     const file = readdirSync(p.dir).find(f => /^(licen[cs]e|copying)(\.|$)/i.test(f))
     const target = `licenses/packages/${p.name.replace("/", "__")}@${p.version}.txt`
     if (file) copyFileSync(`${p.dir}/${file}`, `${ROOT}${target}`)

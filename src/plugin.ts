@@ -3,7 +3,9 @@ import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { Error as ToolError } from "@opencode/plugin/promise/tool"
 import { closeVegaWorker } from "./engines/vega-pool.js"
-import { isChartsError } from "./errors.js"
+import { formatFailure, isChartsError } from "./errors.js"
+import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
+import { buildStatus, commandTransform } from "./status.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, runTool, type ToolName } from "./tools.js"
 import type { ThemeOverrides } from "./themes/tokens.js"
 
@@ -40,9 +42,15 @@ async function loadSkill(packageRoot: string, id: string) {
     if (!match || fields.name !== id || !fields.description) throw new Error("bad front matter")
     return { id, name: id, description: fields.description, path, content: match[2]!.trim(), autoinvoke: true }
   } catch {
-    console.warn(`SKILLS_INVALID: The skill ${id} is missing or malformed, so it was skipped. Reinstall the plugin.`)
+    console.warn(formatFailure("SKILLS_INVALID", `The skill ${id} is missing or malformed, so it was skipped.`, "Reinstall the plugin."))
     return undefined
   }
+}
+
+/** The installed package's version, from its package.json, which every tarball ships. */
+async function packageVersion(packageRoot: string): Promise<string> {
+  try { return String((JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as { version?: unknown }).version ?? "unknown") }
+  catch { return "unknown" }
 }
 
 export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.Plugin {
@@ -51,6 +59,19 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
     async setup(ctx) {
       const opts = options(ctx.options)
       const skills = (await Promise.all(SKILLS.map(id => loadSkill(packageRoot, id)))).filter(s => s !== undefined)
+      const version = await packageVersion(packageRoot)
+      const workspace = { directory: ctx.location.directory, projectDirectory: ctx.location.project.directory }
+      const defaults = { ...(opts.theme ? { theme: opts.theme } : {}), ...(opts.locale ? { locale: opts.locale } : {}), outDir: opts.outDir ?? "outputs/charts" }
+      const location = { location: { directory: ctx.location.directory } }
+      const status = () => buildStatus({
+        version, hostVersion: ctx.app.version, packageRoot, defaults,
+        themes: { workspace, packageRoot, configured: opts.themes ?? {} },
+        agents: async () => (await ctx.agent.list(location)).data as readonly { id: string; permissions: Rule[] }[],
+        tools: () => ctx.tool.list(),
+        skills: { listed: async () => (await ctx.skill.list(location)).data.map(skill => ({ id: String(skill.id), path: String(skill.path) })), own: skills.map(skill => ({ id: skill.id, path: skill.path })) },
+        shipped: SKILLS,
+      })
+      await registerDefaultRules(ctx.agent)
       await ctx.tool.transform(editor => {
         editor.namespace({ name: NAMESPACE, description: NAMESPACE_DESCRIPTION })
         for (const name of Object.keys(TOOLS) as ToolName[]) {
@@ -60,28 +81,25 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
             input: INPUTS[name],
             options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}`, ...(name === "render" || name === "quick" ? { pinned: true } : {}) },
             execute: async (input: unknown, context: { sessionID: string; agent: string; messageID: string; id: string }) => {
-              const assertFiles = async (action: "read" | "edit", resources: readonly string[]) => {
-                await ctx.permission.assert({ sessionID: context.sessionID, agent: context.agent, source: { type: "tool", messageID: context.messageID, id: context.id }, action, resources: [...resources], save: ["*"] } as never)
-              }
-              const env = {
-                workspace: { directory: ctx.location.directory, projectDirectory: ctx.location.project.directory },
-                packageRoot,
-                configuredThemes: opts.themes ?? {},
-                defaults: { ...(opts.theme ? { theme: opts.theme } : {}), ...(opts.locale ? { locale: opts.locale } : {}), outDir: opts.outDir ?? "outputs/charts" },
-                assertFiles,
-              }
+              const assert = (action: string, resources: readonly string[]) =>
+                ctx.permission.assert({ sessionID: context.sessionID, agent: context.agent, source: { type: "tool", messageID: context.messageID, id: context.id }, action, resources: [...resources], save: ["*"] } as never)
+              const assertFiles = async (action: "read" | "edit", resources: readonly string[]) => { await assert(action, resources) }
+              const env = { workspace, packageRoot, configuredThemes: opts.themes ?? {}, defaults, assertFiles }
+              // The tool's own action first, on every call: the default rules make the three that write ask.
+              await assert(permissionOf(name), ["*"])
               try {
                 const result = await runTool(env, name, input)
                 return { output: result.output, content: result.content }
               } catch (error) {
                 if (isChartsError(error)) throw new ToolError({ message: error.message, metadata: { code: error.code, hint: error.hint, ...(error.path ? { path: error.path } : {}) } })
-                if (error && typeof error === "object" && "issues" in error && (error as { name?: string }).name === "ZodError") throw new ToolError({ message: `INPUT_INVALID: ${(error as unknown as Error).message} Check the tool's parameters.`, metadata: { code: "INPUT_INVALID" } })
+                if (error && typeof error === "object" && "issues" in error && (error as { name?: string }).name === "ZodError") throw new ToolError({ message: formatFailure("INPUT_INVALID", `The input does not match the tool's parameters: ${(error as unknown as Error).message}`, "Check the tool's parameters and call it again."), metadata: { code: "INPUT_INVALID" } })
                 throw error
               }
             },
           } as never)
         }
       })
+      await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), status }))
       await ctx.skill.transform(editor => { for (const skill of skills) editor.add(skill as never) })
       return async () => { await closeVegaWorker() }
     },

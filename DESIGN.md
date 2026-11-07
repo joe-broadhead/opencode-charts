@@ -3,7 +3,7 @@
 An OpenCode plugin (and Jelly plugin) that turns a chart spec into themed, checked, deterministic files: SVG, PNG at
 1–3x, optional self-contained interactive HTML, and the resolved spec. It is the *deterministic* way to chart; an
 agent can still write matplotlib or plotly on its machine for bespoke analysis. Both end as files under `outputs/`,
-which Jelly keeps as artifacts.
+which Jelly keeps as saved files.
 
 ## 1. What came before: open-cowork's chart MCP
 
@@ -58,7 +58,7 @@ Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities
 - **Behaviour.**
   - Skills come from `skills/<id>/SKILL.md` through `ctx.skill.transform` (utilities `src/host/skills.ts`).
   - File effects assert the host's own `read` and `edit` actions (utilities `src/runtime/permissions.ts`).
-  - Errors read `CODE: what happened. Next step.` (utilities `AGENTS.md`).
+  - Errors read `CODE: what happened. Next step: what to do.` (Jelly's plugin authors' standard, item 8).
 - **Build.** esbuild bundles each output to one self-contained file that imports only `node:` modules and `@opencode/plugin`; the build fails otherwise (tavily `tools/build.mjs`).
 - **Branches.** One branch: releases are cut from a `v<version>` tag on the default branch, `master`. (The `jelly` branches read above were merged into each default branch and retired on 6 November 2026; tag `jelly-retired` keeps each old head.)
 
@@ -79,8 +79,8 @@ From `hey-jelly-wt/integrate`.
   - The owner's plugins already declared them on their `jelly` branches (now merged into each default branch), and so does this one: `jelly.summary` is "Charts, maps and diagrams…" and `jelly.icon` is `assets/icon.svg`, a clean SVG of `rect`, `path` and `circle` only, checked by `test/plugin.test.ts`.
   - **Jelly hard-codes nothing:** the title, summary and icon all come from the package.
 - **Sign-ins.** `plugin-sign-ins.ts`: none declared (`signIns: []`).
-- **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `catalogue` and `themes` are `readOnly: true`, and `render`, `quick` and `theme_save` (which write files) are not.
-- **Artifacts.** `backend/plugins/opencode-jelly-artifacts/src/host/tools.ts`: `jelly_artifact_save` reaches the host through the `jelly.core` RPC (`askHost`), which only Jelly's first-party plugin family can use. **A third-party plugin cannot save an artifact itself.** It does not need to: `docs/architecture/protocol.md` ("A file the agent wrote under `outputs/` in its workspace is kept when the turn settles") makes every file under `outputs/charts/` an artifact. The tool result also says how to save one now: "save it with your host's artifact tool (in Jelly: `jelly_artifact_save` with the path)". OpenCode 2.2.5 has `ctx.experimental.artifact`, but the owner's plugins forbid it (utilities `AGENTS.md` Forbidden list), and Jelly's artifacts are Jelly's own.
+- **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `catalogue` and `themes` are `readOnly: true` and `allow`, and `render`, `quick` and `theme_save` (which write files) are not read-only and are `ask`, as the plugin authors' standard requires of every local file write. The plugin's own default block (`src/permissions.ts`) gives the same effects in plain OpenCode, and each call asserts its own action so an `ask` prompts.
+- **Saved files.** Jelly's `jelly_file_save` (called `jelly_artifact_save` until Jelly's rd266) reaches the host through the `jelly.core` RPC, which only Jelly's first-party plugin family can use. **A third-party plugin cannot save a file itself.** It does not need to: `docs/architecture/protocol.md` ("A file the agent wrote under `outputs/` in its workspace is kept when the turn settles") makes every file under `outputs/charts/` a saved file. The tool result also says how to save one now: "save it with your host's file-saving tool (in Jelly: `jelly_file_save` with the path)". OpenCode 2.2.5 has `ctx.experimental.artifact`, but the owner's plugins forbid it (utilities `AGENTS.md` Forbidden list), and Jelly's saved files are Jelly's own.
 - **Inline display.** Lane RENDER is adding workspace images by markdown, and sandboxed self-contained HTML with no network.
   - Every result carries `markdown: "![title](outputs/charts/<name>.png)"`. The PNG is pixel-exact everywhere; SVG text depends on the viewer's fonts unless `svgText: "paths"` or `"embed"` is used.
   - The HTML has a CSP of `default-src 'none'`, inlined runtimes and data-URL fonts, and the static SVG as its first paint, so a frame that runs no script still shows the chart.
@@ -107,7 +107,7 @@ Rejected:
   - `test/output.test.ts` checks that the drawn width equals the measured width within 1.5 px over 35-character strings for every face. A subsetting bug that the test caught: name ID 16 had been dropped, so SemiBold drew as Regular.
 - **PNG.** `@resvg/resvg-wasm` 2.6.2 (MPL-2.0), wasm, not the native prebuild. The wasm is 2.4 MB, one file for linux-x64, linux-arm64 and macOS; each native prebuild is 3.5–4.4 MB (`@resvg/resvg-js-linux-x64-gnu` 4.38 MB, `darwin-arm64` 3.54 MB) and needs per-platform optional dependencies with glibc/musl selection. Speed is fine: passing only the faces an SVG uses (resvg parses every buffer it is given: 5 faces cost 232 ms, 2 faces 66 ms) puts a 2x PNG at about 60 ms.
 - **HTML.** The compiled Vega spec with an inlined Vega and vega-tooltip runtime (541 KB), or the ECharts option with an inlined ECharts runtime (891 KB). The compact number format is inlined by its source text, so labels format the same as in the SVG.
-- **Determinism.** The same input gives byte-identical SVG (`test/output.test.ts` "determinism"):
+- **Determinism.** The same input gives byte-identical SVG on one platform (`test/output.test.ts` "determinism"). Across platforms, a coordinate computed with trigonometry (sunburst arcs, map projections) can differ in its last digits, because `Math.sin` and `Math.atan2` come from the platform: CI on Linux and Intel macOS gave `66.29585392720162` where macOS arm64 gives `…165`. The golden test is therefore byte-exact where the goldens were made, and elsewhere equal with every number to 10 significant digits:
   1. Vega mutates input rows in place (a force layout's second run starts from the first run's positions), so every render deep-clones its input.
   2. Ids and ECharts classes are renumbered in order of appearance, under a content-hash prefix, so they are stable, and two charts on one page never collide.
   3. Layouts are seeded (`seed`, default 1).
@@ -205,7 +205,7 @@ Rejected:
 - the defaults applied;
 - warnings with fixes;
 - the layout facts;
-- how to save an artifact.
+- how to save a file now.
 
 Structured `output` carries the same, for scripts. A `file` part carries the PNG when it is useful to look at.
 
@@ -215,7 +215,7 @@ The `charts` skill tells the agent:
 - **Use the plugin** for standard charts, anything that must match a theme or brand, and anything that should be checked.
 - **Use Python on the machine** (matplotlib, seaborn, plotly; lane AGENTWORK is adding them) for bespoke analysis figures, for plots that come out of a processing script, or for library-only features.
 
-Both write to `outputs/`, so both become artifacts the same way.
+Both write to `outputs/`, so both become saved files the same way.
 
 ## 11. Proof
 
