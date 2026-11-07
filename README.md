@@ -2,7 +2,8 @@
 
 Unofficial OpenCode plugin: deterministic, themed charts from a spec. It takes Vega-Lite, Vega or ECharts in, and
 writes SVG, PNG (1–3x) and an optional offline interactive HTML page under `outputs/charts/`. The same input gives
-the same bytes on any machine. Nothing is ever loaded from the network.
+the same bytes on the same platform, and the same picture on any: across platforms a coordinate can differ only in
+its last digits. Nothing is ever loaded from the network.
 
 - **Any chart.** 53 tested chart types:
   - statistical charts, facets, layers, dual axes and selections (Vega-Lite);

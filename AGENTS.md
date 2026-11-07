@@ -6,7 +6,7 @@ evidence. docs/jelly.md describes how Jelly reads the declaration.
 
 - **Host.** Public `@opencode/plugin` APIs only. Never `ctx.experimental.artifact`.
 - **Errors.** `CODE: what happened. Next step: what to do.` (`formatFailure` in `src/errors.ts`), with a JSON path for spec problems.
-- **Determinism is a feature.** The same input gives the same bytes. Never read system fonts, the clock, `Math.random` or the time zone in a render path. Golden SVGs change only with `UPDATE_GOLDEN=1` and a reviewed gallery.
+- **Determinism is a feature.** The same input gives the same bytes on one platform (across platforms, trigonometry differs in the last digits, so goldens compare to 10 significant digits there). Never read system fonts, the clock, `Math.random` or the time zone in a render path. Golden SVGs change only with `UPDATE_GOLDEN=1` and a reviewed gallery.
 - **Nothing from the network.** No URL, loader, image or CDN, in any output or at runtime.
 - **Catalogue.** Every catalogue entry renders without warnings in `light`, and has a golden SVG. The cookbook skill is generated from the catalogue (`bun scripts/cookbook.ts`).
 - **Toqan.** The toqan themes read `assets/brand/toqan-tokens.json`; never retype a brand colour.
