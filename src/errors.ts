@@ -1,6 +1,6 @@
 /**
- * Every failure is `CODE: what happened. Next step.`, with one next step, so a model can correct itself. A spec
- * problem also names the JSON path it is at (`/encoding/y/field`).
+ * Every failure is `CODE: what happened. Next step: what to do.`, with one next step, so a model can correct itself.
+ * A spec problem also names the JSON path it is at (`/encoding/y/field`).
  */
 export class ChartsError extends Error {
   constructor(
@@ -9,9 +9,14 @@ export class ChartsError extends Error {
     readonly hint: string,
     readonly path?: string,
   ) {
-    super(`${code}: ${detail}${path ? ` (at ${path})` : ""} ${hint}`)
+    super(formatFailure(code, `${detail}${path ? ` (at ${path})` : ""}`, hint))
     this.name = "ChartsError"
   }
+}
+
+/** One failure in the family's form: `CODE: what happened. Next step: what to do.` */
+export function formatFailure(code: string, what: string, next: string): string {
+  return `${code}: ${what.trimEnd()} Next step: ${next}`
 }
 
 /** A problem found while checking a spec. `error` stops the render; `warning` is reported with the result. */
