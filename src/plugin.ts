@@ -79,6 +79,9 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
             name,
             description: DESCRIPTIONS[name],
             input: INPUTS[name],
+            // Each tool returns structured output, so it declares an output schema (`{}`: any JSON).
+            // OpenCode 2.2.5 fails a result that carries `output` from a tool that declares none.
+            output: {},
             options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}`, ...(name === "render" || name === "quick" ? { pinned: true } : {}) },
             execute: async (input: unknown, context: { sessionID: string; agent: string; messageID: string; id: string }) => {
               const assert = (action: string, resources: readonly string[]) =>
