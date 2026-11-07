@@ -25,6 +25,18 @@ function runtime(packageRoot: string, name: "vega" | "echarts"): string {
   return source
 }
 
+/** The interactive HTML runtimes' problem, as a ChartsError, or undefined when both are there and match this build. */
+export function htmlProblem(packageRoot: string): ChartsError | undefined {
+  try {
+    runtime(packageRoot, "vega")
+    runtime(packageRoot, "echarts")
+    return undefined
+  } catch (error) {
+    if (error instanceof ChartsError) return error
+    throw error
+  }
+}
+
 const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029")
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 

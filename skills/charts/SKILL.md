@@ -21,7 +21,7 @@ Both end the same way: a file under `outputs/` that the person can open. Prefer 
 2. **Pass data separately**: `data.rows` (inline) or `data.path` (a workspace CSV, TSV, JSON, JSONL or Parquet file). Reshape with `data.transform` (Vega-Lite transforms: `filter`, `calculate`, `aggregate`, `window`, `pivot`, `fold`) rather than by hand. In the spec, refer to the rows as `{"name": "table"}` or leave `data` out.
 3. **Check, then render.** `charts_validate` returns every problem with its JSON path and a fix ("Field "regoin" is not in the data. Did you mean "region"?"), lint warnings, layout facts and the picture. Fix, then `charts_render`.
 4. **Look at it.** The result includes the PNG when there are warnings (or with `inspect: true`). Fix every warning that is real: overlapping labels, clipped text, a pie with too many slices, a bar axis that does not start at zero, missing units.
-5. **Show it**: put the returned markdown line (`![title](outputs/charts/name.png)`) in your reply. To hand files over, save them with the host's artifact tool (in Jelly: `jelly_artifact_save` with the path); files under `outputs/` are also kept when the turn ends. Ask for `formats: ["svg","png","html"]` when the person wants an interactive version.
+5. **Show it**: put the returned markdown line (`![title](outputs/charts/name.png)`) in your reply. To hand files over, save them with the host's file-saving tool (in Jelly: `jelly_file_save` with the path); files under `outputs/` are also kept when the turn ends. Ask for `formats: ["svg","png","html"]` when the person wants an interactive version.
 
 ## Getting it right first time
 
