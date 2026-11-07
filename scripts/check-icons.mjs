@@ -260,6 +260,7 @@ const OWN_PACKAGES = new Set([
   "@joe-broadhead/opencode-jobs",
   "@joe-broadhead/opencode-charts",
   "@joe-broadhead/opencode-mem",
+  "@joe-broadhead/opencode-voice",
 ])
 
 const ICON_PATH_SHAPE = /^(?!\/)(?!.*(?:^|\/)\.\.?(?:\/|$))[A-Za-z0-9._/-]+\.(?:svg|png)$/u
@@ -480,7 +481,7 @@ if (manifest) {
     bad(
       'opencode.vendor: missing; this package is over a vendor\'s service, so it declares ' +
         '{ "id", "name", "domain" } with the vendor\'s main product domain. Only our own products ' +
-        "(Utilities, History, Jobs, Charts, Memory) leave it out.",
+        "(Utilities, History, Jobs, Charts, Memory, Voice) leave it out.",
     )
   }
 }
