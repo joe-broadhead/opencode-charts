@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.0.3] - 2026-11-07
+
+### Fixed
+
+- Every tool now declares its output, so OpenCode 2.2.5 accepts its result. In 0.0.2 the engine refused each result
+  after the chart was written: the files landed, but the agent was told the call failed.
+
 ## [0.0.2] - 2026-11-07
 
 The first release on npm, to Jelly's plugin authors' standard.
