@@ -1,3 +1,4 @@
+import { seriesColours } from "./palette.js"
 import type { ThemeTokens } from "./tokens.js"
 
 type Json = Record<string, unknown>
@@ -6,6 +7,8 @@ const family = (name: string, fallback: string) => `${name}, ${fallback}`
 /** Vega-Lite `config` from tokens. A spec's own `config` is merged over it, so a spec can still override anything. */
 export function vegaLiteConfig(t: ThemeTokens): Json {
   const sans = family(t.font.family, "sans-serif"), c = t.colors
+  // A theme's own categories first, then generated ones, so a chart never repeats a colour (palette.ts).
+  const categorical = seriesColours(c.categorical, 20)
   const guideLabel = { font: sans, fontSize: t.font.labelSize, fill: c.muted }
   return {
     background: c.background,
@@ -30,7 +33,7 @@ export function vegaLiteConfig(t: ThemeTokens): Json {
     axisYTemporal: { tickCount: { signal: "max(2, min(10, ceil(height / 64)))" } },
     legend: { labelColor: c.muted, labelFont: sans, labelFontSize: t.font.labelSize, labelLimit: 200, titleColor: c.text, titleFont: sans, titleFontSize: t.font.labelSize, titleFontWeight: 600, symbolType: "circle", symbolSize: 80, orient: t.legend.orient, rowPadding: 6, padding: 4 },
     header: { labelColor: c.muted, labelFont: sans, labelFontSize: t.font.labelSize + 1, titleColor: c.text, titleFont: sans, titleFontSize: t.font.size, titleFontWeight: 600 },
-    range: { category: c.categorical, ordinal: c.sequential, ramp: c.sequential, heatmap: c.sequential, diverging: c.diverging },
+    range: { category: categorical, ordinal: c.sequential, ramp: c.sequential, heatmap: c.sequential, diverging: c.diverging },
     mark: { color: c.categorical[0], font: sans },
     bar: { cornerRadiusEnd: t.marks.cornerRadius, continuousBandSize: 8, discreteBandSize: { band: 0.72 } },
     rect: { cornerRadius: 0 },
@@ -88,6 +91,7 @@ export function vegaConfig(t: ThemeTokens): Json {
 /** An ECharts theme object from tokens. */
 export function echartsTheme(t: ThemeTokens): Json {
   const c = t.colors, sans = family(t.font.family, "sans-serif")
+  const categorical = seriesColours(c.categorical, 20)
   const axis = (grid: boolean) => ({
     axisLine: { show: t.axis.domain, lineStyle: { color: c.axis } },
     axisTick: { show: t.axis.ticks, lineStyle: { color: c.axis } },
@@ -97,7 +101,7 @@ export function echartsTheme(t: ThemeTokens): Json {
     splitArea: { show: false },
   })
   return {
-    color: c.categorical,
+    color: categorical,
     backgroundColor: c.background,
     textStyle: { fontFamily: sans, color: c.text, fontSize: t.font.size },
     title: { left: t.layout.padding, top: t.layout.padding / 2, textStyle: { color: c.text, fontFamily: sans, fontSize: t.font.titleSize, fontWeight: t.font.titleWeight }, subtextStyle: { color: c.muted, fontFamily: sans, fontSize: t.font.subtitleSize } },

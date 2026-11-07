@@ -118,6 +118,18 @@
         "readOnly": true
       },
       {
+        "name": "charts.recommend",
+        "permission": "charts_recommend",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "charts.capabilities",
+        "permission": "charts_capabilities",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
         "name": "charts.catalogue",
         "permission": "charts_catalogue",
         "effect": "allow",

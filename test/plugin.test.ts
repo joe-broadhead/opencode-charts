@@ -116,6 +116,8 @@ describe("the default rules", () => {
       { action: "*", resource: "*", effect: "allow" },
       { action: "charts_*", resource: "*", effect: "ask" },
       { action: "charts_validate", resource: "*", effect: "allow" },
+      { action: "charts_recommend", resource: "*", effect: "allow" },
+      { action: "charts_capabilities", resource: "*", effect: "allow" },
       { action: "charts_catalogue", resource: "*", effect: "allow" },
       { action: "charts_themes", resource: "*", effect: "allow" },
     ])
@@ -145,7 +147,7 @@ describe("/charts-status", () => {
       "Defaults: theme light, locale en-US, files under outputs/charts/",
       "Themes: 7 built in, 0 from options, none saved in .charts/themes",
       "Skills: charts, charts-cookbook",
-      "Tools: 6 of 6 visible to this agent",
+      "Tools: 8 of 8 visible to this agent",
       "Agents without default rules: none",
       "OpenCode: 2.2.5",
       `Version: ${(await Bun.file(join(ROOT, "package.json")).json()).version}`,

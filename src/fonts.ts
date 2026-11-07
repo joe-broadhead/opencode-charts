@@ -118,6 +118,9 @@ export class FontBook {
   }
   has(family: string) { return this.faces.some(face => face.family.toLowerCase() === family.toLowerCase()) }
 
+  /** Whether any face carries this code point, so a label draws instead of leaving a blank box. */
+  covers(codePoint: number) { return this.faces.some(face => face.advances.has(codePoint)) }
+
   /** CSS-like matching: the family named first that we have, else Inter; the nearest weight. */
   face(familyList: string | undefined, weight: number | string | undefined): FontFace {
     const wanted = (familyList ?? SANS).split(",").map(name => name.trim().replace(/^["']|["']$/g, "").toLowerCase())

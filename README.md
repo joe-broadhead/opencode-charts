@@ -36,7 +36,7 @@ The host range is `>=2.2.5 <2.3.0`. Options, permissions, limits and errors are 
 ## Permissions
 
 The three tools that write files (`charts_render`, `charts_quick`, `charts_theme_save`) ask before they run, and the
-three that only read run without asking: the plugin puts that default block after each agent's base allow rule, and
+five that only read run without asking: the plugin puts that default block after each agent's base allow rule, and
 your own `permissions` can change it. Each tool also asks for `read` on a data file and `edit` on its output folder.
 
 ## Status
@@ -50,9 +50,14 @@ that would run the writers without asking, the OpenCode version and the next ste
 |---|---|
 | `charts_render` | Any spec (Vega-Lite, Vega or ECharts, detected) plus `data` (`rows`, or a workspace `path` to CSV, TSV, JSON, JSONL or Parquet, with optional Vega-Lite `transform`s). Writes `<name>.svg`, `<name>.png` and `<name>.vl.json` (plus `.html` on request), and returns a markdown image line to show it inline. |
 | `charts_quick` | `bar`, `horizontal_bar`, `grouped_bar`, `stacked_bar`, `line`, `area`, `stacked_area`, `scatter`, `bubble`, `pie`, `donut`, `histogram`, `box_plot` and `heatmap`, from field names. |
-| `charts_validate` | The same checks as render, plus the PNG, with no files written. |
+| `charts_validate` | The same checks as render, plus the PNG, with no files written. Also returns the figure tree: every label, its box, and which ones collide or run off the edge, with ids the preview numbers. |
+| `charts_recommend` | Which chart fits a question, its data and its medium: a ranked shortlist with a reason each, the encoding to use, and a ready `charts_render` call on your own columns. Advises; it never renders. |
+| `charts_capabilities` | Exactly what this build can do: engines, working output formats, themes and palette sizes, bundled fonts and the scripts they cover, data formats, limits, and what is known not to work. |
 | `charts_catalogue` | Every chart type, and a working example of any. |
 | `charts_themes` / `charts_theme_save` | List themes and their tokens; save a brand theme to `.charts/themes/<name>.json`. |
+
+There is one list behind all of these: `src/registry.ts` defines each tool once, and the plugin's tool registration,
+the Jelly declaration, the tools RPC and `docs/tool-parity.md` are projections of it. A test fails when they drift.
 
 Example:
 

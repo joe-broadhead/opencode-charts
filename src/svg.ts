@@ -137,15 +137,36 @@ function polygonsOverlap(a: readonly [number, number][], b: readonly [number, nu
   return true
 }
 
-export function layoutFacts(svg: string, fonts: FontBook): LayoutFacts {
-  const { boxes, width, height } = textBoxes(svg, fonts)
-  const overlaps: [string, string][] = []
-  const sample = boxes.slice(0, 1500)
-  for (let i = 0; i < sample.length && overlaps.length < 20; i++) for (let j = i + 1; j < sample.length && overlaps.length < 20; j++) {
-    const a = sample[i]!, b = sample[j]!
+/** Which labels collide or run past the edge: the one measurement the layout facts and the figure tree share. */
+export interface TextProblems {
+  /** Indices into `boxes`, in the order found, at most 20 pairs. */
+  readonly pairs: readonly (readonly [number, number])[]
+  readonly clipped: readonly number[]
+  /** True for a box that is in any pair: the set the marked PNG boxes. */
+  readonly flagged: ReadonlySet<number>
+}
+
+export function textProblems(boxes: readonly TextBox[], width: number, height: number): TextProblems {
+  const pairs: [number, number][] = []
+  const sample = Math.min(boxes.length, 1500)
+  for (let i = 0; i < sample && pairs.length < 20; i++) for (let j = i + 1; j < sample && pairs.length < 20; j++) {
+    const a = boxes[i]!, b = boxes[j]!
     const ox = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), oy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)
-    if (ox > 2 && oy > 2 && polygonsOverlap(a.corners, b.corners, 1.5)) overlaps.push([a.text, b.text])
+    if (ox > 2 && oy > 2 && polygonsOverlap(a.corners, b.corners, 1.5)) pairs.push([i, j])
   }
-  const clipped = boxes.filter(b => b.x0 < -1 || b.y0 < -1 || (width && b.x1 > width + 1) || (height && b.y1 > height + 1)).map(b => b.text).slice(0, 20)
+  const clipped = boxes.flatMap((b, i) => (b.x0 < -1 || b.y0 < -1 || (width && b.x1 > width + 1) || (height && b.y1 > height + 1) ? [i] : []))
+  const flagged = new Set<number>()
+  for (const [i, j] of pairs) { flagged.add(i); flagged.add(j) }
+  for (const i of clipped) flagged.add(i)
+  return { pairs, clipped, flagged }
+}
+
+export function layoutFacts(svg: string, fonts: FontBook, measured?: { boxes: readonly TextBox[]; width: number; height: number }, problems?: TextProblems): LayoutFacts {
+  // A caller that already measured the drawing (the pipeline does) passes its boxes and problems, so the SVG is
+  // parsed once and every pair is tested once.
+  const { boxes, width, height } = measured ?? textBoxes(svg, fonts)
+  const found = problems ?? textProblems(boxes, width, height)
+  const overlaps = found.pairs.slice(0, 20).map(([i, j]) => [boxes[i]!.text, boxes[j]!.text] as [string, string])
+  const clipped = found.clipped.slice(0, 20).map(i => boxes[i]!.text)
   return { width, height, texts: boxes.length, overlaps, clipped }
 }

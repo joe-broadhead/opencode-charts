@@ -12,7 +12,8 @@ import { resolveLocale } from "./locale.js"
 import { confine, ensureDirectory, slug, type Workspace } from "./paths.js"
 import { svgTextToPaths, svgToPng } from "./png.js"
 import { checkRenderedSvg, checkSpec, LIMITS, type Engine } from "./safety.js"
-import { accessible, embedFonts, layoutFacts, normaliseIds, type LayoutFacts } from "./svg.js"
+import { figureOf, figureJson, markedSvg, type Figure } from "./figure.js"
+import { accessible, embedFonts, layoutFacts, normaliseIds, textBoxes, textProblems, type LayoutFacts } from "./svg.js"
 import { echartsTheme } from "./themes/adapters.js"
 import { themeContrastIssues } from "./themes/contrast.js"
 import { resolveTheme, type ThemeSources } from "./themes/store.js"
@@ -40,6 +41,8 @@ export interface RenderRequest {
   readonly height?: number
   /** Also render a 1x PNG for the model to look at. */
   readonly preview?: boolean
+  /** Which labels to number on the preview PNG: those that collide or clip (default), all, or none. */
+  readonly marks?: "problems" | "all" | "none"
 }
 
 export interface Environment {
@@ -67,6 +70,8 @@ export interface RenderResult {
   readonly preview?: Uint8Array
   readonly svg: string
   readonly resolvedSpec: Json
+  /** What the drawing contains, with an id per label that the marked preview repeats. */
+  readonly figure: Figure
 }
 
 /** Vega-Lite has `mark` or a composition; Vega has `marks`; ECharts has `series`. */
@@ -187,7 +192,14 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   checkRenderedSvg(svg!)
   svg = normaliseIds(accessible(svg!, title, description))
 
-  const layout = layoutFacts(svg, fonts)
+  // One measurement of the drawing feeds both the figure tree and the layout facts, and every pair is tested once.
+  const measured = textBoxes(svg!, fonts)
+  const problems = textProblems(measured.boxes, measured.width, measured.height)
+  const figure = figureOf(svg!, fonts, measured, problems)
+  const layout = layoutFacts(svg!, fonts, measured, problems)
+  // A glyph no bundled face draws becomes a blank box unless the reader brings a font; say so, with the characters.
+  const uncovered = uncoveredGlyphs(svg!, fonts)
+  if (uncovered.length) issues.push({ level: "warning", code: "FONT_GLYPH_MISSING", message: `The bundled fonts have no glyph for ${uncovered.slice(0, 8).map(c => `"${c}"`).join(", ")}${uncovered.length > 8 ? ` and ${uncovered.length - 8} more` : ""}, so they draw as blank boxes.`, fix: "Add a font that covers the script with theme.font.files, or translate the labels." })
   if (layout.overlaps.length) issues.push({ level: "warning", code: "LABEL_COLLISION", message: `${layout.overlaps.length} pair(s) of labels overlap, e.g. "${layout.overlaps[0]![0]}" and "${layout.overlaps[0]![1]}".`, fix: "Angle or thin the labels (axis.labelAngle, labelOverlap), shorten them, widen the chart, or switch to horizontal bars." })
   if (layout.clipped.length) issues.push({ level: "warning", code: "LABEL_CLIPPED", message: `${layout.clipped.length} label(s) run past the edge, e.g. "${layout.clipped[0]}".`, fix: "Add padding, shorten the labels, or set a larger width/height." })
 
@@ -225,14 +237,32 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     }
     if (formats.has("spec")) files.spec = out(`${name}.${engine === "vega-lite" ? "vl" : engine === "vega" ? "vg" : "echarts"}.json`, JSON.stringify(resolvedSpec, null, 1) + "\n")
   }
-  if (request.preview) preview = (await svgToPng(env.packageRoot, svg, fonts, 1, defaultFamily)).png
+  if (request.preview) {
+    // The same ids the figure tree names, drawn on the picture, so "n7 runs past the edge" points at one label.
+    const marked = request.marks === "none" ? svg : markedSvg(svg, figure, { which: request.marks ?? "problems", font: `${defaultFamily}, sans-serif` })
+    preview = (await svgToPng(env.packageRoot, marked, fonts, 1, defaultFamily)).png
+  }
   const shown = files.png[0] ?? files.svg
   return {
     engine, theme: theme.name, title, description, width: width!, height: height!, files,
     ...(shown ? { markdown: `![${title.replace(/[\[\]]/g, "")}](${shown})` } : {}),
     summary: [description, profile ? `Data: ${dataSource ?? "inline"}; ${describeProfile(profile)}` : ""].filter(Boolean).join(" "),
-    issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg, resolvedSpec,
+    issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg, resolvedSpec, figure,
   }
+}
+
+/** The distinct characters the SVG draws that no face in the book can: the ones that become blank boxes. */
+function uncoveredGlyphs(svg: string, fonts: FontBook): string[] {
+  const seen = new Set<string>()
+  for (const match of svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g)) {
+    const text = match[1]!.replace(/<[^>]+>/g, "")
+    for (const char of text) {
+      const cp = char.codePointAt(0)!
+      if (cp < 0x20 || cp === 0x20 || seen.has(char)) continue
+      if (!fonts.covers(cp)) seen.add(char)
+    }
+  }
+  return [...seen].slice(0, 40)
 }
 
 export { applyTransforms }
