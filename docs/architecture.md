@@ -2,7 +2,8 @@
 
 `@joe-broadhead/opencode-charts` turns a chart spec into files. It reads only the data files a call names inside the
 workspace, writes only under the output folder and `.charts/themes/`, and opens no network connection: no URL,
-loader, image or CDN, at run time or in any output. The same input gives the same bytes on any machine. The design
+loader, image or CDN, at run time or in any output. The same input gives the same bytes on the same platform; across platforms a coordinate computed with trigonometry
+can differ in its last digits. The design
 and its evidence are in [DESIGN.md](../DESIGN.md); options, limits and errors are in
 [configuration.md](configuration.md).
 
