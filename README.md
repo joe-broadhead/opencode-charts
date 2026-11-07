@@ -84,9 +84,10 @@ metadata.
 
 ```bash
 npm ci
-npm run check              # typecheck, build, unit tests, shared copies, icons, package shape, pack
+npm run check              # typecheck, build, unit tests, shared copies, icons, package shape, pack, evals, host
 bun scripts/gallery.ts /tmp/gallery     # 67 charts across all themes + contact sheets
 bun eval/run.ts /tmp/eval  # 30 natural-language requests, checked
+bun eval/recommend.ts /tmp/rec  # 22 advice cases against the committed baseline
 bun eval/perf.ts           # timings
 UPDATE_GOLDEN=1 bun test test/output.test.ts   # accept a reviewed change in output
 ```
@@ -96,6 +97,10 @@ with provenance, after approval in the `release` environment.
 
 `node scripts/data.mjs` regenerates the locales and atlases, and `bun scripts/cookbook.ts` regenerates the cookbook
 skill. Both outputs are committed.
+
+Bundled fonts cover Latin, Greek and Cyrillic; a label beyond them gets `FONT_GLYPH_MISSING` and the fix is a font
+file with `theme.font.files`. There is no PDF output and no Plotly or Mermaid input. `charts_capabilities` reports
+the same list for the build you have, and [docs/status.md](docs/status.md) says what does not work and why.
 
 See [DESIGN.md](DESIGN.md) for the design and its evidence, [docs/architecture.md](docs/architecture.md) for how
 it is built, [docs/jelly.md](docs/jelly.md) for Jelly, and
