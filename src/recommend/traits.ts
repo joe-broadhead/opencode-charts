@@ -70,8 +70,6 @@ export interface Shape {
   readonly timeSeries: boolean
 }
 
-const many = (shape: Shape, n: number) => (shape.series?.distinct ?? 0) > n || (shape.categories?.distinct ?? 0) > n
-
 /** A funnel is only a funnel when its categories name ordered stages; otherwise it is a bar chart with tapered width. */
 const STAGE = /stage|step|funnel|visit|view|signup|sign-up|trial|lead|checkout|paid|order|cart|opportunit|qualif|demo|contact|subscri/i
 const funnelStages = (shape: Shape): string | undefined => {

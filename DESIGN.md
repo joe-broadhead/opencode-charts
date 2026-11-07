@@ -187,16 +187,33 @@ Rejected:
 - **Custom themes.** Tokens over any base with `"extends"`, inline per chart, saved by name (`charts_theme_save` writes `.charts/themes/<name>.json`) or set in the plugin's options (`themes: {name: tokens}`). A theme can add workspace `.ttf`/`.otf` files with `font.files`; they are measured and drawn like the bundled fonts.
 - **Colour tokens in specs.** Any string `"theme:<token>"` in a spec (for example `"theme:negative"` or `"theme:categorical.2"`) becomes the active theme's colour, so a spec stays on-brand in every theme.
 
+**A palette that never runs out.** A theme's published colours stay first, byte for byte. Past them, hues are generated
+in OKLCH at the theme's own median lightness and chroma, stepped by the golden angle and held to a minimum OKLab
+distance (0.10 to twelve series, 0.075 to sixteen, 0.06 to twenty), so a thirteen-series chart does not draw series 13
+in series 2's colour. `print` and `high-contrast` are not extended: their constraint is what they are for. Adapted from
+Rune's `chart.rs` series hues, with the arithmetic in TypeScript.
+
 ## 9. Tools
 
 | Tool | Read-only | What it does |
 |---|---|---|
 | `charts_render` | no | Any spec (Vega-Lite, Vega, ECharts; detected), data, theme, locale and currency, to files under `outputs/charts/`. |
 | `charts_quick` | no | 14 basic types from field names. Returns the spec it built. |
-| `charts_validate` | yes | The same checks and the PNG preview, with no files written. |
+| `charts_validate` | yes | The same checks and the PNG preview, with no files written, plus the figure tree. |
+| `charts_recommend` | yes | Which chart for a question, its data and its medium: a ranked shortlist with reasons, the encoding, and a ready `charts_render` call on the caller's columns. Never renders. |
+| `charts_capabilities` | yes | Exactly what this build can do, computed: formats, engines, themes and palette sizes, font coverage, data formats, limits, tools, and what is known not to work. |
 | `charts_catalogue` | yes | 53 chart types by family, and any one as a working call. |
 | `charts_themes` | yes | Built-in and saved themes, and any theme's full tokens. |
 | `charts_theme_save` | no | Saves a named workspace theme, after checking it and its contrast. |
+
+**One registry.** `src/registry.ts` defines each tool once — name, class, read-only flag, description, zod input — and
+the plugin's registration, the Jelly declaration, the tools RPC, `charts_capabilities` and `docs/tool-parity.md` are
+projections of it. `test/registry.test.ts` fails when any of them drifts.
+
+**The tools RPC.** `charts.tools`, v2.1 of the family module, makes every tool a method with its class, so a script
+draws and checks charts with no model. The five reads need only an agent that allows them; the three that write need an
+allow rule, because an `ask` is refused before dispatch (a script has no one to answer it).
+
 
 **Result.** Text for the model:
 - what was drawn, with the inline markdown line;
@@ -204,8 +221,13 @@ Rejected:
 - what the chart shows;
 - the defaults applied;
 - warnings with fixes;
-- the layout facts;
+- the layout facts and the figure tree;
 - how to save a file now.
+
+**The figure tree.** Every label in the drawing, with a stable id (document order, on an already id-normalised SVG), its
+box, and whether it collides or runs past the edge; the preview PNG numbers the same ids. A count tells a model that
+something is wrong; the tree tells it which label, where, and what text to change. Designed after Rune's semantic tree
+and set-of-marks (`research/16-research-agent-generative-ui.md` §3–§4).
 
 Structured `output` carries the same, for scripts. A `file` part carries the PNG when it is useful to look at.
 
@@ -219,7 +241,7 @@ Both write to `outputs/`, so both become saved files the same way.
 
 ## 11. Proof
 
-- **Tests.** `npm test` runs 110 tests:
+- **Tests.** `npm test` runs 184 tests:
   - golden SVGs for all 53 catalogue types;
   - determinism;
   - PNG at 1, 2 and 3x;
@@ -228,16 +250,20 @@ Both write to `outputs/`, so both become saved files the same way.
   - every safety refusal, and the worker kill;
   - validation and lint teaching;
   - themes, Toqan from tokens, data formats;
-  - the built bundle loaded with a fake host.
+  - the built bundle loaded with a fake host;
+  - the registry's projections of every surface (registry, palette, recommend, figure, RPC);
+  - the tools RPC called through the fake host.
 - **Gallery.** `bun scripts/gallery.ts <dir>`: 67 charts (all 53 types, cycling the 7 themes, plus two charts in every theme), with an HTML contact sheet and contact-sheet PNGs.
+- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4 and 2.2.5 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
 - **Eval.** `bun eval/run.ts <dir>`: 30 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
+- **Advice eval.** `bun eval/recommend.ts`: 22 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
 - **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2x PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.
-- **Footprint.** Tarball 2.81 MB, unpacked 7.6 MB, no runtime dependencies.
+- **Footprint.** Tarball 2.85 MB, unpacked 7.5 MB, no runtime dependencies.
 
 | File | Size |
 |---|---|
 | `resvg.wasm` | 2.4 MB |
-| `index.js` | 2.1 MB |
+| `index.js` | 2.2 MB |
 | `vega-worker.js` | 0.9 MB |
 | `browser/*` | 1.4 MB |
 | `assets/fonts` | 0.4 MB |
@@ -245,7 +271,8 @@ Both write to `outputs/`, so both become saved files the same way.
 
 ## 12. Known limits
 
-- Text beyond Latin, Greek and Cyrillic (CJK, Arabic) has no bundled glyphs. Add a font with `theme.font.files`.
+- Text beyond Latin, Greek and Cyrillic (CJK, Arabic) has no bundled glyphs. A label that needs them gets
+  `FONT_GLYPH_MISSING` naming each character; add a font with `theme.font.files`.
 - Interactive HTML lays text out with the browser's metrics, so it can differ by a pixel or two from the SVG.
 - The word cloud places horizontal and vertical words only.
 - ECharts renders in the calling thread. Its layouts are bounded by its inputs, so it does not have Vega's runaway transforms.

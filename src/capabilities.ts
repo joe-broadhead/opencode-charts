@@ -41,7 +41,7 @@ export interface CapabilityView {
   readonly tools: readonly { readonly name: string; readonly class: string; readonly readOnly: boolean; readonly stability: string }[]
   readonly determinism: { readonly exact: readonly string[]; readonly across: string; readonly tolerance: string; readonly sources: readonly string[] }
   readonly knownLimits: readonly string[]
-  /** True when `scripts/charts.mjs` (or any script) can call every tool: the tools RPC needs no model. */
+  /** Every tool is a method of the tools RPC, so a script reaches all of them with no model. */
   readonly scriptable: boolean
 }
 
