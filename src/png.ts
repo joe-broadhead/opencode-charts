@@ -18,6 +18,19 @@ function wasmPath(packageRoot: string) {
   throw new ChartsError("PNG_UNAVAILABLE", "The PNG renderer (resvg.wasm) is missing from the package.", "Reinstall the plugin; SVG output still works.")
 }
 
+/** The PNG renderer's problem, as a ChartsError, or undefined when the wasm is there and is the one this build expects. */
+export function pngProblem(packageRoot: string): ChartsError | undefined {
+  try {
+    const bytes = readFileSync(wasmPath(packageRoot))
+    const expected = typeof RESVG_WASM_SHA256 === "string" ? RESVG_WASM_SHA256 : undefined
+    if (expected && createHash("sha256").update(bytes).digest("hex") !== expected) return new ChartsError("PNG_UNAVAILABLE", "resvg.wasm does not match the plugin build.", "Reinstall the plugin.")
+    return undefined
+  } catch (error) {
+    if (error instanceof ChartsError) return error
+    throw error
+  }
+}
+
 export function initPng(packageRoot: string) {
   ready ??= (async () => {
     const bytes = readFileSync(wasmPath(packageRoot))

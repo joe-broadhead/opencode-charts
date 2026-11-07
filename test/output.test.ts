@@ -9,9 +9,19 @@ import { renderChart } from "../src/pipeline.ts"
 import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
 
 /**
- * Golden SVGs: every catalogue chart, in the default theme, byte for byte. A change in output is a reviewed change:
- * run `UPDATE_GOLDEN=1 bun test test/output.test.ts` and look at the diff and the gallery.
+ * Golden SVGs: every catalogue chart, in the default theme. A change in output is a reviewed change: run
+ * `UPDATE_GOLDEN=1 bun test test/output.test.ts` and look at the diff and the gallery.
+ *
+ * Byte for byte on the machine the goldens come from (macOS arm64). Elsewhere a trigonometric result (a sunburst's
+ * arcs, a map projection) can differ in its last digits, because the runtime's Math.sin and Math.atan2 come from the
+ * platform; CI showed it on Linux and Intel macOS (66.29585392720165 against 66.29585392720162). So a golden that is
+ * not byte-equal must still be equal with every number to 10 significant digits, and with the id prefix, which hashes
+ * the content, set aside.
  */
+const portable = (svg: string) =>
+  svg
+    .replace(/\bc[0-9a-f]{8}-(\d+)/g, "c-$1")
+    .replace(/-?\d+\.\d+(?:e[-+]?\d+)?/g, n => String(Number(Number(n).toPrecision(10))))
 const ws = workspace()
 afterAll(async () => { ws.cleanup(); await closeVegaWorker() })
 const GOLDEN = join(ROOT, "test", "golden")
@@ -26,7 +36,8 @@ describe("golden SVGs", () => {
     const { svg } = await render(entry.id)
     const file = join(GOLDEN, `${entry.id}.svg`)
     if (process.env.UPDATE_GOLDEN || !existsSync(file)) writeFileSync(file, svg)
-    expect(svg).toBe(readFileSync(file, "utf8"))
+    const golden = readFileSync(file, "utf8")
+    if (svg !== golden) expect(portable(svg)).toBe(portable(golden))
   })
 })
 
