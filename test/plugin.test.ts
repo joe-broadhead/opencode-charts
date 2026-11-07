@@ -55,6 +55,10 @@ describe("the plugin", () => {
     expect([...tools.keys()].sort()).toEqual(Object.keys(TOOLS).sort())
     for (const tool of tools.values()) expect(tool.options).toMatchObject({ namespace: "charts", permission: `charts_${tool.name}` })
   })
+  test("each tool declares an output schema, since each returns output (OpenCode refuses it otherwise)", () => {
+    for (const tool of tools.values()) expect((tool as { output?: unknown }).output).toEqual({})
+  })
+
   test("loads both skills", () => {
     expect(skills.map(s => s.id).sort()).toEqual(["charts", "charts-cookbook"])
   })
