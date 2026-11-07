@@ -82,6 +82,30 @@ for (const version of TESTED_HOSTS) {
       expect(String(output.text)).toContain("banana")
     })
 
+    test("every tool's result is accepted against the output schema it declares", async () => {
+      // Each RPC method's output nests the tool's own schema, so the host validates the real result against exactly
+      // the schema OpenCode applies on the model path. A call that comes back 200 is a result OpenCode accepts, and a
+      // schema the host's own validator accepts too (an owned schema may carry no `pattern`).
+      const calls: [string, unknown][] = [
+        ["capabilities", {}],
+        ["catalogue", {}],
+        ["catalogue", { id: "bar" }],
+        ["themes", {}],
+        ["themes", { name: "light" }],
+        ["recommend", { request: "which region has the most revenue?", data: { rows: [{ region: "North", revenue: 10 }, { region: "South", revenue: 20 }] } }],
+        ["validate", { spec: { mark: "bar", encoding: { x: { field: "region", type: "nominal" }, y: { field: "revenue", type: "quantitative" } } }, data: { rows: [{ region: "North", revenue: 10 }] }, inspect: false }],
+        ["validate", { spec: { mark: "banana", encoding: {} }, inspect: false }],
+        ["render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] }, formats: ["svg"], name: `accept-${version.replaceAll(".", "-")}` }],
+        ["quick", { type: "bar", data: { rows: [{ k: "a", v: 1 }] }, x: "k", y: "v", formats: ["svg"], name: `accept-quick-${version.replaceAll(".", "-")}` }],
+        ["theme_save", { name: "host-accept", theme: { extends: "light", colors: { text: "#111111" } } }],
+      ]
+      for (const [method, input] of calls) {
+        const result = await rpc(host, method, writer, input)
+        expect(result.status, `${method} was refused: ${JSON.stringify(result.data).slice(0, 300)}`).toBe(200)
+        expect(unwrap(result.data).output, `${method} returned no output`).toBeDefined()
+      }
+    })
+
     test("a method whose session has no agent is refused with the code that names it", async () => {
       // The RPC reads the session's agent; an unknown session id is the location case, and the next step names the
       // header. This asserts the code rather than the whole message, which the shared module owns.

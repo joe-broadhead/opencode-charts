@@ -1,6 +1,6 @@
 import type { Plugin } from "@opencode/plugin"
 import type { Environment } from "../pipeline.js"
-import { DESCRIPTORS, inputSchema, manifest, permissionOfTool, type ToolDescriptor, type ToolName } from "../registry.js"
+import { DESCRIPTORS, descriptor, inputSchema, manifest, permissionOfTool, type ToolDescriptor, type ToolName } from "../registry.js"
 import { runTool } from "../tools.js"
 import { METHODS, registerToolsRpc, TOOLS_RPC_ID, type ToolCall, type ToolsRpcContext } from "./tools-rpc.js"
 
@@ -30,14 +30,22 @@ const forScript = (result: { readonly output: unknown; readonly content: readonl
   text: result.content.flatMap(part => (part.type === "text" && typeof part.text === "string" ? [part.text] : [])).join("\n\n"),
 })
 
-const OUTPUT_SCHEMA = {
+/**
+ * A method's result: the tool's own output, under the schema the model path declares, and its text.
+ *
+ * Nesting the tool's schema here is deliberate. The RPC validates every result against this object on the way out, so
+ * a host test calling the method proves two things at once: the tool's real result satisfies the schema OpenCode will
+ * apply to it, and the schema itself is one the RPC accepts (no `pattern`, which Effect's importer disables).
+ */
+const outputEnvelope = (schema: Record<string, unknown>) => ({
   type: "object",
-  properties: { output: { type: ["object", "null"] }, text: { type: "string" } },
+  properties: { output: { anyOf: [schema, { type: "null" }] }, text: { type: "string" } },
   required: ["output", "text"],
-} as const
+  additionalProperties: false,
+})
 
 export function ownedSpecs({ ctx, env, version }: OwnedSpecOptions) {
-  const known = new Set(manifest(version).tools.map(tool => tool.name))
+  const known = new Set(manifest(version).tools.map((tool: { name: string }) => tool.name))
   return DESCRIPTORS.map((descriptor: ToolDescriptor) => {
     const name = descriptor.name as ToolName
     const action = permissionOfTool(name)
@@ -48,7 +56,7 @@ export function ownedSpecs({ ctx, env, version }: OwnedSpecOptions) {
       action,
       description: descriptor.description,
       input: inputSchema(name) as never,
-      output: OUTPUT_SCHEMA as never,
+      output: outputEnvelope(descriptor.output) as never,
       async run(input: unknown, call: ToolCall) {
         const assert = (what: string, resources: readonly string[]) =>
           ctx.permission.assert({ sessionID: call.sessionID, agent: call.agent, source: { type: "tool", messageID: call.messageID, id: call.id }, action: what, resources: [...resources], save: ["*"] } as never)

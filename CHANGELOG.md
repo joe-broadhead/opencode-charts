@@ -24,6 +24,14 @@ All notable changes to this project are documented in this file. The format foll
   instead of silently becoming a blank box.
 - `docs/tool-parity.md`, `docs/status.md`.
 
+### Fixed
+
+- Every tool declares its output schema, and it is a real one: the registry's, projected to the model path and to the
+  tools RPC, which validates each script's result against it. This keeps 0.0.3's fix — OpenCode 2.2.5 fails a result
+  from a tool that declares no output — and makes the declaration checkable, with no `pattern` (the shared module's
+  rule for an owned output schema). A host case on 2.2.3, 2.2.4 and 2.2.5 calls all eight tools and asserts every
+  result is accepted.
+
 ### Changed
 
 - **A categorical palette that never runs out.** A theme's published colours stay first; past them, hues are generated

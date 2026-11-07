@@ -61,7 +61,11 @@ const AGENTS = {
   writer: {
     description: "charts host test writer",
     mode: "primary",
-    permissions: [{ action: "charts_render", resource: "*", effect: "allow" }, { action: "charts_validate", resource: "*", effect: "allow" }],
+    permissions: [
+      { action: "charts_*", resource: "*", effect: "allow" },
+      { action: "edit", resource: "*", effect: "allow" },
+      { action: "read", resource: "*", effect: "allow" },
+    ],
   },
   locked: { description: "charts host test locked", mode: "primary", permissions: [{ action: "charts_*", resource: "*", effect: "deny" }] },
   // The plugin's own default block, as an agent's rules: every Charts action asks, which a script cannot answer.

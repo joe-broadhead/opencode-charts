@@ -66,8 +66,15 @@ describe("the plugin", () => {
     expect([...tools.keys()].sort()).toEqual(Object.keys(TOOLS).sort())
     for (const tool of tools.values()) expect(tool.options).toMatchObject({ namespace: "charts", permission: `charts_${tool.name}` })
   })
-  test("each tool declares an output schema, since each returns output (OpenCode refuses it otherwise)", () => {
-    for (const tool of tools.values()) expect((tool as { output?: unknown }).output).toEqual({})
+  test("each tool declares its output schema, since each returns output (OpenCode refuses it otherwise)", () => {
+    for (const tool of tools.values()) {
+      const output = (tool as { output?: Record<string, unknown> }).output
+      expect(output).toBeDefined()
+      expect(output!.type).toBe("object")
+      expect(output).not.toEqual({})
+      // The shared tools RPC refuses any `pattern` in an owned output schema; one object serves both surfaces.
+      expect(JSON.stringify(output)).not.toMatch(/"(pattern|patternProperties|propertyNames)"|"\$ref"|\$defs|"if"|"then"|"else"/)
+    }
   })
 
   test("loads both skills", () => {

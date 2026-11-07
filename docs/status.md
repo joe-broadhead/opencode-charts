@@ -3,8 +3,8 @@
 The state of this tree, measured against what the plugin claims. It is written to be read by someone deciding whether
 to depend on it, so it names what does not work as carefully as what does.
 
-Last measured: 2026-11-07, on `feat/clearsight-rune-ideas` off `master` `1b0fa81`, macOS arm64, Node 22.23.2,
-Bun 1.4.3. The overlap, clipping and font coverage figures come from the catalogue's own examples, rendered by
+Last measured: 2026-11-07, on `feat/clearsight-rune-ideas` rebased onto `master` `68e2599` (Charts 0.0.3), macOS
+arm64, Node 22.23.2, Bun 1.4.3. The overlap, clipping and font coverage figures come from the catalogue's own examples, rendered by
 `test/output.test.ts`; the capability rows are what `charts_capabilities` returns for this build.
 
 ## Shipped
@@ -44,6 +44,20 @@ Bun 1.4.3. The overlap, clipping and font coverage figures come from the catalog
 - **The tools RPC requires an allow rule for the three writers.** A script renders only as a session whose agent
   allows `charts_render`; an "Always allow" from an interactive session does not authorize a script. Deliberate.
 - **Host support is declared `>=2.2.5 <2.3.0`.** The plugin's own host suite in this branch runs on 2.2.5.
+
+## Decisions that are not gaps
+
+Four things are decided, not pending. They were ruled on 2026-11-07 under the owner's standing authority, and the same
+words are in `~/opencode-charts-design/IMPROVEMENTS.md`.
+
+- **CJK fonts are not in the main package.** If they are wanted later, they go in an optional fonts package, the
+  family's optional-package pattern. Until then `charts_capabilities` states the coverage honestly — Latin, Greek and
+  Cyrillic — and a label beyond it gets `FONT_GLYPH_MISSING`.
+- **PDF is deferred**, because it would be the first runtime dependency. `capabilities.formats` does not advertise it.
+- **Mermaid is deferred.** Rune's `crates/rune-mermaid` is the reference for a DOM-free layout later; Mermaid input is
+  refused today, and the refusal is stated rather than hidden.
+- **`opencode.host` stays `>=2.2.5 <2.3.0`.** The host suite now runs on 2.2.3 and 2.2.4 as well, so widening it is
+  recommended to hey-jelly with that evidence; the published range is theirs to release.
 
 ## How this page is kept true
 

@@ -8,6 +8,7 @@ import { formatFailure, isChartsError } from "./errors.js"
 import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
 import { buildStatus, commandTransform } from "./status.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, runTool, type ToolName } from "./tools.js"
+import { descriptor } from "./registry.js"
 import type { ThemeOverrides } from "./themes/tokens.js"
 
 export const PLUGIN_ID = "charts"
@@ -82,9 +83,10 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
             name,
             description: DESCRIPTIONS[name],
             input: INPUTS[name],
-            // Each tool returns structured output, so it declares an output schema (`{}`: any JSON).
-            // OpenCode 2.2.5 fails a result that carries `output` from a tool that declares none.
-            output: {},
+            // Each tool returns structured output, so it declares its output schema: OpenCode 2.2.5 fails a result
+            // that carries `output` from a tool that declares none. The schema is the registry's, which the tools RPC
+            // validates the same result against.
+            output: descriptor(name).output,
             options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}`, ...(name === "render" || name === "quick" ? { pinned: true } : {}) },
             execute: async (input: unknown, context: { sessionID: string; agent: string; messageID: string; id: string }) => {
               const assert = (action: string, resources: readonly string[]) =>

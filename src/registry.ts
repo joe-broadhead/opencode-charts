@@ -30,6 +30,12 @@ export interface ToolDescriptor {
   /** Model-facing text: what it does, when to use it, and what it cannot do. */
   readonly description: string
   readonly input: z.ZodType
+  /**
+   * The tool's output, as JSON Schema. OpenCode 2.2.5 fails a result that carries `output` from a tool that declares
+   * none, so every tool declares one; the tools RPC validates each script's result against the same object, which
+   * also enforces the shared module's rule that an owned output schema may carry no `pattern`.
+   */
+  readonly output: Record<string, unknown>
   /** Sections that document it; `docs/tool-parity.md` is checked against these. */
   readonly docsAnchor: string
   readonly stability: "stable" | "experimental"
@@ -68,7 +74,137 @@ const SPEC = row.describe("A Vega-Lite spec (mark/encoding/layer/facet…), a Ve
 
 const MEDIUM = z.enum(["analysis", "report", "presentation", "paper"]).describe("Where the figure will be read: a desk with every detail (analysis), a document skimmed (report, the default), a slide seen for a few seconds (presentation), or print (paper). It sets how much a figure may carry.")
 
-export const DESCRIPTORS: readonly ToolDescriptor[] = [
+const STRING = { type: "string" } as const
+const NUMBER = { type: "number" } as const
+const ISSUE = {
+  type: "object",
+  properties: { level: { type: "string" }, code: { type: "string" }, message: { type: "string" }, path: { type: "string" }, fix: { type: "string" } },
+  required: ["level", "code", "message"],
+  additionalProperties: true,
+} as const
+const FIGURE = {
+  type: "object",
+  properties: {
+    width: NUMBER,
+    height: NUMBER,
+    labels: { type: "number" },
+    problems: { type: "number" },
+    nodes: { type: "array", items: { type: "object", additionalProperties: true } },
+  },
+  additionalProperties: true,
+} as const
+/** What `render`, `quick` and a successful `validate` return. `additionalProperties` keeps a later field from failing. */
+const RENDER_OUTPUT = {
+  type: "object",
+  properties: {
+    engine: { type: "string", description: "vega-lite, vega or echarts." },
+    theme: STRING,
+    title: STRING,
+    description: STRING,
+    width: NUMBER,
+    height: NUMBER,
+    files: { type: "object", additionalProperties: true },
+    markdown: STRING,
+    summary: STRING,
+    warnings: { type: "array", items: ISSUE },
+    issues: { type: "array", items: ISSUE },
+    notes: { type: "array", items: STRING },
+    layout: { type: "object", additionalProperties: true },
+    figure: FIGURE,
+    ms: NUMBER,
+    spec: { type: "object", additionalProperties: true },
+  },
+  required: ["engine", "theme", "title", "files", "ms"],
+  additionalProperties: true,
+} as const
+/** `validate` reports either a rendered result or its findings, so it is the union rather than the render shape. */
+const VALIDATE_OUTPUT = {
+  type: "object",
+  properties: {
+    ...(RENDER_OUTPUT.properties as object),
+    valid: { type: "boolean" },
+    issues: { type: "array", items: ISSUE },
+  },
+  additionalProperties: true,
+} as const
+
+const OUTPUTS: Record<string, Record<string, unknown>> = {
+  render: RENDER_OUTPUT,
+  quick: RENDER_OUTPUT,
+  validate: VALIDATE_OUTPUT,
+  recommend: {
+    type: "object",
+    properties: {
+      request: { type: "object", additionalProperties: true },
+      medium: STRING,
+      mediumAssumed: { type: "boolean" },
+      profile: { type: "object", additionalProperties: true },
+      recommendations: { type: "array", items: { type: "object", additionalProperties: true } },
+      considered: NUMBER,
+      abstain: { type: "object", additionalProperties: true },
+      nearTie: { type: "object", additionalProperties: true },
+      scoringVersion: STRING,
+    },
+    required: ["request", "medium", "recommendations", "considered", "scoringVersion"],
+    additionalProperties: true,
+  },
+  capabilities: {
+    type: "object",
+    properties: {
+      version: STRING,
+      contract: STRING,
+      namespace: STRING,
+      formats: { type: "object", additionalProperties: true },
+      engines: { type: "array", items: { type: "object", additionalProperties: true } },
+      themes: { type: "array", items: { type: "object", additionalProperties: true } },
+      fonts: { type: "array", items: { type: "object", additionalProperties: true } },
+      dataFormats: { type: "array", items: STRING },
+      limits: { type: "object", additionalProperties: true },
+      catalogue: { type: "object", additionalProperties: true },
+      tools: { type: "array", items: { type: "object", additionalProperties: true } },
+      determinism: { type: "object", additionalProperties: true },
+      knownLimits: { type: "array", items: STRING },
+      scriptable: { type: "boolean" },
+    },
+    required: ["version", "contract", "formats", "catalogue", "tools", "knownLimits"],
+    additionalProperties: true,
+  },
+  catalogue: {
+    type: "object",
+    properties: {
+      types: { type: "array", items: { type: "object", additionalProperties: true } },
+      id: STRING,
+      name: STRING,
+      engine: STRING,
+      family: STRING,
+      when: STRING,
+      avoid: STRING,
+      example: { type: "object", additionalProperties: true },
+    },
+    additionalProperties: true,
+  },
+  themes: {
+    type: "object",
+    properties: {
+      builtin: { type: "array", items: { type: "object", additionalProperties: true } },
+      saved: { type: "array", items: STRING },
+      locales: { type: "array", items: STRING },
+      theme: { type: "object", additionalProperties: true },
+    },
+    additionalProperties: true,
+  },
+  theme_save: {
+    type: "object",
+    properties: { file: STRING, theme: { type: "object", additionalProperties: true }, warnings: { type: "array", items: ISSUE } },
+    required: ["file", "theme"],
+    additionalProperties: true,
+  },
+}
+
+/** The descriptors as written: `output` is attached from `OUTPUTS` below, so the schema lives beside the input's. */
+type DeclaredTool = Omit<ToolDescriptor, "output">
+
+export const DECLARED: readonly DeclaredTool[] = [
   {
     name: "render", class: "export", readOnly: false, stability: "stable", docsAnchor: "README.md#tools",
     description: "Render any chart from a spec: Vega-Lite for statistical charts (bar, line, area, scatter, facets, layers, maps), Vega for treemap, sunburst, tree, force network and word cloud, ECharts for Sankey, chord, gauge, funnel, calendar, candlestick, radar and parallel. Validates first and explains each problem with its JSON path and a fix; lints for misleading or unreadable charts; writes SVG, PNG (and optional interactive HTML) under outputs/charts and returns a markdown image line to show it inline. Start from charts_catalogue's examples, or ask charts_recommend which chart fits.",
@@ -146,6 +282,11 @@ export const DESCRIPTORS: readonly ToolDescriptor[] = [
 
 export type ToolName = "render" | "quick" | "validate" | "recommend" | "capabilities" | "catalogue" | "themes" | "theme_save"
 
+/** The output schema of a tool, by name. */
+export const outputSchema = (name: string): Record<string, unknown> => OUTPUTS[name] ?? { type: "object", additionalProperties: true }
+
+/** The registry: every declared tool with its output schema attached. One list, for every surface. */
+export const DESCRIPTORS: readonly ToolDescriptor[] = DECLARED.map(t => ({ ...t, output: outputSchema(t.name) }))
 export const TOOL_NAMES = DESCRIPTORS.map(t => t.name) as readonly ToolName[]
 const byName = new Map(DESCRIPTORS.map(t => [t.name, t]))
 export const descriptor = (name: ToolName): ToolDescriptor => byName.get(name)!
@@ -180,6 +321,7 @@ export function manifest(version: string) {
       docs_anchor: t.docsAnchor,
       placements: ["plugin", "rpc"] as const,
       input_schema: inputSchema(t.name as ToolName),
+      output_schema: t.output,
     })),
   }
 }
