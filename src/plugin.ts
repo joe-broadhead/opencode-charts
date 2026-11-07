@@ -3,6 +3,7 @@ import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { Error as ToolError } from "@opencode/plugin/promise/tool"
 import { closeVegaWorker } from "./engines/vega-pool.js"
+import { registerChartsRpc } from "./host/rpc.js"
 import { formatFailure, isChartsError } from "./errors.js"
 import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
 import { buildStatus, commandTransform } from "./status.js"
@@ -63,6 +64,8 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
       const workspace = { directory: ctx.location.directory, projectDirectory: ctx.location.project.directory }
       const defaults = { ...(opts.theme ? { theme: opts.theme } : {}), ...(opts.locale ? { locale: opts.locale } : {}), outDir: opts.outDir ?? "outputs/charts" }
       const location = { location: { directory: ctx.location.directory } }
+      // The environment every tool runs with, whether the model calls it or a script reaches it over the tools RPC.
+      const toolEnv = { workspace, packageRoot, configuredThemes: opts.themes ?? {}, defaults }
       const status = () => buildStatus({
         version, hostVersion: ctx.app.version, packageRoot, defaults,
         themes: { workspace, packageRoot, configured: opts.themes ?? {} },
@@ -87,7 +90,7 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
               const assert = (action: string, resources: readonly string[]) =>
                 ctx.permission.assert({ sessionID: context.sessionID, agent: context.agent, source: { type: "tool", messageID: context.messageID, id: context.id }, action, resources: [...resources], save: ["*"] } as never)
               const assertFiles = async (action: "read" | "edit", resources: readonly string[]) => { await assert(action, resources) }
-              const env = { workspace, packageRoot, configuredThemes: opts.themes ?? {}, defaults, assertFiles }
+              const env = { ...toolEnv, assertFiles }
               // The tool's own action first, on every call: the default rules make the three that write ask.
               await assert(permissionOf(name), ["*"])
               try {
@@ -102,9 +105,14 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
           } as never)
         }
       })
+      // The tools RPC: every tool, callable by a script with no model, with each method's class from the registry.
+      const stopRpc = await registerChartsRpc(ctx as never, { ctx, env: toolEnv, version })
       await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), status }))
       await ctx.skill.transform(editor => { for (const skill of skills) editor.add(skill as never) })
-      return async () => { await closeVegaWorker() }
+      return async () => {
+        await stopRpc()
+        await closeVegaWorker()
+      }
     },
   }
 }

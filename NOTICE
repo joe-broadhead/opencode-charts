@@ -5,3 +5,33 @@ The published package bundles third-party software and fonts under their own lic
 (BSD-3-Clause), Apache ECharts (Apache-2.0; its NOTICE is in licenses/packages/echarts@6.1.0.NOTICE.txt), ZRender
 (BSD-3-Clause), resvg (MPL-2.0; licenses/MPL-2.0.txt), d3 modules (ISC), hyparquet and zod (MIT), Inter, Geist and
 JetBrains Mono (SIL OFL 1.1). The full list, with each licence text, is THIRD_PARTY_NOTICES.md and licenses/.
+
+## Design adapted from other projects
+
+Two projects informed designs in this repository. No source file was copied: the implementations here are
+TypeScript, and each adapted file carries a header naming its source and the commit. Their licences are recorded
+here, as they require.
+
+### MCP Clearsight
+
+- Repository: https://github.com/cesar-alves/mcp-clearsight, read at commit 4912ede.
+- Licence: MIT OR Apache-2.0, © 2026 The MCP Clearsight contributors.
+- Adapted as design, with the weight and threshold values carried over as data:
+  - `src/registry.ts`, `docs/tool-parity.md` — one tool registry projected to every surface (`features.md` §4.1, §4.7).
+  - `src/capabilities.ts` — a capability contract that never advertises what the build cannot do (§4.7).
+  - `src/recommend/traits.ts`, `src/recommend/rank.ts` — the ranking design: hard filters, `intent` 0.35 /
+    `data_fit` 0.40 / `expressiveness` 0.25, a total order, confidence bands, near ties and abstention (§4.9).
+  - `test/recommend.test.ts`, `eval/recommend.cases.ts` — cases graded by musts and must-nots (`evals/README.md`).
+  - `docs/status.md` — status that names what does not work as carefully as what does.
+
+### Rune
+
+- Repository: https://github.com/anomalyco/rune, read at commit bca47138.
+- Licence: MIT, © Anomaly.
+- Adapted as design:
+  - `src/figure.ts` — the figure as a semantic tree with stable ids, plus set-of-marks numbers on the picture
+    (`research/16-research-agent-generative-ui.md` §3–§4).
+  - `src/themes/palette.ts` — series colours spread so neighbours differ, derived in OKLCH from the theme's own
+    lightness and chroma, and label ink taken from the fill's lightness (`crates/rune-mermaid/src/chart.rs`).
+  - `docs/architecture.md` — the exact lane and the tolerance lane for determinism
+    (`research/14-research-determinism-verification.md` §1–§2).

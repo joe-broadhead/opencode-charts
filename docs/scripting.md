@@ -1,8 +1,74 @@
 # Scripting
 
-Charts has no tools RPC. Its three reads (`charts_validate`, `charts_catalogue`, `charts_themes`) answer questions a
-model asks while it draws, and no script calls them, so an RPC for scripts would be code with no caller. One will be
-added, with the known reads only, when a script needs it.
+Charts speaks the family's tools RPC v2: `<plugin id>.tools`, at
+`POST /api/rpc/charts.tools/<method>`, so a script draws and checks charts with no model and no provider spend.
 
-A script that needs a chart today runs an OpenCode session whose agent has the plugin, and asks it for the chart; the
-writers then ask as they do for a person, unless that agent's rules allow them.
+```sh
+# The methods, their classes and the permission each resolves.
+opencode api post /api/rpc/charts.tools/describe -d '{"input":{"sessionID":"<id>"}}'
+
+# Draw a chart.
+opencode api post /api/rpc/charts.tools/render -d '{"input":{"sessionID":"<id>","input":{
+  "spec":{"mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}}},
+  "data":{"path":"data/sales.csv"},"formats":["svg","png"]}}}'
+```
+
+Each call returns `{ output, text }`: the structured result the model would see, and the text it would read. Images are
+never inlined into a script's result — the files are in the workspace, as for a model's call.
+
+## Methods and classes
+
+| Method | Action | Class | Writes |
+|---|---|---|---|
+| `render` | `charts_render` | `export` | `outputs/charts/*` |
+| `quick` | `charts_quick` | `export` | `outputs/charts/*` |
+| `theme_save` | `charts_theme_save` | `export` | `.charts/themes/<name>.json` |
+| `validate` | `charts_validate` | `read` | nothing |
+| `recommend` | `charts_recommend` | `read` | nothing |
+| `capabilities` | `charts_capabilities` | `read` | nothing |
+| `catalogue` | `charts_catalogue` | `read` | nothing |
+| `themes` | `charts_themes` | `read` | nothing |
+
+The class is the worst thing a method does; it never decides whether a call runs. `docs/tool-parity.md` is generated
+from the same registry, and `test/registry.test.ts` fails when the two disagree.
+
+## What decides a call
+
+A script runs **as a session and the agent it names**. The rule for the method's action is resolved over the agent's
+rules and then the session's, last match wins, before anything runs:
+
+- `allow` runs the method, which then asserts its own action and, for a read of a data file or a write of an output,
+  the file rule (`read` / `edit`) — the same asks a model's call makes;
+- `ask` is **refused before dispatch**, with `PERMISSION_DENIED` and the remedy in `next`: a script has no one to answer
+  a prompt;
+- `deny` is refused with no call.
+
+So the read methods need no rule beyond an agent that allows them; the three that write need an **allow** rule on the
+agent or the session that the script runs as. The plugin's own default block makes `charts_*` ask and the five reads
+allow, so a script that renders needs:
+
+```jsonc
+// the agent the script's session names, in its own permissions
+{ "charts_render": "allow" }
+```
+
+**A saved approval is not a rule.** An "Always allow" from an earlier interactive session lives outside the agent and
+session rules, so it does not authorize an ad-hoc script. That is deliberate: a script's grant is a rule in config, or
+a session a job creates for it.
+
+## The location
+
+The RPC runs in the location the request names. Send the header, or the query parameter, so a script in one project does
+not act on another:
+
+```sh
+opencode api post /api/rpc/charts.tools/catalogue -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","input":{"id":"line"}}}'
+```
+
+A session created elsewhere is `SESSION_UNKNOWN`, and the `next` names this header.
+
+## Failures
+
+A failure is `{ code, what, next }`, with the tool's own code: `SPEC_INVALID`, `FIELD_UNKNOWN`, `DATA_TOO_LARGE`,
+`RENDER_TIMEOUT`, `PNG_UNAVAILABLE`. `what` and `next` are the message the model would read, so a script's log says
+what to fix in the same words.

@@ -77,10 +77,11 @@ describe("the packed tarball", () => {
       const editor = { namespace() {}, add(item) { (item.execute.length === 1 ? commands : tools).set(item.name, item) } }
       const ctx = {
         app: { version: "2.2.5" }, options: {}, location: { directory: ${JSON.stringify(workspace)}, project: { directory: ${JSON.stringify(workspace)} } },
-        agent: { transform: async fn => fn({ list: () => [], update() {} }), list: async () => ({ data: [] }) },
+        agent: { transform: async fn => fn({ list: () => [], update() {} }), list: async () => ({ data: [] }), get: async () => ({ data: { id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] } }) },
         command: { transform: async fn => fn({ add: item => commands.set(item.name, item) }) },
-        session: { synthetic: async input => { console.log(JSON.stringify({ status: input.text })) } },
-        permission: { assert: async input => { asserts.push(input.action) } },
+        session: { synthetic: async input => { console.log(JSON.stringify({ status: input.text })) }, get: async () => ({ id: "s", agent: "build", permissions: [] }) },
+        permission: { assert: async input => { asserts.push(input.action) }, hook: async () => ({ dispose: async () => undefined }) },
+        rpc: { register: async () => ({ dispose: async () => undefined }) },
         tool: { transform: async fn => fn({ namespace() {}, add: item => tools.set(item.name, item) }), list: async () => [...tools.keys()].map(id => ({ id: "charts_" + id })) },
         skill: { transform: async fn => fn({ add() {} }), list: async () => ({ data: [] }) },
       }
@@ -93,7 +94,7 @@ describe("the packed tarball", () => {
     const lines = run("bun", [script], dir).trim().split("\n").map(line => JSON.parse(line) as Record<string, unknown>)
     const status = String(lines.find(line => "status" in line)?.status)
     const out = lines.find(line => "tools" in line) as { tools: string[]; files: Record<string, unknown>; asserts: string[] }
-    expect(out.tools).toEqual(["catalogue", "quick", "render", "theme_save", "themes", "validate"])
+    expect(out.tools).toEqual(["capabilities", "catalogue", "quick", "recommend", "render", "theme_save", "themes", "validate"])
     expect(out.asserts).toEqual(["charts_render", "edit"])
     expect(out.files).toMatchObject({ svg: "outputs/charts/pack-test.svg", html: "outputs/charts/pack-test.html" })
     for (const file of ["pack-test.svg", "pack-test.png", "pack-test.html"]) expect(statSync(join(workspace, "outputs", "charts", file)).size).toBeGreaterThan(0)

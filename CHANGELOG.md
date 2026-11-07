@@ -3,6 +3,42 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **One tool registry** (`src/registry.ts`): each tool is defined once, and the plugin's tool registration, the Jelly
+  declaration, the tools RPC, `charts_capabilities` and `docs/tool-parity.md` are projections of it.
+  `test/registry.test.ts` fails when they drift.
+- **`charts_capabilities`**: exactly what this build can do, computed rather than promised — working output formats,
+  engines and the families each draws, themes and their palette sizes, bundled fonts and the scripts they cover, data
+  formats, locales, atlases, limits, every tool with its class, and what is known not to work.
+- **`charts_recommend`**: which chart fits a question, its data and its medium. A deterministic local ranking over the
+  53-type catalogue with a reason for each pick, the encoding to use, and a ready `charts_render` call on the caller's
+  own columns. It abstains with a reason rather than guessing, and it never renders.
+- **The figure tree**: `charts_render` and `charts_validate` return the drawing as text — every label with a stable id,
+  its box, and which labels collide or run past the edge — and the preview PNG numbers the same ids (`marks`).
+- **The tools RPC v2** at `charts.tools`: every tool is a method with its class, so a script draws or checks a chart
+  with no model. `docs/scripting.md` has the classes, the rule that decides a call and the saved-approval note.
+- `FONT_GLYPH_MISSING`: a label using a code point no bundled face draws is named, with the characters and the fix,
+  instead of silently becoming a blank box.
+- `docs/tool-parity.md`, `docs/status.md`.
+
+### Changed
+
+- **A categorical palette that never runs out.** A theme's published colours stay first; past them, hues are generated
+  in OKLCH at the theme's own lightness and chroma, held to a minimum perceptual distance, so 12 series in `light` no
+  longer repeat a colour. `print` and `high-contrast` are not extended: their constraint is what they are for.
+- The word cloud's golden changed: its thirteenth colour is no longer a repeat of its second.
+
+### Notes
+
+- The design borrows from MCP Clearsight (`cesar-alves/mcp-clearsight`, MIT OR Apache-2.0) and Rune
+  (`anomalyco/rune`, MIT). No source file was copied; `NOTICE` records what was adapted, from which commit, and under
+  which licence.
+- The shared tools RPC module is v2.1 (`57377eb3…`), and `scripts/check-copies.mjs` pins that hash.
+>>>>>>> 3a5ac75 (feat(rpc): the tools RPC v2.1, so every tool is scriptable with no model)
+
 ## [0.0.3] - 2026-11-07
 
 ### Fixed
