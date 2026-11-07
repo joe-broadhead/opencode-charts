@@ -11,7 +11,7 @@ import { join, resolve } from "node:path"
 import { randomBytes, randomUUID } from "node:crypto"
 
 /** The versions the family tests. A missing binary skips that version with a line in the test output. */
-export const TESTED_HOSTS = ["2.2.3", "2.2.4", "2.2.5"] as const
+export const TESTED_HOSTS = ["2.2.3", "2.2.4", "2.2.5", "2.2.6"] as const
 const STOCK = "/private/var/folders/yj/xc5d3w1x3nv91lqg4nhs11ww0000gn/T/opencode"
 const QA = join(process.env.HOME ?? "", "opencode-release/qa/stock")
 
