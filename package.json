@@ -73,7 +73,8 @@
     "gallery": "bun scripts/gallery.ts",
     "eval": "bun eval/run.ts",
     "data": "node scripts/data.mjs",
-    "cookbook": "bun scripts/cookbook.ts"
+    "cookbook": "bun scripts/cookbook.ts",
+    "eval:recommend": "bun eval/recommend.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "2.2.5",

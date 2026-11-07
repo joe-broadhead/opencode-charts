@@ -1,0 +1,39 @@
+{
+ "measured": "see docs/status.md",
+ "versions": {
+  "catalogueVersion": "53",
+  "scoringVersion": "1"
+ },
+ "top1Accuracy": 1,
+ "gates": {
+  "must-not violations": "0",
+  "top-3 recall": "1.000",
+  "paraphrase stability": "1.000",
+  "top-1 accuracy": "1.000",
+  "baseline regressions": "0",
+  "versions": "53/1"
+ },
+ "perCase": {
+  "trend-channel": true,
+  "trend-plain": true,
+  "trend-stacked": true,
+  "trend-presentation": true,
+  "rank-regions": true,
+  "rank-paraphrase": true,
+  "compare-regions": true,
+  "rank-countries": true,
+  "share-budget": true,
+  "share-presentation": true,
+  "share-many": true,
+  "distribution-latency": true,
+  "distribution-compare": true,
+  "distribution-scores": true,
+  "correlation-spend": true,
+  "trendline-spend": true,
+  "flow-signups": true,
+  "funnel-checkout": true,
+  "hierarchy-org": true,
+  "map-world": true,
+  "abstain-vague": true
+ }
+}

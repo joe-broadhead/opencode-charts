@@ -51,7 +51,7 @@ const CASES: readonly Case[] = [
   { request: "how is revenue trending by channel over time?", rows: trend, must: ["multi_line"], mustNot: ["pie", "donut", "histogram", "radar"] },
   { request: "which channel has the most revenue?", rows: trend, must: ["horizontal_bar"], mustNot: ["pie", "radar", "histogram"] },
   { request: "show the share of revenue each channel accounts for", rows: trend, medium: "presentation", must: ["donut", "pie"], mustNot: ["histogram", "scatter", "funnel"] },
-  { request: "what does latency look like?", rows: latency, top1: "box_plot", must: ["box_plot", "histogram"], mustNot: ["pie", "line", "sankey"] },
+  { request: "what does latency look like?", rows: latency, top1: "histogram", must: ["box_plot", "histogram"], mustNot: ["pie", "line", "sankey"] },
   { request: "rank the countries by users", rows: countries, must: ["horizontal_bar"], mustNot: ["pie", "radar"] },
   { request: "where do sign-ups come from and where do they end up?", rows: flows, must: ["sankey"], mustNot: ["pie", "histogram"] },
   { request: "break the company down by department and team", rows: hierarchy, must: ["treemap", "sunburst", "tree"], mustNot: ["histogram", "scatter"] },

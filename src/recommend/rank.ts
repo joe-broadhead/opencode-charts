@@ -60,6 +60,12 @@ const AMBIGUOUS = ["graph", "chart", "plot", "diagram", "visualize", "show", "di
 const STOP = new Set(["the", "a", "an", "of", "by", "for", "and", "or", "to", "in", "on", "with", "per", "how", "what", "which", "is", "are", "was", "were", "do", "does", "we", "our", "my", "me", "it", "its", "that", "this", "over", "from", "as", "at", "each", "all", "vs", "versus", "between", "please", "can", "you", "give", "make", "draw", "chart"])
 
 const round = (n: number) => Number(n.toFixed(SCORING.scoreDecimals))
+
+/**
+ * A stem, so "distributed" matches "distribution" and "trending" matches "trend". English only, deliberately: the
+ * lexicon is English and says so; a stemmer that guessed at other languages would be worse than not trying.
+ */
+const stem = (word: string) => word.toLowerCase().replace(/(ations|ation|ing|ed|es|s|ly)$/u, "").slice(0, 7)
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 
 /** The words of a request, lowercased, with stop words removed. */
@@ -73,7 +79,7 @@ export function inferTasks(request: string, known: readonly string[] = []): { ta
   const tokens = words(request)
   const tasks: { task: Task; evidence: string[] }[] = []
   for (const [task, vocabulary] of Object.entries(TASK_WORDS) as [Task, readonly string[]][]) {
-    const evidence = vocabulary.filter(word => (word.includes(" ") ? text.includes(word) : tokens.some(t => t === word || (word.length > 4 && t.startsWith(word.slice(0, Math.max(4, word.length - 1)))))))
+    const evidence = vocabulary.filter(word => (word.includes(" ") ? text.includes(word) : tokens.some(t => stem(t) === stem(word) && stem(word).length >= 4)))
     if (evidence.length) tasks.push({ task, evidence: evidence.slice(0, 3) })
   }
   const ambiguous = AMBIGUOUS.filter(word => tokens.includes(word))
@@ -83,7 +89,7 @@ export function inferTasks(request: string, known: readonly string[] = []): { ta
   const vocabulary = Object.values(TASK_WORDS).flat()
   const understood = (token: string) =>
     columns.has(token) ||
-    vocabulary.some(word => word.includes(" ") ? text.includes(word) && word.split(" ").includes(token) : token === word || (word.length > 4 && token.startsWith(word.slice(0, Math.max(4, word.length - 1)))) || (token.length > 4 && word.startsWith(token.slice(0, 4))))
+    vocabulary.some(word => word.includes(" ") ? text.includes(word) && word.split(" ").includes(token) : stem(token) === stem(word) && stem(word).length >= 4)
   const unmatched = tokens.filter(t => !understood(t) && !/^\d+$/.test(t) && t.length >= 4).slice(0, 8)
   return { tasks, unmatched, ambiguous }
 }
@@ -157,7 +163,7 @@ function encodingFor(id: string, shape: Shape | undefined, request: string): Rec
     parent: [shape.hierarchy?.parent ?? ""],
     source: [shape.edges?.source ?? ""],
     target: [shape.edges?.target ?? ""],
-    location: [shape.location ?? ""],
+    location: [shape.location?.name ?? ""],
   }
   const trait = TRAITS_BY_ID.get(id)
   for (const role of trait?.need ?? []) {
@@ -207,6 +213,8 @@ export async function recommend(input: RecommendInput, env: Pick<Environment, "w
   const named = namedEntries(input.request)
   const roles = shape ? rolesOf(shape) : undefined
   const taskSet = new Set(inferred.tasks.map(t => t.task))
+  // The task the request says most about leads; another matched task is a real but weaker intent.
+  const leading = inferred.tasks.length ? [...inferred.tasks].sort((a, b) => b.evidence.length - a.evidence.length || a.task.localeCompare(b.task))[0]!.task : undefined
   const namedIds = new Set(named.map(n => n.id))
   const tasksKnown = taskSet.size > 0 || namedIds.size > 0
 
@@ -228,7 +236,7 @@ export async function recommend(input: RecommendInput, env: Pick<Environment, "w
     // 2. intent.
     const taskHits = trait.tasks.filter((t): t is Task => t !== undefined && taskSet.has(t))
     const aliasHit = namedIds.has(entry.id)
-    const intent = aliasHit ? 1 : taskHits.length ? (taskHits[0] === trait.tasks[0] ? 1 : 0.55) : 0
+    const intent = aliasHit ? 1 : taskHits.length ? (taskHits[0] === trait.tasks[0] ? (trait.tasks[0] === leading ? 1 : 0.78) : 0.55) : 0
 
     // 3. data fit: what it needs, what helps, and how it sits against the medium's budget.
     const density = densityFit(shape, trait.budget, medium)
@@ -240,7 +248,9 @@ export async function recommend(input: RecommendInput, env: Pick<Environment, "w
     const encoding = encodingFor(entry.id, shape, input.request)
     const plotted = new Set(Object.values(encoding))
     // A chart that would drop a series the data has is the wrong chart, not merely a plainer one.
-    const drops = shape && trait.dropsSeries && shape.series && !plotted.has(shape.series.name) ? 0.75 : 1
+    const tokens = words(input.request)
+    const meansSeries = shape?.series ? tokens.includes(shape.series.name.toLowerCase()) || /\b(by|each|per|split by|broken down by)\b/.test(input.request.toLowerCase()) : false
+    const drops = shape && trait.dropsSeries && shape.series && meansSeries && !plotted.has(shape.series.name) ? 0.75 : 1
     const dataFit = shape ? clamp01(fit * drops) * density.fit : 0.5
 
     // 4. expressiveness: how well the type reads, curated.
@@ -304,7 +314,7 @@ export async function recommend(input: RecommendInput, env: Pick<Environment, "w
           ...(shape.categories ? [`categories: ${shape.categories.name} (${shape.categories.distinct})`] : []),
           ...(shape.edges ? [`edges: ${shape.edges.source} → ${shape.edges.target}`] : []),
           ...(shape.hierarchy ? [`hierarchy: ${shape.hierarchy.key} under ${shape.hierarchy.parent}`] : []),
-          ...(shape.location ? [`location: ${shape.location}`] : []),
+          ...(shape.location ? [`location: ${shape.location.name} (${shape.location.kind})`] : []),
         ],
       },
     } : {}),

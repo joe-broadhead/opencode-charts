@@ -28,6 +28,9 @@ const stages = {
   icons: () => run("node", ["scripts/check-icons.mjs"]),
   whitelist,
   pack: () => run("bun", ["test", "./test/pack"]),
+  // The evals: every catalogue example renders to a checked picture, and the advice passes its gates against the
+  // committed baseline. Both are deterministic and need no model.
+  evals: () => run("bun", ["eval/run.ts", join(root, ".eval", "render")]) || run("bun", ["eval/recommend.ts", join(root, ".eval", "recommend")]),
 }
 
 const selected = process.argv.slice(2)

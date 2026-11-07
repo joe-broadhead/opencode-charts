@@ -65,9 +65,15 @@ export function shapeOf(rows: readonly Row[]): Shape {
   const keyNamed = byName(KEY)
   const hierarchy = parentNamed ? { key: (keyNamed ?? byName(/id$/i) ?? textFields.find(f => f.name !== parentNamed.name))?.name ?? textFields[0]!.name, parent: parentNamed.name } : undefined
 
-  const locationNamed = byName(COUNTRY) ?? byName(STATE)
   const stateish = textFields.find(f => f.top?.some(v => US_STATES.has(v.toLowerCase())))
-  const location = locationNamed?.name ?? stateish?.name
+  const countryNamed = byName(COUNTRY), stateNamed = byName(STATE)
+  const location = stateish
+    ? { name: stateish.name, kind: "us-state" as const }
+    : countryNamed
+      ? { name: countryNamed.name, kind: "country" as const }
+      : stateNamed
+        ? { name: stateNamed.name, kind: /state|postal|fips/i.test(stateNamed.name) ? "us-state" as const : "country" as const }
+        : undefined
 
   const openNamed = byName(OPEN), closeNamed = byName(CLOSE)
   const hasOhlc = Boolean(openNamed && closeNamed && (byName(HIGH) || byName(LOW)))

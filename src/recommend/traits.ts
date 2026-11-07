@@ -66,7 +66,7 @@ export interface Shape {
   readonly twoMeasures: boolean
   readonly edges?: { readonly source: string; readonly target: string }
   readonly hierarchy?: { readonly key: string; readonly parent: string }
-  readonly location?: string
+  readonly location?: { readonly name: string; readonly kind: "country" | "us-state" }
   readonly timeSeries: boolean
 }
 
@@ -85,9 +85,9 @@ const TRAITS: readonly Trait[] = [
   // ---- comparison
   { id: "bar", tasks: ["compare_magnitude", "rank"], need: ["measure", "dimension"], want: ["part"], reads: 0.92, dropsSeries: true, aliases: ["bar", "column", "compare", "comparison", "vs", "versus"] },
   { id: "horizontal_bar", tasks: ["rank", "compare_magnitude"], need: ["measure", "dimension"], reads: 0.94, dropsSeries: true, aliases: ["rank", "ranking", "top", "most", "least", "leaderboard", "sorted"], budget: { categories: 60 } },
-  { id: "grouped_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name ? "needs a second category to split by; the data has one" : undefined), tasks: ["compare_magnitude"], need: ["measure", "dimension", "series"], reads: 0.86, aliases: ["side by side", "grouped", "by subgroup", "compare groups"], budget: { series: 4, categories: 10 } },
-  { id: "stacked_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name ? "needs a second category to split by; the data has one" : undefined), tasks: ["part_to_whole", "change_over_time"], need: ["measure", "dimension", "series"], reads: 0.8, aliases: ["stacked", "stack", "composition", "mix", "breakdown"], budget: { series: 5, categories: 12 } },
-  { id: "normalized_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name ? "needs a second category to split by; the data has one" : undefined), tasks: ["part_to_whole"], need: ["measure", "dimension", "series"], reads: 0.78, aliases: ["share", "percent", "proportion", "100%", "normalized"], budget: { series: 5, categories: 12 } },
+  { id: "grouped_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name && s.temporals.length === 0 ? "needs a second category to split by; the data has one" : undefined), tasks: ["compare_magnitude"], need: ["measure", "dimension", "series"], reads: 0.86, aliases: ["side by side", "grouped", "by subgroup", "compare groups"], budget: { series: 4, categories: 10 } },
+  { id: "stacked_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name && s.temporals.length === 0 ? "needs a second category to split by; the data has one" : undefined), tasks: ["part_to_whole", "change_over_time"], need: ["measure", "dimension", "series"], reads: 0.8, aliases: ["stacked", "stack", "composition", "mix", "breakdown"], budget: { series: 5, categories: 12 } },
+  { id: "normalized_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name && s.temporals.length === 0 ? "needs a second category to split by; the data has one" : undefined), tasks: ["part_to_whole"], need: ["measure", "dimension", "series"], reads: 0.78, aliases: ["share", "percent", "proportion", "100%", "normalized"], budget: { series: 5, categories: 12 } },
   { id: "diverging_bar", tasks: ["compare_magnitude"], need: ["measure"], want: ["dimension"], reads: 0.84, aliases: ["gain", "loss", "change", "delta", "increase", "decrease", "positive negative"] },
   { id: "lollipop", tasks: ["rank", "compare_magnitude"], need: ["measure", "dimension"], reads: 0.8, aliases: ["lollipop", "dot and stem"], budget: { categories: 30 } },
   { id: "dumbbell", tasks: ["compare_magnitude"], need: ["measure", "dimension", "series"], reads: 0.82, aliases: ["before and after", "dumbbell", "two values", "difference between"], budget: { series: 2, categories: 12 }, anti: s => (s.series && s.series.distinct === 2 ? undefined : "a dumbbell needs exactly two states per category") },
@@ -106,7 +106,7 @@ const TRAITS: readonly Trait[] = [
   { id: "slope", tasks: ["compare_magnitude"], need: ["measure", "dimension", "series"], reads: 0.8, aliases: ["slope", "two points", "before and after"], budget: { series: 2 } },
   { id: "bump", tasks: ["rank", "change_over_time"], need: ["temporal", "measure", "series"], reads: 0.76, anti: s => ((s.columns.find(c => c.name === s.temporals[0])?.distinct ?? 0) < 4 ? "needs at least four time points to show positions changing" : undefined), aliases: ["rank over time", "bump", "positions", "league table"], budget: { series: 8 } },
   { id: "dual_axis", tasks: ["change_over_time", "relationship"], need: ["temporal", "measure", "measure2"], reads: 0.55, aliases: ["two axes", "different units", "orders and revenue"], anti: () => "readers compare heights across two axes, which are not comparable" },
-  { id: "small_multiples", anti: s => (s.series && s.categories && s.series.name === s.categories.name ? "needs a group column other than the category" : undefined), tasks: ["change_over_time", "compare_magnitude"], need: ["measure", "series"], want: ["temporal"], reads: 0.9, aliases: ["facet", "small multiples", "each", "per region", "panel"], budget: { series: 8 } },
+  { id: "small_multiples", anti: s => (s.series && s.categories && s.series.name === s.categories.name && s.temporals.length === 0 ? "needs a group column other than the category" : undefined), tasks: ["change_over_time", "compare_magnitude"], need: ["measure", "series"], want: ["temporal"], reads: 0.9, aliases: ["facet", "small multiples", "each", "per region", "panel"], budget: { series: 8 } },
   { id: "calendar_heatmap", tasks: ["change_over_time"], need: ["temporal", "measure"], reads: 0.74, aliases: ["calendar", "daily", "by weekday", "streak"] },
 
   // ---- distribution
@@ -118,8 +118,8 @@ const TRAITS: readonly Trait[] = [
   { id: "binned_heatmap", tasks: ["distribution", "relationship"], need: ["measure", "measure2"], reads: 0.84, aliases: ["2d histogram", "density of points", "hexbin", "too many points"], anti: s => (s.rows > 3000 ? undefined : "a scatter plot is more exact for this many points") },
 
   // ---- part to whole
-  { id: "pie", tasks: ["part_to_whole"], need: ["measure"], want: ["part"], reads: 0.6, aliases: ["pie", "share of", "split", "proportion"], anti: s => ((s.part?.distinct ?? 0) > 6 ? `${s.part?.distinct} slices: use a bar chart or a treemap` : (s.measures.length ?? 0) === 0 ? "a pie needs one measure" : undefined), budget: { categories: 6 } },
-  { id: "donut", tasks: ["part_to_whole"], need: ["measure"], want: ["part"], reads: 0.62, aliases: ["donut", "doughnut", "share of", "split"], anti: s => ((s.part?.distinct ?? 0) > 6 ? `${s.part?.distinct} slices: use a bar chart or a treemap` : undefined), budget: { categories: 6 } },
+  { id: "pie", tasks: ["part_to_whole"], need: ["measure"], want: ["part"], reads: 0.6, aliases: ["pie", "share of", "split", "proportion"], anti: s => (((s.part ?? s.categories)?.distinct ?? 0) > 6 ? `${(s.part ?? s.categories)!.distinct} slices: use a bar chart or a treemap` : (s.measures.length ?? 0) === 0 ? "a pie needs one measure" : undefined), budget: { categories: 6 } },
+  { id: "donut", tasks: ["part_to_whole"], need: ["measure"], want: ["part"], reads: 0.62, aliases: ["donut", "doughnut", "share of", "split"], anti: s => (((s.part ?? s.categories)?.distinct ?? 0) > 6 ? `${(s.part ?? s.categories)!.distinct} slices: use a bar chart or a treemap` : undefined), budget: { categories: 6 } },
   { id: "radial", tasks: ["part_to_whole", "compare_magnitude"], need: ["measure"], want: ["part"], reads: 0.45, aliases: ["rose", "radial", "nightingale"], anti: () => "angle and radius together are read badly; a bar chart is exact", budget: { categories: 8 } },
   { id: "funnel", tasks: ["flow", "part_to_whole"], need: ["measure"], want: ["dimension"], reads: 0.72, aliases: ["funnel", "conversion", "drop off", "steps", "signup to paid"], anti: s => funnelStages(s) },
   { id: "gauge", tasks: ["compare_magnitude"], need: ["measure"], reads: 0.5, aliases: ["gauge", "progress", "against target", "score"], anti: () => "a gauge hides the number it stands for; a bullet or a headline value reads better" },
@@ -143,8 +143,8 @@ const TRAITS: readonly Trait[] = [
   { id: "sunburst", tasks: ["hierarchy", "part_to_whole"], need: ["measure"], want: ["key", "parent"], reads: 0.76, aliases: ["sunburst", "nested rings"] },
 
   // ---- maps, text, finance
-  { id: "choropleth_world", tasks: ["location", "compare_magnitude"], need: ["measure", "location"], reads: 0.86, aliases: ["world", "map", "by country", "countries", "geography"] },
-  { id: "choropleth_us", tasks: ["location", "compare_magnitude"], need: ["measure", "location"], reads: 0.86, aliases: ["us states", "united states", "state map", "america"] },
+  { id: "choropleth_world", tasks: ["location", "compare_magnitude"], need: ["measure", "location"], reads: 0.86, anti: s => (s.location && s.location.kind === "us-state" ? "the data names US states, so the US map draws it" : undefined), aliases: ["world", "map", "by country", "countries", "geography"] },
+  { id: "choropleth_us", tasks: ["location", "compare_magnitude"], need: ["measure", "location"], reads: 0.86, anti: s => (s.location && s.location.kind === "country" && /country|countries|nation|iso/i.test(s.location.name) ? "the data names countries, so the world map draws it" : undefined), aliases: ["us states", "united states", "state map", "america"] },
   { id: "point_map", tasks: ["location", "relationship"], need: ["measure"], want: ["location"], reads: 0.8, aliases: ["locations", "on a map", "cities", "points on"] },
   { id: "word_cloud", tasks: ["distribution"], need: ["dimension"], reads: 0.4, aliases: ["word cloud", "most mentioned", "keywords", "text frequency"], anti: s => (s.measures.length > 0 ? "a word cloud needs text, not a measure; a bar chart ranks words exactly" : undefined) },
   { id: "candlestick", tasks: ["change_over_time", "distribution"], need: ["temporal", "open", "close"], reads: 0.88, aliases: ["candlestick", "ohlc", "open high low close", "stock", "price range"] },

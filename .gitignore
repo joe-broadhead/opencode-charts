@@ -7,3 +7,5 @@ spike/
 
 # Scratch
 .tmp/
+
+.eval/
