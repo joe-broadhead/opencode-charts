@@ -6,6 +6,7 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 | Package | Version | Licence | Text |
 |---|---|---|---|
 | @resvg/resvg-wasm | 2.6.2 | MPL-2.0 | licenses/MPL-2.0.txt (source: github.com/thx/resvg-js, tag v2.6.2) |
+| d3-array | 3.2.4 | ISC | licenses/packages/d3-array@3.2.4.txt |
 | d3-array | 3.2.5 | ISC | licenses/packages/d3-array@3.2.5.txt |
 | d3-color | 3.1.1 | ISC | licenses/packages/d3-color@3.1.1.txt |
 | d3-delaunay | 6.0.6 | ISC | licenses/packages/d3-delaunay@6.0.6.txt |
@@ -14,6 +15,7 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 | d3-ease | 3.0.2 | BSD-3-Clause | licenses/packages/d3-ease@3.0.2.txt |
 | d3-force | 3.0.1 | ISC | licenses/packages/d3-force@3.0.1.txt |
 | d3-format | 3.1.0 | ISC | licenses/packages/d3-format@3.1.0.txt |
+| d3-format | 3.1.3 | ISC | licenses/packages/d3-format@3.1.3.txt |
 | d3-geo | 3.1.2 | ISC | licenses/packages/d3-geo@3.1.2.txt |
 | d3-geo-projection | 4.0.0 | ISC | licenses/packages/d3-geo-projection@4.0.0.txt |
 | d3-hierarchy | 3.1.3 | ISC | licenses/packages/d3-hierarchy@3.1.3.txt |
