@@ -13,6 +13,33 @@ Unofficial; not affiliated with OpenCode or Anomaly.
 - macOS or Linux.
 - No network, no system fonts and no provider: every render is local and deterministic.
 
+## Install
+
+Add the plugin to your `opencode.json`, or run `opencode plugin add @joe-broadhead/opencode-charts`:
+
+```json
+{ "plugin": ["@joe-broadhead/opencode-charts"] }
+```
+
+Options (all optional):
+
+```json
+{ "plugin": [["@joe-broadhead/opencode-charts", { "theme": "light", "locale": "en-GB", "outDir": "outputs/charts", "themes": { "acme": { "extends": "light", "colors": { "categorical": ["#0B5FFF", "#FF6A3D", "#00A87E"] } } } }]] }
+```
+
+Options, limits and errors are in [docs/configuration.md](docs/configuration.md).
+
+## Use
+
+Ask for the chart you want, as a question or a spec:
+
+> Chart revenue by region for 2024 as bars, in the Toqan theme.
+
+> Draw this table as a stacked area chart, and tell me if the axis is misleading.
+
+The agent picks `charts_quick` for a known type or `charts_render` for a full spec, and the PNG comes back for it to
+look at. Every tool is listed under [Tools](#tools).
+
 - **Any chart.** 53 tested chart types:
   - statistical charts, facets, layers, dual axes and selections (Vega-Lite);
   - treemap, sunburst, tree, force network and word cloud (Vega);
@@ -26,23 +53,12 @@ Unofficial; not affiliated with OpenCode or Anomaly.
   - The rendered PNG returned for the model to look at.
 - **Safe.** No URLs, loaders or images. Workspace-confined paths, size and expression caps, and a worker with a time and memory limit.
 
-```json
-{ "plugin": ["@joe-broadhead/opencode-charts"] }
-```
-
-Options (all optional):
-
-```json
-{ "plugin": [["@joe-broadhead/opencode-charts", { "theme": "light", "locale": "en-GB", "outDir": "outputs/charts", "themes": { "acme": { "extends": "light", "colors": { "categorical": ["#0B5FFF", "#FF6A3D", "#00A87E"] } } } }]] }
-```
-
-Options, permissions, limits and errors are in
-[docs/configuration.md](docs/configuration.md).
-
 ## Permissions
 
-**Every tool is allowed by default.** The plugin inserts this block after each agent's base allow rule:
+**Every tool is allowed by default.** The plugin inserts this block after each agent's base allow rule. `access: "all"`
+is the default, so this is the block in force:
 
+<!-- rules:all -->
 ```json
 [
   {"action": "charts_*", "resource": "*", "effect": "allow"},
@@ -56,9 +72,53 @@ Options, permissions, limits and errors are in
   {"action": "charts_theme_save", "resource": "*", "effect": "allow"}
 ]
 ```
+<!-- /rules:all -->
+
+With `access: "ask-changes"`, the five reads run and the three writers ask:
+
+<!-- rules:ask-changes -->
+```json
+[
+  {"action": "charts_*", "resource": "*", "effect": "ask"},
+  {"action": "charts_render", "resource": "*", "effect": "ask"},
+  {"action": "charts_quick", "resource": "*", "effect": "ask"},
+  {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_recommend", "resource": "*", "effect": "allow"},
+  {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
+  {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
+  {"action": "charts_themes", "resource": "*", "effect": "allow"},
+  {"action": "charts_theme_save", "resource": "*", "effect": "ask"}
+]
+```
+<!-- /rules:ask-changes -->
+
+With `access: "read-only"`, the five reads run and the three writers are denied:
+
+<!-- rules:read-only -->
+```json
+[
+  {"action": "charts_*", "resource": "*", "effect": "deny"},
+  {"action": "charts_render", "resource": "*", "effect": "deny"},
+  {"action": "charts_quick", "resource": "*", "effect": "deny"},
+  {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_recommend", "resource": "*", "effect": "allow"},
+  {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
+  {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
+  {"action": "charts_themes", "resource": "*", "effect": "allow"},
+  {"action": "charts_theme_save", "resource": "*", "effect": "deny"}
+]
+```
+<!-- /rules:read-only -->
 
 So a render writes files into the project whenever an agent decides to, with no prompt; each tool still asks the host
-for `read` on a data file and `edit` on its output folder.
+for `read` on a data file and `edit` on its output folder. An output folder outside the project also needs an
+`external_directory` allow, because OpenCode asks for that as well before anything is written:
+
+```json
+{ "permissions": [{ "action": "external_directory", "resource": "/path/to/charts/*", "effect": "allow" }] }
+```
+
+A refusal that names `external_directory` costs nothing: nothing was read and nothing was written.
 
 To restrict, choose one of three:
 
@@ -74,7 +134,8 @@ The last matching rule wins, so a later rule of yours still decides.
 ## Status
 
 `/charts-status` shows the renderers, the defaults, the themes, the skills, the tools the agent can see, any agent
-that would run the writers without asking, the OpenCode version and the next step.
+that is missing the plugin's default block (so the `access` value does not reach it), the OpenCode version and the
+next step.
 
 ## Tools
 
@@ -112,6 +173,38 @@ In a spec, refer to the data as `{"name": "table"}` (or leave `data` out), to ma
 Every error reads `CODE: what happened (at /json/path). Next step: what to do.` The code is also in the tool error's
 metadata.
 
+## Configure
+
+`theme`, `locale`, `outDir`, `themes`, `svgText` and the limits are in
+[docs/configuration.md](docs/configuration.md), with their defaults. A theme saved in the workspace
+(`.charts/themes/<name>.json`) wins over one in this config. `/charts-status` shows the values in force.
+
+## Organisation rollout
+
+A shared `opencode.json` (for example `/etc/opencode/opencode.json` on Linux and
+`/Library/Application Support/opencode/opencode.json` on macOS) pins one `theme`, `outDir` and `themes` set for
+everyone, and `access: "read-only"` stops agents writing files at all:
+
+```json
+{ "plugin": [["@joe-broadhead/opencode-charts", { "theme": "acme", "access": "read-only" }]] }
+```
+
+Charts makes no network call, sends nothing anywhere, and needs no credential, so a rollout has no data egress to
+review.
+
+## Troubleshooting
+
+Run `/charts-status` first: it names the renderers that failed, the next step, and any agent the default block did
+not reach, with the block to paste. A `PNG_UNAVAILABLE` or `HTML_UNAVAILABLE` means the packaged runtime is missing,
+and reinstalling the plugin restores it. A refusal that names `permission.rejected: external_directory` means the
+output folder is outside the project and needs the rule the README's Permissions section gives. Every error code and
+its next step is in [docs/configuration.md](docs/configuration.md#errors).
+
+## Uninstall
+
+`opencode plugin remove @joe-broadhead/opencode-charts`. Rendered charts stay where they were written
+(`outputs/charts` by default), and the plugin leaves no other state.
+
 ## Development
 
 ```bash
@@ -138,3 +231,10 @@ See [DESIGN.md](DESIGN.md) for the design and its evidence, [docs/architecture.m
 it is built, [docs/jelly.md](docs/jelly.md) for Jelly, and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences: Vega and Vega-Lite (BSD-3-Clause), ECharts
 (Apache-2.0), resvg (MPL-2.0), and the fonts (OFL-1.1).
+
+## Links
+
+- [docs/configuration.md](docs/configuration.md), [docs/status.md](docs/status.md), [docs/tool-parity.md](docs/tool-parity.md),
+  [docs/scripting.md](docs/scripting.md), [docs/jelly.md](docs/jelly.md), [docs/architecture.md](docs/architecture.md).
+- [DESIGN.md](DESIGN.md) for the design and its evidence.
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences.

@@ -5,13 +5,16 @@ Charts speaks the family's tools RPC v2: `<plugin id>.tools`, at
 
 ```sh
 # The methods, their classes and the permission each resolves.
-opencode api post /api/rpc/charts.tools/describe -d '{"input":{"sessionID":"<id>"}}'
+opencode api post /api/rpc/charts.tools/describe -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","input":{}}}'
 
 # Draw a chart.
-opencode api post /api/rpc/charts.tools/render -d '{"input":{"sessionID":"<id>","input":{
+opencode api post /api/rpc/charts.tools/render -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","input":{
   "spec":{"mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}}},
   "data":{"path":"data/sales.csv"},"formats":["svg","png"]}}}'
 ```
+
+The envelope is `{"input":{"sessionID":"<id>","input":{…}}}`, with no other key. The session is created for the script
+with an agent (`opencode api post /api/session`, with `data.id` kept).
 
 Each call returns `{ output, text }`: the structured result the model would see, and the text it would read. Images are
 never inlined into a script's result — the files are in the workspace, as for a model's call.
@@ -53,14 +56,28 @@ rule for one method:
 { "action": "charts_render", "resource": "*", "effect": "deny" }
 ```
 
+An output folder outside the project also needs an `external_directory` allow, because OpenCode asks for it as well
+before anything is written: `{ "action": "external_directory", "resource": "<the output folder>/*", "effect": "allow" }`.
+A refusal that names `external_directory` costs nothing: nothing was read and nothing was written.
+
 **A saved approval is not a rule.** An "Always allow" from an earlier interactive session lives outside the agent and
 session rules, so it does not authorize an ad-hoc script. That is deliberate: a script's grant is a rule in config, or
 a session a job creates for it.
 
 ## The location
 
-The RPC runs in the location the request names. Send the header, or the query parameter, so a script in one project does
-not act on another:
+Run the command in the project whose agent you mean, and send the call to that location explicitly:
+
+```sh
+opencode api post /api/rpc/<id>/<method> -H "x-opencode-directory:$PWD" -d '{…}'
+```
+
+Without it the call goes to the service's default location and fails `rpc.unavailable` if the plugin is not loaded
+there. The HTTP equivalents are the `location[directory]` query parameter and the same header. `describe` reports the
+`location` that answered and a `locationHint`.
+
+A location unloads after OpenCode's idle timeout. If a scheduled script gets `rpc.unavailable` from a location that was
+loaded before, send the call again once: the request loads the location. Jobs keeps its own location loaded.
 
 ```sh
 opencode api post /api/rpc/charts.tools/catalogue -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","input":{"id":"line"}}}'

@@ -32,7 +32,9 @@ or a credential.
 tools, so an agent can write chart files into the project, and save a theme, with no prompt. The `access` option
 restricts that in one line (`"ask-changes"` asks for the three writers, `"read-only"` denies them), and a per-tool rule
 does it for one tool. Each tool asserts its own action and the file rules inside `execute`, because the host asserts
-nothing for a plugin tool by itself.
+nothing for a plugin tool by itself. An output folder outside the project needs an `external_directory` allow as well
+(`{ "action": "external_directory", "resource": "/path/to/charts/*", "effect": "allow" }`); a refusal that names it
+costs nothing, because nothing was written.
 
 ## Scripts
 

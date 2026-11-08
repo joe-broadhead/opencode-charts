@@ -32,21 +32,40 @@ type is ignored and its default used.
 
 ## Permissions
 
-The plugin puts a default block right after each agent's base `* * allow` rule:
+The plugin puts a default block right after each agent's base `* * allow` rule. Every tool is allowed by default, and
+so is `charts_*`, so a tool a later version adds runs at once:
 
 ```json
-{ "action": "charts_*", "resource": "*", "effect": "ask" },
-{ "action": "charts_validate", "resource": "*", "effect": "allow" },
-{ "action": "charts_catalogue", "resource": "*", "effect": "allow" },
-{ "action": "charts_themes", "resource": "*", "effect": "allow" }
+[
+  {"action": "charts_*", "resource": "*", "effect": "allow"},
+  {"action": "charts_render", "resource": "*", "effect": "allow"},
+  {"action": "charts_quick", "resource": "*", "effect": "allow"},
+  {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_recommend", "resource": "*", "effect": "allow"},
+  {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
+  {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
+  {"action": "charts_themes", "resource": "*", "effect": "allow"},
+  {"action": "charts_theme_save", "resource": "*", "effect": "allow"}
+]
 ```
 
-So `charts_render`, `charts_quick` and `charts_theme_save`, which write files, ask, and any tool a later version adds
-asks too; the three reads run. Every later rule wins, so your own `permissions` can allow the writers. An agent
-without a base allow gets no block. `/charts-status` lists an agent that would run the writers without asking, with
-the block to paste.
+The `access` option narrows it from each tool's class. `"all"` is the default, as above. `"ask-changes"` makes the
+three that write files — `charts_render`, `charts_quick` and `charts_theme_save` — and any tool a later version adds
+ask, while `charts_validate`, `charts_recommend`, `charts_capabilities`, `charts_catalogue` and `charts_themes` run.
+`"read-only"` denies those four writers and runs the five reads. The README prints the block for each value. Every
+later rule wins, so your own `permissions` can allow or stop one tool. An agent without a base allow gets no block.
+`/charts-status` lists an agent that is missing the block, so neither the default nor the `access` value reaches it,
+with the block to paste.
 
 Each tool also asks for the files it touches: `read` on a data file, `edit` on the output folder or the theme file.
+When the output folder is outside the project, OpenCode asks for `external_directory` on it as well, so allow the
+folder too:
+
+```json
+{ "permissions": [{ "action": "external_directory", "resource": "/path/to/charts/*", "effect": "allow" }] }
+```
+
+A refusal that names `external_directory` costs nothing: nothing was read and nothing was written.
 
 ## Limits
 
