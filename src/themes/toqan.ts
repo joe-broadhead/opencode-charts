@@ -17,7 +17,7 @@ import type { ThemeTokens } from "./tokens.js"
 type Token = { $value: string; $extensions?: { "toqan.modes"?: Record<string, string> } }
 type Tree = { [key: string]: Tree | Token }
 
-export const TOQAN_FAMILY = "Geist"
+const TOQAN_FAMILY = "Geist"
 
 export function toqanThemes(root: string): Record<string, ThemeTokens> {
   const tree = JSON.parse(readFileSync(join(root, "assets", "brand", "toqan-tokens.json"), "utf8")) as Tree

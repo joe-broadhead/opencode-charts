@@ -9,24 +9,27 @@ const root = fileURLToPath(new URL("..", import.meta.url))
 const env = { ...process.env, PATH: `${join(root, "node_modules", ".bin")}${delimiter}${process.env.PATH ?? ""}` }
 
 // The approved package shape. Change it here only together with the release policy.
-const FILES = ["dist", "assets", "skills", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "licenses", "CHANGELOG.md"]
+const FILES = ["dist", "assets", "assets/icon.svg", "assets/icon-128.png", "assets/icon-256.png", "skills", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "licenses", "CHANGELOG.md"]
 const EXPORTS = { ".": "./dist/index.js", "./icon.svg": "./assets/icon.svg", "./icon-128.png": "./assets/icon-128.png", "./icon-256.png": "./assets/icon-256.png" }
 // dist/ holds the plugin, its Vega worker, the PNG rasteriser and the two runtimes inlined into interactive HTML.
 const DIST = ["browser", "index.js", "resvg.wasm", "vega-worker.js"]
 // The supported OpenCode line. The host provides @opencode/plugin, so the package declares no peers.
-const HOST_RANGE = ">=2.2.5 <2.3.0"
+const HOST_RANGE = ">=2.2.3 <2.3.0"
 const HOST_DEV_PIN = "2.2.5"
 const ABSENT_FIELDS = ["dependencies", "optionalDependencies", "bundleDependencies", "bundledDependencies", "peerDependencies", "peerDependenciesMeta", "engines", "overrides"]
 const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "preprepare", "prepare", "postprepare", "prepublish", "prepublishOnly", "prepack", "postpack", "publish", "postpublish"]
 
 const stages = {
-  typecheck: () => run("tsc", ["-p", "tsconfig.json"]),
+  // The tests import dist/, so the build comes first: a fresh clone must pass.
   build: () => run("node", ["scripts/build.mjs"]),
+  typecheck: () => run("tsc", ["-p", "tsconfig.json"]),
   // The unit suites are the files directly in test/; test/pack packs and installs the package, so it is its own stage.
   unit: () => run("bun", ["test", ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`)]),
   copies: () => run("node", ["scripts/check-copies.mjs"]),
   icons: () => run("node", ["scripts/check-icons.mjs"]),
   whitelist,
+  jelly: () => run("node", ["scripts/jelly-check.mjs"]),
+  actionlint,
   pack: () => run("bun", ["test", "./test/pack"]),
   // The evals: every catalogue example renders to a checked picture, and the advice passes its gates against the
   // committed baseline. Both are deterministic and need no model.
@@ -61,6 +64,16 @@ function run(command, args, options = {}) {
   }
   if (result.error) throw result.error
   return result.status ?? 1
+}
+
+/** R13: the workflows are linted as workflows, by actionlint when it is installed; a notice when it is not. */
+function actionlint() {
+  const probe = spawnSync("actionlint", ["-version"], { encoding: "utf8" })
+  if (probe.error?.code === "ENOENT") {
+    console.log("[check] actionlint: not installed; skipped (install it to lint the workflows)")
+    return 0
+  }
+  return run("actionlint", [".github/workflows/ci.yml", ".github/workflows/release.yml"])
 }
 
 function whitelist() {
