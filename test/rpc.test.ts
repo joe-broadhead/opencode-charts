@@ -3,7 +3,7 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { ROOT, workspace } from "./helpers.js"
 import { ChartsError } from "../src/errors.js"
-import { pluginError } from "../src/host/tools-rpc.js"
+import { pluginError, TOOLS_RPC_ID } from "../src/host/tools-rpc.js"
 
 /**
  * The tools RPC: `<plugin id>.tools`, with every tool a method and a class, callable with no model.
@@ -21,6 +21,7 @@ interface Registration {
 const ws = workspace()
 const asserts: { action: string; resources: string[] }[] = []
 let registration: Registration | undefined
+const registrations = new Map<string, Registration>()
 let cleanup: (() => Promise<void>) | undefined
 
 const context = { signal: new AbortController().signal, error: (type: string, message: string, data: unknown) => ({ type, message, data }) }
@@ -43,9 +44,12 @@ beforeAll(async () => {
     tool: { transform: async (fn: (editor: unknown) => void) => fn({ namespace: () => undefined, add: () => undefined }), list: async () => [] },
     skill: { transform: async (fn: (editor: unknown) => void) => fn({ add: () => undefined }), list: async () => ({ data: [] }) },
     rpc: {
+      // Both RPCs are registered: the tools RPC and the status RPC. Keep them by id.
       register: async (contract: unknown, handlers: unknown) => {
-        registration = { contract: contract as Registration["contract"], handlers: handlers as Registration["handlers"] }
-        return { dispose: async () => { registration = undefined } }
+        const id = (contract as { id: string }).id
+        registrations.set(id, { contract: contract as Registration["contract"], handlers: handlers as Registration["handlers"] })
+        if (id === TOOLS_RPC_ID) registration = registrations.get(id)
+        return { dispose: async () => { registrations.delete(id) } }
       },
     },
   }

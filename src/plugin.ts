@@ -8,12 +8,14 @@ import { registerChartsRpc } from "./host/rpc.js"
 import { formatFailure, isChartsError } from "./errors.js"
 import type { Access } from "./permissions.js"
 import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
-import { buildStatus, commandTransform } from "./status.js"
+import { registerStatusRpc } from "./status-rpc.js"
+import { buildStatus, commandTransform, formatStatus } from "./status.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, runTool, type ToolName } from "./tools.js"
 import { descriptor } from "./registry.js"
 import type { ThemeOverrides } from "./themes/tokens.js"
 
-export const PLUGIN_ID = "charts"
+export { PLUGIN_ID } from "./constants.js"
+import { PLUGIN_ID } from "./constants.js"
 export const SKILLS = ["charts", "charts-cookbook"] as const
 
 /** Plugin options (opencode.json `plugin` entry options). */
@@ -119,8 +121,11 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
       // The tools RPC: every tool, callable by a script with no model, with each method's class from the registry.
       const stopRpc = await registerChartsRpc(ctx as never, { ctx, env: toolEnv, version })
       await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), status }))
+      // The status RPC: the same model the command prints, so the dialog and a script read one source.
+      const stopStatus = await registerStatusRpc(ctx.rpc, status, formatStatus)
       await ctx.skill.transform(editor => { for (const skill of skills) editor.add(skill as never) })
       return async () => {
+        await stopStatus()
         await stopRpc()
         await closeVegaWorker()
       }

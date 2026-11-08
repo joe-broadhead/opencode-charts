@@ -1,7 +1,7 @@
 import type { Plugin } from "@opencode/plugin"
 import { Rpc } from "@opencode/plugin/rpc"
-import { PLUGIN_ID } from "./plugin.js"
-import { formatStatus, type StatusView } from "./status.js"
+import { PLUGIN_ID } from "./constants.js"
+import type { StatusView } from "./status.js"
 
 const string = { type: "string" } as const
 
@@ -13,7 +13,7 @@ export const ChartsStatus = Rpc.define({
       input: { type: "object" },
       output: {
         type: "object",
-        required: ["version", "host", "state", "unguardedAgents", "nextStep"],
+        required: ["version", "host", "state", "unguardedAgents", "nextStep", "text"],
         properties: {
           version: string,
           host: {
@@ -24,6 +24,8 @@ export const ChartsStatus = Rpc.define({
           state: { enum: ["ready", "failed"] },
           unguardedAgents: { type: "array", items: string },
           nextStep: string,
+          /** The report as `/charts-status` prints it, so the dialog needs no copy of the status model. */
+          text: string,
           png: { type: ["string", "null"] },
           html: { type: ["string", "null"] },
           defaults: { type: "object" },
@@ -44,17 +46,15 @@ export type ChartsStatusRpc = typeof ChartsStatus
 export function registerStatusRpc(
   rpc: Pick<Plugin.Context["rpc"], "register">,
   status: () => Promise<StatusView>,
+  format: (view: StatusView) => string,
 ) {
   return rpc.register(ChartsStatus, {
     status: async (_input, { error }) =>
-      status().catch((cause: unknown) => {
+      status().then((view) => ({ ...view, text: format(view) })).catch((cause: unknown) => {
         const reason = cause instanceof Error ? cause.message : String(cause)
         return error("unavailable", `STATUS_UNAVAILABLE: Charts status could not be read. Next step: Run /charts-status again, or check the OpenCode server log.`, {
           nextStep: `Run /charts-status again, or check the OpenCode server log (${reason.slice(0, 160)}).`,
         })
       }),
-  })
+  }).then((registration: { dispose: () => Promise<void> | void }) => async () => void (await registration.dispose()))
 }
-
-/** What the dialog shows: the report without its heading, which the dialog's title carries. */
-export const statusText = (view: StatusView) => formatStatus(view).split("\n").slice(1).join("\n")

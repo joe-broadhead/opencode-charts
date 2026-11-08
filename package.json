@@ -23,6 +23,7 @@
   "type": "module",
   "exports": {
     ".": "./dist/index.js",
+    "./tui": "./dist/tui.js",
     "./icon.svg": "./assets/icon.svg",
     "./icon-128.png": "./assets/icon-128.png",
     "./icon-256.png": "./assets/icon-256.png"
@@ -89,6 +90,7 @@
     "hyparquet": "1.32.0",
     "hyparquet-writer": "0.18.0",
     "i18n-iso-countries": "7.14.0",
+    "solid-js": "1.9.17",
     "typescript": "5.9.3",
     "us-atlas": "3.0.1",
     "vega": "6.4.0",
