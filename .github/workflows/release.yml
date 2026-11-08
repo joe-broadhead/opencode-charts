@@ -60,6 +60,16 @@ jobs:
       - name: Require npm 11.5.1 or later for trusted publishing
         run: node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); if (a < 11 || (a === 11 && (b < 5 || (b === 5 && c < 1)))) { console.error("::error::npm " + process.argv[1] + " cannot use trusted publishing."); process.exit(1) }' "$(npm --version)"
       - run: npm ci --ignore-scripts
+      # The stock binaries the host stage spawns, so the release's check runs every tested release (R11).
+      - name: Stock OpenCode binaries
+        run: |
+          platform="$(node -p 'process.platform')-$(node -p 'process.arch')"
+          for version in 2.2.3 2.2.4 2.2.5 2.2.6; do
+            dir="$RUNNER_TEMP/stock-$version"
+            mkdir -p "$dir"
+            (cd "$dir" && npm init -y >/dev/null && npm install "@opencode/cli@$version" "@opencode/cli-$platform@$version" --omit=optional --ignore-scripts --no-audit --no-fund)
+            echo "OPENCODE_BIN_${version//./_}=$dir/node_modules/@opencode/cli-$platform/bin/opencode" >> "$GITHUB_ENV"
+          done
       - run: npm run check
       - name: Pack the checked tree
         run: npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"

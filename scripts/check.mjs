@@ -26,6 +26,7 @@ const stages = {
   // The unit suites are the files directly in test/; test/pack packs and installs the package, so it is its own stage.
   unit: () => run("bun", ["test", ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`)]),
   copies: () => run("node", ["scripts/check-copies.mjs"]),
+  forbidden: () => run("node", ["scripts/check-forbidden.mjs"]),
   icons: () => run("node", ["scripts/check-icons.mjs"]),
   whitelist,
   jelly: () => run("node", ["scripts/jelly-check.mjs"]),

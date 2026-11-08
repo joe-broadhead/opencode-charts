@@ -16,9 +16,14 @@ This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode 
 - **Bundles.** `npm run build` writes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm` and `dist/browser/*`,
   and regenerates THIRD_PARTY_NOTICES.md and `licenses/packages/`. Outputs import only `node:` builtins and
   `@opencode/plugin`.
-- **Checks.** `npm run check` is the one command (see CONTRIBUTING.md). Do not skip or weaken a stage to get green.
+- **Checks.** `npm run check` is the one command (see CONTRIBUTING.md): `build`, `typecheck`, `unit`, `copies`,
+  `forbidden`, `icons`, `whitelist`, `jelly`, `actionlint`, `pack`, `evals` and `host`. Do not skip or weaken a stage to
+  get green.
 - **Permissions.** Every tool is allowed by default; `src/permissions.ts` generates the block from the tool table and
   the `access` option, and `test/jelly.test.ts` keeps the Jelly declaration equal to it.
 - **Shared copies.** `test/support/jelly-kit.ts` and `scripts/check-icons.mjs` are the family's; never edit them here.
+- **Forbidden.** V1 plugin APIs and hooks (`@opencode-ai/*`, `tool.execute.*`, `permission.ask`), `@opencode/ai`
+  imports, a shell, private host source, another checkout's worktree, machine-local paths, and internal wording (who
+  decided something, a lead, a team lane). `scripts/check-forbidden.mjs` is the list, and it runs in `npm run check`.
 - **Releases.** One `## [x.y.z] - date` CHANGELOG entry per release; a release is a `v<version>` tag on `master`.
 - **Commits.** `type(scope): summary`.

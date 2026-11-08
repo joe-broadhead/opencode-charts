@@ -50,6 +50,16 @@ jobs:
         with:
           bun-version: 1.4.4 # the Bun inside stock OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6
       - run: npm ci --ignore-scripts
+      # The stock binaries the host stage spawns, so every tested release really runs in CI (R11).
+      - name: Stock OpenCode binaries
+        run: |
+          platform="$(node -p 'process.platform')-$(node -p 'process.arch')"
+          for version in 2.2.3 2.2.4 2.2.5 2.2.6; do
+            dir="$RUNNER_TEMP/stock-$version"
+            mkdir -p "$dir"
+            (cd "$dir" && npm init -y >/dev/null && npm install "@opencode/cli@$version" "@opencode/cli-$platform@$version" --omit=optional --ignore-scripts --no-audit --no-fund)
+            echo "OPENCODE_BIN_${version//./_}=$dir/node_modules/@opencode/cli-$platform/bin/opencode" >> "$GITHUB_ENV"
+          done
       - run: npm run check
       # The build regenerates THIRD_PARTY_NOTICES.md and licenses/; both are committed, so they must not change.
       - name: The generated files are committed

@@ -11,8 +11,9 @@ Node 24 and Bun 1.4.4 are what CI uses. `npm ci` is enough for every stage; no o
 
 ## The one command
 
-`npm run check` runs, in order: `build`, `typecheck`, `unit`, `copies`, `icons`, `whitelist`, `pack`, `evals`, `host`,
-`jelly` and `actionlint`. It is the gate for every commit: never skip, weaken or delete a stage to get a green run.
+`npm run check` runs, in order: `build`, `typecheck`, `unit`, `copies`, `forbidden`, `icons`, `whitelist`, `jelly`,
+`actionlint`, `pack`, `evals` and `host`. It is the gate for every commit: never skip, weaken or delete a stage to
+get a green run.
 
 - `build` writes `dist/`: the plugin, its Vega worker, the PNG rasteriser and the two browser runtimes.
 - `unit` is every `test/*.test.ts`. `pack` installs the tarball into a temp project and runs it there.
