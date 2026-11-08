@@ -98,7 +98,7 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
             // that carries `output` from a tool that declares none. The schema is the registry's, which the tools RPC
             // validates the same result against.
             output: descriptor(name).output,
-            options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}`, ...(name === "render" || name === "quick" ? { pinned: true } : {}) },
+            options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}` },
             execute: async (input: unknown, context: { sessionID: string; agent: string; messageID: string; id: string }) => {
               const assert = (action: string, resources: readonly string[]) =>
                 ctx.permission.assert({ sessionID: context.sessionID, agent: context.agent, source: { type: "tool", messageID: context.messageID, id: context.id }, action, resources: [...resources], save: ["*"] } as never)

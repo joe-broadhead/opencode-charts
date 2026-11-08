@@ -38,6 +38,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- The Code Mode catalogue no longer pins `charts_quick` or `charts_render`. Their signatures are large; the charts skill holds the workflow, and `search({ namespace: "charts", query })` finds a tool.
+
 - **Every tool is allowed by default.** The plugin inserts one `allow` rule for `charts_*` and one for each of the
   eight tools after every agent's base rule, so a render writes chart files into the workspace and a theme is saved
   with no prompt, and a tool a later release adds runs at once. An agent's own rules, your `permissions` and a saved
