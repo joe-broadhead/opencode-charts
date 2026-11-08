@@ -33,5 +33,5 @@ here, as they require.
     (`research/16-research-agent-generative-ui.md` §3–§4).
   - `src/themes/palette.ts` — series colours spread so neighbours differ, derived in OKLCH from the theme's own
     lightness and chroma, and label ink taken from the fill's lightness (`crates/rune-mermaid/src/chart.rs`).
-  - `docs/architecture.md` — the exact lane and the tolerance lane for determinism
+  - `docs/architecture.md` — the exact and the within-tolerance determinism promise
     (`research/14-research-determinism-verification.md` §1–§2).

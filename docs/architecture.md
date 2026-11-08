@@ -42,9 +42,9 @@ folder, then runs `runTool` (`src/tools.ts`):
 The result is text for the model (what it shows, the files, the warnings, a markdown image line) and, when there is
 something to look at, the PNG itself.
 
-## Determinism, in two lanes
+## Determinism, two ways
 
-The promise has an exact lane and a tolerance lane, and they are not the same claim (after Rune's
+The promise has two forms, exact and within a tolerance, and they are not the same claim (after Rune's
 `research/14-research-determinism-verification.md` §1–§2):
 
 - **Exact**: SVG and PNG are byte-identical for the same call on the same platform, warm worker or cold. Ids are
@@ -54,7 +54,7 @@ The promise has an exact lane and a tolerance lane, and they are not the same cl
   map projections) can differ in the last digits. The golden test is byte-exact where the goldens were made and equal
   to 10 significant digits elsewhere, and its failure names the first differing file.
 
-`charts_capabilities` returns both lanes, so a caller can depend on the one it needs.
+`charts_capabilities` returns both, so a caller can depend on the one it needs.
 
 ## The registry
 

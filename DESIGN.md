@@ -71,17 +71,17 @@ The plugin is MCP-free: an OpenCode plugin's own tools need no server process. T
 
 ## 3. Jelly's contract
 
-From `hey-jelly-wt/integrate`.
+From hey-jelly's plugin contract.
 
 - **Declaration.**
   - `protocol/contracts/src/plugin-contract.ts` `PluginDeclarationSchema`: `title` (≤60), `tools[] {name, permission, effect, readOnly}`, `skills`, `rpc`, `views`, `signIns`, `contributes`. It is `.strict()`, so unknown keys are refused.
-  - `summary` and `icon` are not in this checkout's schema yet; lane DESIGN is adding them.
+  - `summary` and `icon` are not in this checkout's schema yet; a later contract version adds them.
   - The owner's plugins already declared them on their `jelly` branches (now merged into each default branch), and so does this one: `jelly.summary` is "Charts, maps and diagrams…" and `jelly.icon` is `assets/icon.svg`, a clean SVG of `rect`, `path` and `circle` only, checked by `test/plugin.test.ts`.
   - **Jelly hard-codes nothing:** the title, summary and icon all come from the package.
 - **Sign-ins.** `plugin-sign-ins.ts`: none declared (`signIns: []`).
 - **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `catalogue` and `themes` are `readOnly: true` and `allow`, and `render`, `quick` and `theme_save` (which write files) are not read-only and are `ask`, as the plugin authors' standard requires of every local file write. The plugin's own default block (`src/permissions.ts`) gives the same effects in plain OpenCode, and each call asserts its own action so an `ask` prompts.
 - **Saved files.** Jelly's `jelly_file_save` (called `jelly_artifact_save` until Jelly's rd266) reaches the host through the `jelly.core` RPC, which only Jelly's first-party plugin family can use. **A third-party plugin cannot save a file itself.** It does not need to: `docs/architecture/protocol.md` ("A file the agent wrote under `outputs/` in its workspace is kept when the turn settles") makes every file under `outputs/charts/` a saved file. The tool result also says how to save one now: "save it with your host's file-saving tool (in Jelly: `jelly_file_save` with the path)". OpenCode 2.2.5 has `ctx.experimental.artifact`, but the owner's plugins forbid it (utilities `AGENTS.md` Forbidden list), and Jelly's saved files are Jelly's own.
-- **Inline display.** Lane RENDER is adding workspace images by markdown, and sandboxed self-contained HTML with no network.
+- **Inline display.** Workspace images by markdown and sandboxed self-contained HTML with no network are planned; this version ships the PNG and the SVG.
   - Every result carries `markdown: "![title](outputs/charts/<name>.png)"`. The PNG is pixel-exact everywhere; SVG text depends on the viewer's fonts unless `svgText: "paths"` or `"embed"` is used.
   - The HTML has a CSP of `default-src 'none'`, inlined runtimes and data-URL fonts, and the static SVG as its first paint, so a frame that runs no script still shows the chart.
 
@@ -182,8 +182,8 @@ Rejected:
   - Series 1 and 2 are `colour.viz.series-1/2` (blue/700, blue/500), then the coral and blue scales.
   - Neutrals are paper, ink and night only; Geist is used throughout, Medium at most; there are no gradients or shadows.
   - Text is ink, never coral/500 on a light ground.
-  - `toqan-night` draws directly on night with paper text. The token file sets `viz.ground` to ochre in night mode too, which suits a chart *panel* on a night slide. **Lane TOQAN should confirm which one night charts want**; both are one token away.
-  - Season Mix is not bundled; that waits for lane TOQAN's licence check.
+  - `toqan-night` draws directly on night with paper text. The token file sets `viz.ground` to ochre in night mode too, which suits a chart *panel* on a night slide. **Which one night charts want is unconfirmed**; both are one token away.
+  - Season Mix is not bundled: its licence is unconfirmed.
 - **Custom themes.** Tokens over any base with `"extends"`, inline per chart, saved by name (`charts_theme_save` writes `.charts/themes/<name>.json`) or set in the plugin's options (`themes: {name: tokens}`). A theme can add workspace `.ttf`/`.otf` files with `font.files`; they are measured and drawn like the bundled fonts.
 - **Colour tokens in specs.** Any string `"theme:<token>"` in a spec (for example `"theme:negative"` or `"theme:categorical.2"`) becomes the active theme's colour, so a spec stays on-brand in every theme.
 
@@ -241,7 +241,7 @@ Structured `output` carries the same, for scripts. A `file` part carries the PNG
 
 The `charts` skill tells the agent:
 - **Use the plugin** for standard charts, anything that must match a theme or brand, and anything that should be checked.
-- **Use Python on the machine** (matplotlib, seaborn, plotly; lane AGENTWORK is adding them) for bespoke analysis figures, for plots that come out of a processing script, or for library-only features.
+- **Use Python on the machine** (matplotlib, seaborn, plotly; a later version adds them) for bespoke analysis figures, for plots that come out of a processing script, or for library-only features.
 
 Both write to `outputs/`, so both become saved files the same way.
 

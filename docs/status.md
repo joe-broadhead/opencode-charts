@@ -30,7 +30,7 @@ would go stale, the tool is the source of truth.
   fake DOM and a partial bundle, which is a second engine; Mermaid needs a layout engine. All three are recorded as
   deliberate omissions, not gaps nobody noticed.
 - **Interactive HTML differs from the SVG by a pixel or two of text layout.** The browser measures text its own way;
-  the SVG, the PNG and the figure tree are the exact lane.
+  the SVG, the PNG and the figure tree carry the exact promise.
 - **The word cloud places horizontal and vertical words only** (the deterministic replacement for Vega's canvas
   transform).
 - **A palette distinguishes up to 20 series.** Past a theme's published colours the rest are generated: measured to at
