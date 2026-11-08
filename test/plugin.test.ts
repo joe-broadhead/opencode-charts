@@ -135,6 +135,21 @@ describe("the default rules", () => {
     expect(agents[0]!.permissions).toEqual(block)
     expect(agents[1]!.permissions).toHaveLength(2)
   })
+
+  // R18, the namespace amendment: the `charts_*` pattern is first in the block, so a tool this version does not know is
+  // decided by it: allowed under `all`, asked for under `ask-changes`, denied under `read-only`.
+  test("a charts_* name the tool table does not list takes the value's effect", () => {
+    const names = new Set(Object.keys(TOOLS).map(name => `charts_${name}`))
+    expect(names.has("charts_tool_from_a_later_release")).toBe(false)
+    expect(defaultRules("all")[0]).toEqual({ action: "charts_*", resource: "*", effect: "allow" })
+    expect(defaultRules("ask-changes")[0]).toEqual({ action: "charts_*", resource: "*", effect: "ask" })
+    expect(defaultRules("read-only")[0]).toEqual({ action: "charts_*", resource: "*", effect: "deny" })
+    for (const [access, effect] of [["all", "allow"], ["ask-changes", "ask"], ["read-only", "deny"]] as const) {
+      // The host's own resolution: the last matching rule wins, and `*` matches any run of characters.
+      const winner = [...defaultRules(access)].reverse().find(rule => new RegExp(`^${rule.action.replace(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*")}$`).test("charts_tool_from_a_later_release"))
+      expect({ access, effect: winner?.effect }).toEqual({ access, effect })
+    }
+  })
 })
 
 describe("/charts-status", () => {
