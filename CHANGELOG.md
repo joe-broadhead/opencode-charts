@@ -29,11 +29,18 @@ All notable changes to this project are documented in this file. The format foll
 - Every tool declares its output schema, and it is a real one: the registry's, projected to the model path and to the
   tools RPC, which validates each script's result against it. This keeps 0.0.3's fix — OpenCode 2.2.5 fails a result
   from a tool that declares no output — and makes the declaration checkable, with no `pattern` (the shared module's
-  rule for an owned output schema). A host case on 2.2.3, 2.2.4 and 2.2.5 calls all eight tools and asserts every
+  rule for an owned output schema). A host case on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 calls all eight tools and asserts every
   result is accepted.
 
 ### Changed
 
+- **Every tool is allowed by default.** The plugin inserts one `allow` rule for `charts_*` and one for each of the
+  eight tools after every agent's base rule, so a render writes chart files into the workspace and a theme is saved
+  with no prompt, and a tool a later release adds runs at once. An agent's own rules, your `permissions` and a saved
+  approval still win.
+- **The `access` option** restricts that in one line: `"all"` (the default), `"ask-changes"` (the five reads run, the
+  three writers ask) and `"read-only"` (the five reads run, the three writers are denied). The README prints the block
+  for each value, and `/charts-status` shows the one in force.
 - **A categorical palette that never runs out.** A theme's published colours stay first; past them, hues are generated
   in OKLCH at the theme's own lightness and chroma, held to a minimum perceptual distance, so 12 series in `light` no
   longer repeat a colour. `print` and `high-contrast` are not extended: their constraint is what they are for.
@@ -45,7 +52,6 @@ All notable changes to this project are documented in this file. The format foll
   (`anomalyco/rune`, MIT). No source file was copied; `NOTICE` records what was adapted, from which commit, and under
   which licence.
 - The shared tools RPC module is v2.1 (`57377eb3…`), and `scripts/check-copies.mjs` pins that hash.
->>>>>>> 3a5ac75 (feat(rpc): the tools RPC v2.1, so every tool is scriptable with no model)
 
 ## [0.0.3] - 2026-11-07
 
