@@ -23,6 +23,10 @@ All notable changes to this project are documented in this file. The format foll
 - `FONT_GLYPH_MISSING`: a label using a code point no bundled face draws is named, with the characters and the fix,
   instead of silently becoming a blank box.
 - `docs/tool-parity.md`, `docs/status.md`.
+- **One typed code table**: `ChartsCode` in `src/errors.ts` is every failure and every issue code the plugin can
+  return, and the README's and `docs/configuration.md`'s error tables now list them all — the validation and lint
+  issue codes included. `test/codes.test.ts` fails when a code is raised that is not in the table, or either table
+  differs from it.
 
 ### Fixed
 

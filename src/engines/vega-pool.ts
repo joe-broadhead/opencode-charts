@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { Worker } from "node:worker_threads"
-import { ChartsError } from "../errors.js"
+import { ChartsError, type ChartsCode } from "../errors.js"
 import type { FontBook } from "../fonts.js"
 import type { Json } from "./common.js"
 import { renderVegaInProcess, type VegaRender } from "./vega-render.js"
@@ -34,7 +34,7 @@ function spawn(): Worker | undefined {
   if (!url) return undefined
   const w = new Worker(url, { resourceLimits: { maxOldGenerationSizeMb: 256 } })
   w.unref()
-  w.on("message", (message: { id: number; rows?: unknown[]; svg?: string; width?: number; height?: number; warnings?: string[]; error?: { code: string; detail: string; hint: string; path?: string }; needFonts?: boolean }) => {
+  w.on("message", (message: { id: number; rows?: unknown[]; svg?: string; width?: number; height?: number; warnings?: string[]; error?: { code: ChartsCode; detail: string; hint: string; path?: string }; needFonts?: boolean }) => {
     const job = pending.get(message.id)
     if (!job) return
     if (message.needFonts) { sentFonts = ""; job.retry(); return }
