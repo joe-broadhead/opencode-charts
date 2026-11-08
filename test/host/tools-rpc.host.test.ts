@@ -1,4 +1,4 @@
-// Host tests for the tools RPC, on the isolated stock binaries 2.2.3, 2.2.4 and 2.2.5.
+// Host tests for the tools RPC, on the isolated stock binaries in TESTED_HOSTS: 2.2.3 to 2.2.6.
 //
 // These are the tests the unit suite cannot be: the permission rules are the host's, the session is the host's, and the
 // plugin is installed from the built package rather than called through a fake context. The plugin is loaded only in

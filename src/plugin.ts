@@ -104,7 +104,7 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
                 ctx.permission.assert({ sessionID: context.sessionID, agent: context.agent, source: { type: "tool", messageID: context.messageID, id: context.id }, action, resources: [...resources], save: ["*"] } as never)
               const assertFiles = async (action: "read" | "edit", resources: readonly string[]) => { await assert(action, resources) }
               const env = { ...toolEnv, assertFiles }
-              // The tool's own action first, on every call: the default rules make the three that write ask.
+              // The tool's own action first, on every call: every tool is allowed by default, and access or a rule can narrow it.
               await assert(permissionOf(name), ["*"])
               try {
                 const result = await runTool(env, name, input)

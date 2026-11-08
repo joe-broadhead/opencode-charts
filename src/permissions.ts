@@ -2,9 +2,10 @@ import type { Plugin } from "@opencode/plugin"
 import { NAMESPACE, TOOLS, type ToolName } from "./tools.js"
 
 /**
- * The default permission block. `ctx.agent.transform` inserts it right after each agent's base `* * allow`: the three
- * tools that only read run without a prompt, and everything else under `charts_*` asks, which is the three that write
- * files in the workspace (`charts_render`, `charts_quick`, `charts_theme_save`) and any tool a later version adds.
+ * The default permission block. `ctx.agent.transform` inserts it right after each agent's base `* * allow`: every tool
+ * is allowed by default, the five that only read and the three that write files in the workspace (`charts_render`,
+ * `charts_quick`, `charts_theme_save`) alike, and so is `charts_*`, so a tool a later version adds runs at once. The
+ * `access` option narrows that from each tool's class.
  * Every later rule (agent denies, the user's `permissions`, saved approvals) still wins, because the last match wins.
  * Each tool also asserts its own action on every call, so an `ask` rule prompts: the host itself only hides a plugin
  * tool on a deny. The file rules (`read` on a data file, `edit` on the output folder) are asserted as well.
