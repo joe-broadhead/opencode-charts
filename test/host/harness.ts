@@ -12,14 +12,14 @@ import { randomBytes, randomUUID } from "node:crypto"
 
 /** The versions the family tests. A missing binary skips that version with a line in the test output. */
 export const TESTED_HOSTS = ["2.2.3", "2.2.4", "2.2.5", "2.2.6"] as const
-const STOCK = "/private/var/folders/yj/xc5d3w1x3nv91lqg4nhs11ww0000gn/T/opencode"
 const QA = join(process.env.HOME ?? "", "opencode-release/qa/stock")
+const platform = `@opencode/cli-${process.platform}-${process.arch}`
 
+/** Every stock binary's path: the environment first, then the machine's pinned copies. */
 export function binary(version: string): string {
   const override = process.env[`OPENCODE_BIN_${version.replaceAll(".", "_")}`]
   if (override) return override
-  if (version === "2.2.5") return join(QA, "2.2.5", "node_modules/@opencode/cli-darwin-arm64/bin/opencode")
-  return join(STOCK, `stock-opencode-${version}`, "node_modules/@opencode/cli-darwin-arm64/bin/opencode")
+  return join(QA, version, "node_modules", platform, "bin", "opencode")
 }
 
 export const available = (version: string) => existsSync(binary(version))

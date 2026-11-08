@@ -3,9 +3,9 @@
 The state of this tree, measured against what the plugin claims. It is written to be read by someone deciding whether
 to depend on it, so it names what does not work as carefully as what does.
 
-Last measured: 2026-11-07, on `feat/clearsight-rune-ideas` rebased onto `master` `68e2599` (Charts 0.0.3), macOS
-arm64, Node 22.23.2, Bun 1.4.3. The overlap, clipping and font coverage figures come from the catalogue's own examples, rendered by
-`test/output.test.ts`; the capability rows are what `charts_capabilities` returns for this build.
+The overlap, clipping and font-coverage figures come from the catalogue's own examples, rendered by
+`test/output.test.ts`; the capability rows are what `charts_capabilities` returns for a build. Where a number here
+would go stale, the tool is the source of truth.
 
 ## Shipped
 
@@ -41,14 +41,14 @@ arm64, Node 22.23.2, Bun 1.4.3. The overlap, clipping and font coverage figures 
   covers 59 locales.
 - **The recommendation's draft is a draft.** For the types a builder covers it runs on the caller's own columns; for
   the rest it is the catalogue's example, labelled as such. It is never rendered before it is returned.
-- **The tools RPC requires an allow rule for the three writers.** A script renders only as a session whose agent
-  allows `charts_render`; an "Always allow" from an interactive session does not authorize a script. Deliberate.
-- **Host support is declared `>=2.2.5 <2.3.0`.** The plugin's own host suite in this branch runs on 2.2.5.
+- **The tools RPC follows the same default.** Every method is allowed, so a script renders without a prompt; `access:
+  "read-only"` denies the three writers, and a saved "Always allow" from an interactive session does not authorize a
+  script.
+- **Host support is `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.** The host suite runs on every one.
 
 ## Decisions that are not gaps
 
-Four things are decided, not pending. They were ruled on 2026-11-07 under the owner's standing authority, and the same
-words are in `~/opencode-charts-design/IMPROVEMENTS.md`.
+These are decisions, not gaps: each is deliberate, and `charts_capabilities` reports the same list.
 
 - **CJK fonts are not in the main package.** If they are wanted later, they go in an optional fonts package, the
   family's optional-package pattern. Until then `charts_capabilities` states the coverage honestly — Latin, Greek and
@@ -56,8 +56,7 @@ words are in `~/opencode-charts-design/IMPROVEMENTS.md`.
 - **PDF is deferred**, because it would be the first runtime dependency. `capabilities.formats` does not advertise it.
 - **Mermaid is deferred.** Rune's `crates/rune-mermaid` is the reference for a DOM-free layout later; Mermaid input is
   refused today, and the refusal is stated rather than hidden.
-- **`opencode.host` stays `>=2.2.5 <2.3.0`.** The host suite now runs on 2.2.3 and 2.2.4 as well, so widening it is
-  recommended to hey-jelly with that evidence; the published range is theirs to release.
+- **`opencode.host` is `>=2.2.3 <2.3.0`**, the family's line, and the host suite proves every tested release.
 
 ## How this page is kept true
 

@@ -1,9 +1,17 @@
-# opencode-charts
+# Charts for OpenCode
 
-Unofficial OpenCode plugin: deterministic, themed charts from a spec. It takes Vega-Lite, Vega or ECharts in, and
+Deterministic, themed charts from a spec, with no model and no network. It takes Vega-Lite, Vega or ECharts in, and
 writes SVG, PNG (1–3x) and an optional offline interactive HTML page under `outputs/charts/`. The same input gives
 the same bytes on the same platform, and the same picture on any: across platforms a coordinate can differ only in
 its last digits. Nothing is ever loaded from the network.
+
+Unofficial; not affiliated with OpenCode or Anomaly.
+
+## Requirements
+
+- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
+- macOS or Linux.
+- No network, no system fonts and no provider: every render is local and deterministic.
 
 - **Any chart.** 53 tested chart types:
   - statistical charts, facets, layers, dual axes and selections (Vega-Lite);
@@ -18,26 +26,50 @@ its last digits. Nothing is ever loaded from the network.
   - The rendered PNG returned for the model to look at.
 - **Safe.** No URLs, loaders or images. Workspace-confined paths, size and expression caps, and a worker with a time and memory limit.
 
-## Install
-
 ```json
-{ "plugin": ["@joe-broadhead/opencode-charts@0.0.2"] }
+{ "plugin": ["@joe-broadhead/opencode-charts"] }
 ```
 
 Options (all optional):
 
 ```json
-{ "plugin": [["@joe-broadhead/opencode-charts@0.0.2", { "theme": "light", "locale": "en-GB", "outDir": "outputs/charts", "themes": { "acme": { "extends": "light", "colors": { "categorical": ["#0B5FFF", "#FF6A3D", "#00A87E"] } } } }]] }
+{ "plugin": [["@joe-broadhead/opencode-charts", { "theme": "light", "locale": "en-GB", "outDir": "outputs/charts", "themes": { "acme": { "extends": "light", "colors": { "categorical": ["#0B5FFF", "#FF6A3D", "#00A87E"] } } } }]] }
 ```
 
-The host range is `>=2.2.5 <2.3.0`. Options, permissions, limits and errors are in
+Options, permissions, limits and errors are in
 [docs/configuration.md](docs/configuration.md).
 
 ## Permissions
 
-The three tools that write files (`charts_render`, `charts_quick`, `charts_theme_save`) ask before they run, and the
-five that only read run without asking: the plugin puts that default block after each agent's base allow rule, and
-your own `permissions` can change it. Each tool also asks for `read` on a data file and `edit` on its output folder.
+**Every tool is allowed by default.** The plugin inserts this block after each agent's base allow rule:
+
+```json
+[
+  {"action": "charts_*", "resource": "*", "effect": "allow"},
+  {"action": "charts_render", "resource": "*", "effect": "allow"},
+  {"action": "charts_quick", "resource": "*", "effect": "allow"},
+  {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_recommend", "resource": "*", "effect": "allow"},
+  {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
+  {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
+  {"action": "charts_themes", "resource": "*", "effect": "allow"},
+  {"action": "charts_theme_save", "resource": "*", "effect": "allow"}
+]
+```
+
+So a render writes files into the project whenever an agent decides to, with no prompt; each tool still asks the host
+for `read` on a data file and `edit` on its output folder.
+
+To restrict, choose one of three:
+
+1. **`access`**, one option for the plugin: `"all"` (the default), `"ask-changes"` (the five reads run, the writers
+   ask) or `"read-only"` (the reads run, the writers are denied).
+2. **An agent's own rules**, such as a drafts-only agent: `"permissions": [{ "action": "charts_*", "resource": "*",
+   "effect": "deny" }, { "action": "charts_validate", "resource": "*", "effect": "allow" }]`.
+3. **A per-tool rule** in your `opencode.json`: `{ "action": "charts_render", "resource": "*", "effect": "ask" }`, or
+   `"deny"` to turn one tool off.
+
+The last matching rule wins, so a later rule of yours still decides.
 
 ## Status
 
@@ -87,7 +119,7 @@ npm ci
 npm run check              # typecheck, build, unit tests, shared copies, icons, package shape, pack, evals, host
 bun scripts/gallery.ts /tmp/gallery     # 67 charts across all themes + contact sheets
 bun eval/run.ts /tmp/eval  # 30 natural-language requests, checked
-bun eval/recommend.ts /tmp/rec  # 22 advice cases against the committed baseline
+bun eval/recommend.ts /tmp/rec  # 21 advice cases against the committed baseline
 bun eval/perf.ts           # timings
 UPDATE_GOLDEN=1 bun test test/output.test.ts   # accept a reviewed change in output
 ```

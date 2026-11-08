@@ -11,7 +11,9 @@ import { available, binary, rpc, session, startHost, TESTED_HOSTS, unwrap, refus
 for (const version of TESTED_HOSTS) {
   if (!available(version)) {
     test(`${version}: the stock binary is missing, so this version is skipped`, () => {
-      console.log(`no stock binary for ${version} at ${binary(version)}`)
+      // R11: a skip is loud, and in CI it is a failure: a release that did not run is not evidence.
+      if (process.env.CI === "true" || process.env.CI === "1") throw new Error(`no stock binary for ${version} at ${binary(version)}`)
+      console.log(`skip: no stock binary for ${version} at ${binary(version)}; set OPENCODE_BIN_${version.replaceAll(".", "_")}`)
     })
     continue
   }
