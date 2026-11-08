@@ -43,13 +43,14 @@ rules and then the session's, last match wins, before anything runs:
   a prompt;
 - `deny` is refused with no call.
 
-So the read methods need no rule beyond an agent that allows them; the three that write need an **allow** rule on the
-agent or the session that the script runs as. The plugin's own default block makes `charts_*` ask and the five reads
-allow, so a script that renders needs:
+**Every method is allowed by default**, so a script renders with no prompt: the tools RPC resolves the rule before
+dispatch, and the default allow *is* that allow. To restrict a script, set the plugin's `access` option to
+`"ask-changes"` (an `ask` is refused, because no one can answer it) or `"read-only"`, or give the script's agent its own
+rule for one method:
 
 ```jsonc
 // the agent the script's session names, in its own permissions
-{ "charts_render": "allow" }
+{ "action": "charts_render", "resource": "*", "effect": "deny" }
 ```
 
 **A saved approval is not a rule.** An "Always allow" from an earlier interactive session lives outside the agent and
@@ -66,6 +67,19 @@ opencode api post /api/rpc/charts.tools/catalogue -H "x-opencode-directory:$PWD"
 ```
 
 A session created elsewhere is `SESSION_UNKNOWN`, and the `next` names this header.
+
+## Refusals
+
+A refusal is the RPC error `failed` with `data: { code, next }`:
+
+| Code | When | What to do |
+| --- | --- | --- |
+| `PERMISSION_DENIED` | the rule resolves to ask, or a deny hides the method | add an allow rule for the action to the session's agent or to the session |
+| `SESSION_UNKNOWN` | the session is not known in this location | create the session in the location you mean, and pass its id |
+| `SESSION_AGENT_REQUIRED` | the session names no agent | create a session that names an agent |
+| `TOOL_UNAVAILABLE` | OpenCode does not list the method's tool now | call `describe` to see the methods there are |
+| `CANCELLED` | the call was cancelled | call the method again if you still need the result |
+| `UPSTREAM_ERROR` | a renderer failed | the tool's own code (`SPEC_INVALID`, `RENDER_FAILED`…) is in the message |
 
 ## Failures
 

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
+import { defaultRules } from "../src/permissions.ts"
 import { TOOLS } from "../src/tools.ts"
 import { ROOT, workspace } from "./helpers.ts"
 
@@ -129,16 +130,9 @@ describe("the plugin", () => {
 })
 
 describe("the default rules", () => {
-  test("go right after an agent's base allow: the writers ask, the reads run, and an agent without one gets none", () => {
-    expect(agents[0]!.permissions).toEqual([
-      { action: "*", resource: "*", effect: "allow" },
-      { action: "charts_*", resource: "*", effect: "ask" },
-      { action: "charts_validate", resource: "*", effect: "allow" },
-      { action: "charts_recommend", resource: "*", effect: "allow" },
-      { action: "charts_capabilities", resource: "*", effect: "allow" },
-      { action: "charts_catalogue", resource: "*", effect: "allow" },
-      { action: "charts_themes", resource: "*", effect: "allow" },
-    ])
+  test("go right after an agent's base allow: every tool is allowed by default, and an agent without one gets none", () => {
+    const block = [{ action: "*", resource: "*", effect: "allow" }, ...defaultRules()]
+    expect(agents[0]!.permissions).toEqual(block)
     expect(agents[1]!.permissions).toHaveLength(2)
   })
 })
@@ -176,7 +170,7 @@ describe("/charts-status", () => {
     agents.push({ id: "reviewer", permissions: [{ action: "*", resource: "*", effect: "allow" }, { action: "charts_*", resource: "*", effect: "allow" }] })
     try {
       const { text } = await status()
-      expect(text).toContain("Agents without default rules: reviewer\n  {\"action\":\"charts_*\",\"resource\":\"*\",\"effect\":\"ask\"}")
+      expect(text).toContain("Agents without default rules: reviewer\n  {\"action\":\"charts_*\",\"resource\":\"*\",\"effect\":\"allow\"}")
       expect(text).toEndWith("Next step: Put the default rules shown by /charts-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Charts tools.")
     } finally { agents.pop() }
   })

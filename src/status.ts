@@ -1,14 +1,14 @@
 import type { Plugin } from "@opencode/plugin"
 import { ChartsError, formatFailure } from "./errors.js"
 import { htmlProblem } from "./html.js"
-import { AGENT_FIX, DEFAULT_RULES, unguardedAgents, type Rule } from "./permissions.js"
+import { AGENT_FIX, ACCESS_VALUES, defaultRules, unguardedAgents, type Access, type Rule } from "./permissions.js"
 import { pngProblem } from "./png.js"
 import { NAMESPACE, TOOLS } from "./tools.js"
 import { builtinThemes, savedThemeNames, THEME_DIR, type ThemeSources } from "./themes/store.js"
 
 /** The OpenCode releases this plugin supports, as package.json's `opencode.host` says, and the ones its checks run on. */
-export const HOST_RANGE = ">=2.2.5 <2.3.0"
-export const TESTED_HOSTS: readonly string[] = ["2.2.5", "2.2.6"]
+export const HOST_RANGE = ">=2.2.3 <2.3.0"
+export const TESTED_HOSTS: readonly string[] = ["2.2.3", "2.2.4", "2.2.5", "2.2.6"]
 
 export const COMMANDS = { status: "charts-status" } as const
 export const NOTHING_TO_DO = "Nothing to do."
@@ -52,6 +52,7 @@ export interface StatusSources {
   readonly themes: ThemeSources
   readonly defaults: { readonly theme?: string; readonly locale?: string; readonly outDir: string }
   /** The agents of the plugin's location, with their rules. */
+  readonly access: Access
   readonly agents: () => Promise<readonly { readonly id: string; readonly permissions: readonly Rule[] }[]>
   /** The tools OpenCode lists. */
   readonly tools: () => Promise<readonly { readonly id: string }[]>
@@ -83,7 +84,7 @@ export async function buildStatus(sources: StatusSources): Promise<StatusView> {
     sources.skills.listed().catch(() => [] as { id: string; path: string }[]),
   ])
   const shadowed = sources.skills.own.flatMap(own => listedSkills.filter(skill => skill.id === own.id && skill.path !== own.path).map(skill => ({ id: skill.id, path: skill.path }))).slice(0, 10)
-  const unguarded = unguardedAgents(listedAgents)
+  const unguarded = unguardedAgents(listedAgents, sources.access)
   const png = pngProblem(sources.packageRoot)
   const html = htmlProblem(sources.packageRoot)
   const hostVersion = sources.hostVersion.trim() === "" ? null : sources.hostVersion
@@ -100,7 +101,7 @@ export async function buildStatus(sources: StatusSources): Promise<StatusView> {
     tools: { visible: ids.filter(id => known.has(id)).length, total: known.size },
     skills: { loaded: sources.skills.own.map(skill => skill.id), shadowed },
     unguardedAgents: unguarded,
-    ...(unguarded.length ? { permissionsBlock: DEFAULT_RULES.map(rule => ({ ...rule })) } : {}),
+    ...(unguarded.length ? { permissionsBlock: defaultRules(sources.access).map(rule => ({ ...rule })) } : {}),
   }
   return { ...view, nextStep: nextStep(view, sources.shipped.length, png, html) }
 }

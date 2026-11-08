@@ -30,6 +30,9 @@
   "files": [
     "dist",
     "assets",
+    "assets/icon.svg",
+    "assets/icon-128.png",
+    "assets/icon-256.png",
     "skills",
     "README.md",
     "LICENSE",
@@ -39,7 +42,7 @@
     "CHANGELOG.md"
   ],
   "opencode": {
-    "host": ">=2.2.5 <2.3.0",
+    "host": ">=2.2.3 <2.3.0",
     "icons": [
       {
         "src": "assets/icon.svg",
@@ -103,13 +106,13 @@
       {
         "name": "charts.render",
         "permission": "charts_render",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
         "name": "charts.quick",
         "permission": "charts_quick",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       },
       {
@@ -145,7 +148,7 @@
       {
         "name": "charts.theme_save",
         "permission": "charts_theme_save",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       }
     ],

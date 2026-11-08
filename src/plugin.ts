@@ -2,9 +2,11 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { Error as ToolError } from "@opencode/plugin/promise/tool"
+import { ChartsError } from "./errors.js"
 import { closeVegaWorker } from "./engines/vega-pool.js"
 import { registerChartsRpc } from "./host/rpc.js"
 import { formatFailure, isChartsError } from "./errors.js"
+import type { Access } from "./permissions.js"
 import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
 import { buildStatus, commandTransform } from "./status.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, runTool, type ToolName } from "./tools.js"
@@ -24,11 +26,18 @@ export interface ChartsOptions {
   readonly outDir?: string
   /** Named themes from configuration: { "acme": { "extends": "light", "colors": { … } } }. */
   readonly themes?: Record<string, ThemeOverrides>
+  /** What the plugin's own tools may do without asking: everything, ask for changes, or reads only. */
+  readonly access: Access
 }
 
 function options(raw: unknown): ChartsOptions {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const access = o.access ?? "all"
+  if (access !== "all" && access !== "ask-changes" && access !== "read-only") {
+    throw new ChartsError("OPTIONS_INVALID", `The option "access" must be "all", "ask-changes" or "read-only", found ${JSON.stringify(access)}.`, 'Set it to "ask-changes" to be asked before each write, or "read-only" to turn writes off.')
+  }
   return {
+    access: access as Access,
     ...(typeof o.theme === "string" ? { theme: o.theme } : {}),
     ...(typeof o.locale === "string" ? { locale: o.locale } : {}),
     ...(typeof o.outDir === "string" ? { outDir: o.outDir } : {}),
@@ -68,14 +77,14 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
       // The environment every tool runs with, whether the model calls it or a script reaches it over the tools RPC.
       const toolEnv = { workspace, packageRoot, configuredThemes: opts.themes ?? {}, defaults }
       const status = () => buildStatus({
-        version, hostVersion: ctx.app.version, packageRoot, defaults,
+        version, hostVersion: ctx.app.version, packageRoot, defaults, access: opts.access,
         themes: { workspace, packageRoot, configured: opts.themes ?? {} },
         agents: async () => (await ctx.agent.list(location)).data as readonly { id: string; permissions: Rule[] }[],
         tools: () => ctx.tool.list(),
         skills: { listed: async () => (await ctx.skill.list(location)).data.map(skill => ({ id: String(skill.id), path: String(skill.path) })), own: skills.map(skill => ({ id: skill.id, path: skill.path })) },
         shipped: SKILLS,
       })
-      await registerDefaultRules(ctx.agent)
+      await registerDefaultRules(ctx.agent, opts.access)
       await ctx.tool.transform(editor => {
         editor.namespace({ name: NAMESPACE, description: NAMESPACE_DESCRIPTION })
         for (const name of Object.keys(TOOLS) as ToolName[]) {

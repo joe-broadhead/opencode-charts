@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { capabilities } from "../src/capabilities.ts"
 import { CATALOGUE } from "../src/catalogue.js"
-import { DEFAULT_RULES, KNOWN_READS } from "../src/permissions.js"
+import { KNOWN_READS, defaultRules } from "../src/permissions.js"
 import { CONTRACT_VERSION, DESCRIPTORS, NAMESPACE, TOOL_NAMES, inputSchema, manifest, type ToolName } from "../src/registry.js"
 import { QUICK_TYPES } from "../src/quick.js"
 import { TRAITS_BY_ID } from "../src/recommend/traits.js"
@@ -27,7 +27,9 @@ describe("the registry", () => {
     for (const descriptor of DESCRIPTORS) expect(pkg.jelly.tools.find(tool => tool.name === `${NAMESPACE}.${descriptor.name}`)?.readOnly).toBe(descriptor.readOnly)
     // Jelly's read-only helper is denied every tool that is not marked readOnly, so the flag is the same fact twice.
     expect(pkg.jelly.tools.filter(tool => tool.readOnly).map(tool => tool.permission).sort()).toEqual([...KNOWN_READS].sort())
-    expect(DEFAULT_RULES.filter(rule => rule.effect === "allow").map(rule => rule.action).sort()).toEqual([...KNOWN_READS].sort())
+    // Every tool is allowed by default; the read-only flag is still the one fact Jelly's helper reads.
+    expect(defaultRules().filter(rule => rule.effect === "allow").map(rule => rule.action)).toContain(`${NAMESPACE}_*`)
+    for (const name of KNOWN_READS) expect(defaultRules("read-only")).toContainEqual({ action: name, resource: "*", effect: "allow" })
   })
 
   test("gives every tool one class, one permission and a documented anchor", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
-import { DEFAULT_RULES, KNOWN_READS, permissionOf } from "../src/permissions.ts"
+import { KNOWN_READS, defaultRules, permissionOf } from "../src/permissions.ts"
 import { SKILLS } from "../src/plugin.ts"
 import { TOOLS, type ToolName } from "../src/tools.ts"
 import { type Declaration, type DeclaredTool, declarationProblems, docProblems, effectFromRules, readPackage } from "./support/jelly-kit.ts"
@@ -20,7 +20,7 @@ const names = Object.keys(TOOLS) as ToolName[]
 
 describe("the jelly declaration", () => {
   test("follows the plugin authors' standard, with the effects the plugin's own default rules give", () => {
-    expect(declarationProblems(ROOT, { effectOf: effectFromRules(DEFAULT_RULES), registered: names.map(permissionOf) })).toEqual([])
+    expect(declarationProblems(ROOT, { effectOf: effectFromRules(defaultRules()), registered: names.map(permissionOf) })).toEqual([])
   })
 
   test("declares exactly the plugin's tools, in order, read-only only where they write nothing", () => {
@@ -29,9 +29,12 @@ describe("the jelly declaration", () => {
     expect(jelly.tools.filter(tool => tool.readOnly).map(tool => tool.permission)).toEqual([...KNOWN_READS])
   })
 
-  test("asks before every tool that writes a file in the workspace", () => {
-    expect(jelly.tools.filter(tool => tool.effect === "ask").map(tool => tool.name)).toEqual(["charts.render", "charts.quick", "charts.theme_save"])
-    for (const tool of jelly.tools) expect(tool.effect).toBe(tool.readOnly ? "allow" : "ask")
+  test("allows every tool by default, and each access value narrows the writers", () => {
+    for (const tool of jelly.tools) expect(tool.effect).toBe("allow")
+    const rules = [{ action: "*", resource: "*", effect: "allow" as const }, ...defaultRules("ask-changes")]
+    for (const name of names.filter(name => !TOOLS[name].readOnly)) expect(effectFromRules(rules)(permissionOf(name))).toBe("ask")
+    const denied = [{ action: "*", resource: "*", effect: "allow" as const }, ...defaultRules("read-only")]
+    for (const name of names.filter(name => !TOOLS[name].readOnly)) expect(effectFromRules(denied)(permissionOf(name))).toBe("deny")
   })
 
   test("is titled Charts, names the skills it loads, and has no sign-ins, RPC, views or contributions", () => {
@@ -49,8 +52,8 @@ describe("docs/jelly.md", () => {
     expect(docProblems(ROOT)).toEqual([])
   })
 
-  test("names the tools that ask, and the status command", () => {
-    for (const tool of jelly.tools.filter(tool => tool.effect === "ask")) expect(doc).toContain(`\`${tool.name}\``)
+  test("names every tool, and the status command", () => {
+    for (const tool of jelly.tools) expect(doc).toContain(`\`${tool.name}\``)
     expect(doc).toContain("/charts-status")
   })
 })
