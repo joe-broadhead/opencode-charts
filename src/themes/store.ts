@@ -2,22 +2,18 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ChartsError, suggest } from "../errors.js"
 import { confine, ensureDirectory, type Workspace } from "../paths.js"
-import { toqanThemes } from "./toqan.js"
 import { BUILTIN_THEMES as BASE_THEMES, ThemeTokensSchema, mergeTokens, type ThemeOverrides, type ThemeTokens } from "./tokens.js"
 
 /** Saved themes live in the workspace, so a brand theme is defined once and used by name in every chart. */
 export const THEME_DIR = ".charts/themes"
 const NAME = /^[a-z0-9][a-z0-9-]{0,47}$/
-let builtins: Record<string, ThemeTokens> | undefined
-/** Every built-in theme: the five general ones and the Toqan pair. */
-export function builtinThemes(packageRoot: string): Readonly<Record<string, ThemeTokens>> {
-  return (builtins ??= { ...BASE_THEMES, ...toqanThemes(packageRoot) })
+/** Every built-in theme: the five general ones. Brand themes are saved in a workspace, never built in. */
+export function builtinThemes(): Readonly<Record<string, ThemeTokens>> {
+  return BASE_THEMES
 }
 
 export interface ThemeSources {
   readonly workspace: Workspace
-  /** The installed package root, for the brand token files. */
-  readonly packageRoot: string
   /** Themes from the plugin's options (`themes: { name: overrides }`). */
   readonly configured: Readonly<Record<string, ThemeOverrides>>
 }
@@ -47,7 +43,7 @@ export function savedThemeNames(sources: ThemeSources): string[] {
  * themes win over configured ones, which win over built-ins, except that built-in names cannot be shadowed.
  */
 export function resolveTheme(sources: ThemeSources, theme: string | ThemeOverrides | undefined, depth = 0): ThemeTokens {
-  const BUILTIN_THEMES = builtinThemes(sources.packageRoot)
+  const BUILTIN_THEMES = builtinThemes()
   if (depth > 4) throw new ChartsError("THEME_CYCLE", "A theme extends itself through too many steps.", "Make each saved theme extend a built-in theme or one other theme.")
   if (theme === undefined) return BUILTIN_THEMES.light!
   if (typeof theme === "string") {
@@ -78,7 +74,7 @@ function validate(tokens: ThemeTokens): ThemeTokens {
 
 /** Saves tokens as a named workspace theme, after checking that they resolve. */
 export function saveTheme(sources: ThemeSources, name: string, overrides: ThemeOverrides) {
-  const BUILTIN_THEMES = builtinThemes(sources.packageRoot)
+  const BUILTIN_THEMES = builtinThemes()
   if (!NAME.test(name)) throw new ChartsError("THEME_NAME_INVALID", `"${name}" is not a theme name.`, "Use lowercase letters, digits and dashes, such as acme-brand.")
   if (BUILTIN_THEMES[name]) throw new ChartsError("THEME_NAME_TAKEN", `"${name}" is a built-in theme.`, "Pick another name, and set extends to it to start from it.")
   const resolved = resolveTheme(sources, { ...overrides, name })

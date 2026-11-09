@@ -138,13 +138,13 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   const dataName = request.data?.name ?? "table"
 
   // Theme and fonts.
-  const theme = resolveTheme({ workspace: env.workspace, packageRoot: env.packageRoot, configured: env.configuredThemes }, request.theme ?? env.defaults.theme)
+  const theme = resolveTheme({ workspace: env.workspace, configured: env.configuredThemes }, request.theme ?? env.defaults.theme)
   let fonts: FontBook = bundledFonts(env.packageRoot)
   if (theme.font.files.length) fonts = withCustomFonts(fonts, theme.font.files.map(f => ({ family: f.family, weight: f.weight, bytes: new Uint8Array(readFileSync(confine(env.workspace, f.path, "read").absolute)) })))
   const locale = resolveLocale(env.packageRoot, request.locale ?? env.defaults.locale ?? "en-US", request.currency)
   const issues: Issue[] = [...themeContrastIssues(theme)]
   const notes: string[] = []
-  if (!fonts.has(theme.font.family)) issues.push({ level: "warning", code: "FONT_NOT_BUNDLED", message: `The font "${theme.font.family}" is not available, so Inter is used.`, path: "/theme/font/family", fix: `Use Inter, Geist or JetBrains Mono, or add the font file with theme.font.files.` })
+  if (!fonts.has(theme.font.family)) issues.push({ level: "warning", code: "FONT_NOT_BUNDLED", message: `The font "${theme.font.family}" is not available, so Inter is used.`, path: "/theme/font/family", fix: `Use Inter or JetBrains Mono, or add the font file with theme.font.files.` })
 
   const spec = substituteThemeColours(request.spec, { ...theme.colors, font: theme.font.family, mono: theme.font.mono }) as Json
 

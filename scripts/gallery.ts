@@ -10,8 +10,8 @@ const out = resolve(process.argv[2] ?? "gallery-out")
 mkdirSync(out, { recursive: true })
 const root = resolve(import.meta.dir, "..")
 const env = { workspace: { directory: out }, packageRoot: root, configuredThemes: {}, defaults: { outDir: "charts" } }
-const themes = Object.keys(builtinThemes(root))
-const cycle = ["light", "dark", "toqan", "toqan-night", "presentation", "high-contrast", "print"]
+const themes = Object.keys(builtinThemes())
+const cycle = ["light", "dark", "presentation", "high-contrast", "print"]
 const cards: string[] = []
 const failures: string[] = []
 const report: { id: string; theme: string; ms: number; issues: string[] }[] = []

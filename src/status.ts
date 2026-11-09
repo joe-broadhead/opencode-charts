@@ -97,7 +97,7 @@ export async function buildStatus(sources: StatusSources): Promise<StatusView> {
     png: png ? png.message : null,
     html: html ? html.message : null,
     defaults: { theme: sources.defaults.theme ?? "light", locale: sources.defaults.locale ?? "en-US", outDir: sources.defaults.outDir },
-    themes: { builtin: Object.keys(builtinThemes(sources.packageRoot)).length, configured: Object.keys(sources.themes.configured).length, saved },
+    themes: { builtin: Object.keys(builtinThemes()).length, configured: Object.keys(sources.themes.configured).length, saved },
     tools: { visible: ids.filter(id => known.has(id)).length, total: known.size },
     skills: { loaded: sources.skills.own.map(skill => skill.id), shadowed },
     unguardedAgents: unguarded,

@@ -55,7 +55,7 @@ describe("the catalogue", () => {
 describe("determinism", () => {
   test("the same input gives byte-identical SVG, including force and word-cloud layouts", async () => {
     for (const id of ["network", "word_cloud", "sankey", "grouped_bar", "choropleth_world"]) {
-      const a = await render(id, "toqan"), b = await render(id, "toqan")
+      const a = await render(id, "dark"), b = await render(id, "dark")
       expect(a.svg).toBe(b.svg)
     }
   })
@@ -124,7 +124,7 @@ describe("text metrics", () => {
   test("the widths the layout uses are the widths resvg draws (same fonts on every host)", async () => {
     await initWasm(readFileSync(join(ROOT, "node_modules/@resvg/resvg-wasm/index_bg.wasm"))).catch(() => undefined)
     const fonts = bundledFonts(ROOT)
-    for (const [family, weight] of [["Inter", 400], ["Inter", 600], ["Geist", 400], ["Geist", 500], ["JetBrains Mono", 400]] as const) {
+    for (const [family, weight] of [["Inter", 400], ["Inter", 600], ["JetBrains Mono", 400]] as const) {
       // Ink bounds of "|text|" minus "||": the side bearings cancel and what is left is the advance width drawn.
       const box = (t: string) => new Resvg(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="60"><text x="10" y="40" font-family="${family}" font-weight="${weight}" font-size="24">${t}</text></svg>`, { font: { fontBuffers: fonts.buffers(), loadSystemFonts: false } as never }).innerBBox()!
       for (const text of ["Revenue by region, 2024 — €1.2M (Q3)", "AVAVAVAV To Ty", "1234567890"]) {

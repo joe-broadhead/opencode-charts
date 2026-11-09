@@ -25,15 +25,12 @@ export interface FontFace {
 
 export const SANS = "Inter"
 export const MONO = "JetBrains Mono"
-export const GEIST = "Geist"
-export const BUNDLED_FAMILIES = [SANS, MONO, GEIST] as const
+export const BUNDLED_FAMILIES = [SANS, MONO] as const
 
 export const BUNDLED: readonly { file: string; family: string; weight: number }[] = [
   { file: "Inter-Regular.ttf", family: SANS, weight: 400 },
   { file: "Inter-SemiBold.ttf", family: SANS, weight: 600 },
   { file: "JetBrainsMono-Regular.ttf", family: MONO, weight: 400 },
-  { file: "Geist-Regular.ttf", family: GEIST, weight: 400 },
-  { file: "Geist-Medium.ttf", family: GEIST, weight: 500 },
 ]
 const MAX_CUSTOM_FONT_BYTES = 8 * 1024 * 1024
 

@@ -80,9 +80,8 @@ file names beyond the family name, as the OFL allows for unmodified-name subsets
 |---|---|---|
 | Inter 4.1 (Regular, SemiBold) | github.com/rsms/inter | OFL-1.1, assets/fonts/Inter-OFL.txt |
 | JetBrains Mono 2.304 (Regular) | github.com/JetBrains/JetBrainsMono | OFL-1.1, assets/fonts/JetBrainsMono-OFL.txt |
-| Geist 1.800 (static 400 and 500 instances) | github.com/vercel/geist-font | OFL-1.1, assets/fonts/Geist-OFL.txt |
 
-## Data (assets/data/, assets/brand/)
+## Data (assets/data/)
 
 | Data | Source | Licence |
 |---|---|---|
@@ -90,4 +89,3 @@ file names beyond the family name, as the OFL allows for unmodified-name subsets
 | us-states-10m | us-atlas 3.0.1 (US Census Bureau, public domain) | ISC, licenses/packages/us-atlas@3.0.1.txt |
 | ISO 3166 codes added to world-110m | i18n-iso-countries 7.14.0 (build time only) | MIT |
 | Number and time locales | d3-format 3.1.0, d3-time-format 4.1.0 | ISC |
-| Toqan design tokens | Toqan brand files (Prosus) | the owner's brand; used for the toqan themes |

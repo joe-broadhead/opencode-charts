@@ -14,7 +14,7 @@ would go stale, the tool is the source of truth.
 | Engines | Vega-Lite 6.5 → Vega 6.4 in a worker; Vega 6.4; ECharts 6.1 server-side SVG. |
 | Outputs | SVG, PNG at 1–3×, interactive HTML, and the resolved spec. |
 | Chart types | 53, each with a working example that renders in the golden suite. |
-| Themes | 7 built in (`light`, `dark`, `high-contrast`, `print`, `presentation`, `toqan`, `toqan-night`), plus saved and per-call themes; 5 `print`/`high-contrast` palettes, 20 for the rest. |
+| Themes | 5 built in (`light`, `dark`, `high-contrast`, `print`, `presentation`), plus saved and per-call themes; 5 `print`/`high-contrast` palettes, 20 for the rest. |
 | Data | Inline rows; CSV, TSV, JSON, JSONL and Parquet files inside the workspace; Vega-Lite transforms. |
 | Advice | `charts_recommend` over a traits table for all 53 types, graded by must/must-not cases. |
 | Checks | Teaching validation, 12 lint rules, real label-collision and clipping measurement, duplicate ticks, WCAG contrast for theme palettes. |

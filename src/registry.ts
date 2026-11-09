@@ -52,7 +52,7 @@ const dataSchema = z.strictObject({
 }).describe("Data, kept out of the spec: rows or a workspace file.")
 
 const outputs = {
-  theme: z.union([z.string(), row]).optional().describe("A theme name (light, dark, high-contrast, print, presentation, toqan, toqan-night, or a saved one), or tokens with \"extends\"."),
+  theme: z.union([z.string(), row]).optional().describe("A theme name (light, dark, high-contrast, print, presentation, or a saved one), or tokens with \"extends\"."),
   locale: z.string().max(16).optional().describe("Number and date formats, such as en-GB or de-DE. Default en-US."),
   currency: z.string().length(3).optional().describe("ISO 4217 code (EUR, USD, GBP…): money-like fields get it, in compact form (€1.2M)."),
   currencyFields: z.array(z.string()).max(50).optional().describe("Exactly which fields are money; default: fields whose names look like money."),

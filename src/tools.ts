@@ -102,18 +102,18 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
       return { output: { types: list.map(c => ({ id: c.id, name: c.name, engine: c.engine, family: c.family, when: c.when, ...(c.avoid ? { avoid: c.avoid } : {}) })) }, content: [{ type: "text", text: text.join("\n") }] }
     }
     case "themes": {
-      const sources = { workspace: env.workspace, packageRoot: env.packageRoot, configured: env.configuredThemes }
+      const sources = { workspace: env.workspace, configured: env.configuredThemes }
       if (input.name) {
         const theme = resolveTheme(sources, String(input.name))
         return { output: { theme } as unknown as Json, content: [{ type: "text", text: `Theme ${theme.name}: ${theme.description ?? ""}\nTokens (copy any subset into a custom theme with "extends": "${theme.name}"):\n${JSON.stringify(theme, null, 1)}` }] }
       }
-      const builtins = builtinThemes(env.packageRoot)
+      const builtins = builtinThemes()
       const saved = savedThemeNames(sources)
-      return { output: { builtin: Object.values(builtins).map(t => ({ name: t.name, mode: t.mode, description: t.description })), saved, locales: localeIds(env.packageRoot) }, content: [{ type: "text", text: `Built-in themes:\n${Object.values(builtins).map(t => `- ${t.name} (${t.mode}): ${t.description}`).join("\n")}\nSaved themes: ${saved.length ? saved.join(", ") : "none"} (charts_theme_save makes one).\nFonts bundled: Inter, Geist, JetBrains Mono. A theme can add workspace .ttf/.otf files with font.files.` }] }
+      return { output: { builtin: Object.values(builtins).map(t => ({ name: t.name, mode: t.mode, description: t.description })), saved, locales: localeIds(env.packageRoot) }, content: [{ type: "text", text: `Built-in themes:\n${Object.values(builtins).map(t => `- ${t.name} (${t.mode}): ${t.description}`).join("\n")}\nSaved themes: ${saved.length ? saved.join(", ") : "none"} (charts_theme_save makes one).\nFonts bundled: Inter, JetBrains Mono. A theme can add workspace .ttf/.otf files with font.files.` }] }
     }
     case "theme_save": {
       await env.assertFiles("edit", [`${THEME_DIR}/${input.name}.json`])
-      const sources = { workspace: env.workspace, packageRoot: env.packageRoot, configured: env.configuredThemes }
+      const sources = { workspace: env.workspace, configured: env.configuredThemes }
       const { file, theme } = saveTheme(sources, String(input.name), input.theme as never)
       const { themeContrastIssues } = await import("./themes/contrast.js")
       const issues: Issue[] = themeContrastIssues(theme)

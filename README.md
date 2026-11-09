@@ -33,7 +33,7 @@ Options, limits and errors are in [docs/configuration.md](docs/configuration.md)
 
 Ask for the chart you want, as a question or a spec:
 
-> Chart revenue by region for 2024 as bars, in the Toqan theme.
+> Chart revenue by region for 2024 as bars, in the dark theme.
 
 > Draw this table as a stacked area chart, and tell me if the axis is misleading.
 
@@ -45,7 +45,7 @@ look at. Every tool is listed under [Tools](#tools).
   - treemap, sunburst, tree, force network and word cloud (Vega);
   - Sankey, chord, gauge, funnel, calendar heatmap, candlestick, radar and parallel coordinates (ECharts);
   - world and US maps from bundled atlases.
-- **Any theme.** `light`, `dark`, `high-contrast`, `print`, `presentation`, `toqan` and `toqan-night`, or your own tokens, saved by name. Palettes are colour-blind-safe and checked for contrast. Fonts are bundled (Inter, Geist, JetBrains Mono), so text measures and draws identically everywhere.
+- **Any theme.** `light`, `dark`, `high-contrast`, `print` and `presentation`, or your own tokens, saved by name. Palettes are colour-blind-safe and checked for contrast. Fonts are bundled (Inter, JetBrains Mono), so text measures and draws identically everywhere.
 - **Right first time.**
   - Validation that teaches: `Field "revenu" is not in the data. Did you mean "revenue"?`, with the JSON path.
   - Lint for misleading or unreadable charts.
@@ -159,7 +159,7 @@ Example:
   "spec": { "mark": "bar", "encoding": { "x": { "field": "region", "type": "nominal", "sort": "-y" }, "y": { "field": "revenue_eur", "type": "quantitative" } } },
   "data": { "path": "data/sales.csv" },
   "title": "Revenue by region, 2024",
-  "theme": "toqan",
+  "theme": "dark",
   "currency": "EUR",
   "locale": "de-DE"
 }

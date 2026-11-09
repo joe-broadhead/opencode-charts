@@ -125,7 +125,7 @@ describe("the plugin", () => {
   test("catalogue and themes answer without files", async () => {
     expect((await call("catalogue", {})).content[0]!.text).toContain("sankey")
     expect((await call("catalogue", { id: "sankey" })).content[0]!.text).toContain('"type":"sankey"')
-    expect((await call("themes", {})).content[0]!.text).toContain("toqan-night")
+    expect((await call("themes", {})).content[0]!.text).toContain("high-contrast")
   })
 })
 
@@ -172,7 +172,7 @@ describe("/charts-status", () => {
       "Account: none needed; Charts calls no service",
       "Renderers: SVG ready; PNG ready; HTML ready",
       "Defaults: theme light, locale en-US, files under outputs/charts/",
-      "Themes: 7 built in, 0 from options, none saved in .charts/themes",
+      "Themes: 5 built in, 0 from options, none saved in .charts/themes",
       "Skills: charts, charts-cookbook",
       "Tools: 8 of 8 visible to this agent",
       "Agents without default rules: none",

@@ -10,7 +10,7 @@ const ROOTS = ["src", "test", "scripts", "dist"]
 
 const RULES = [
   // Internal wording: a shipped doc or comment states behaviour, not who decided it, and never names a team's lane.
-  { id: "internal-wording", pattern: /owner'?s? (?:decision|ruling)|\bthe lead'?s?\b|hey-jelly #|\blane\s+(?:design|render|toqan|agentwork)\b/i, why: "internal wording (an owner decision, a lead, a team lane) does not belong in a shipped doc or comment" },
+  { id: "internal-wording", pattern: /owner'?s? (?:decision|ruling)|\bthe lead'?s?\b|hey-jelly #|\blane\s+(?:design|render|agentwork)\b/i, why: "internal wording (an owner decision, a lead, a team lane) does not belong in a shipped doc or comment" },
   { id: "v1-plugin-api", pattern: /@opencode-ai\//, why: "@opencode-ai/* is the V1 plugin API" },
   { id: "v1-hook", pattern: /["'`](?:tool\.execute\.(?:before|after)|chat\.(?:message|params)|permission\.ask)["'`]/, why: "V1 plugin hooks are not allowed" },
   { id: "opencode-ai-import", pattern: /["'`]@opencode\/ai(?:\/[^"'`]*)?["'`]/, why: "@opencode/ai breaks between patch releases; import only @opencode/plugin" },

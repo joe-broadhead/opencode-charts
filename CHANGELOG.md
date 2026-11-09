@@ -61,6 +61,10 @@ All notable changes to this project are documented in this file. The format foll
   which licence.
 - The shared tools RPC module is v2.1 (`57377eb3…`), and `scripts/check-copies.mjs` pins that hash.
 
+### Changed
+
+- The built-in themes are neutral: `light` (the default), `dark`, `high-contrast`, `print` and `presentation`. The two brand themes and their font are no longer in the plugin. Save a brand theme with `charts_theme_save`, or set it in the plugin's options, and use it by name.
+
 ## [0.0.3] - 2026-11-07
 
 ### Fixed
@@ -105,8 +109,8 @@ Never published to npm.
 - `charts_render`, `charts_quick`, `charts_validate`, `charts_catalogue`, `charts_themes` and `charts_theme_save`.
 - Engines: Vega-Lite and Vega (rendered in a worker with time and memory limits) and ECharts server-side SVG. PNG
   through resvg (wasm). Offline interactive HTML.
-- Seven built-in themes, including `toqan` and `toqan-night` built from Toqan's design tokens, plus custom and saved
-  themes. Bundled fonts: Inter, Geist and JetBrains Mono.
+- Seven built-in themes, two of them brand themes, plus custom and saved
+  themes. Bundled fonts: Inter, a brand font and JetBrains Mono.
 - Validation with did-you-mean and JSON paths; lint; layout checks (label collisions, clipping, duplicate ticks); PNG
   previews for the model.
 - 53-type catalogue, a cookbook skill generated from it, 110 tests, a 67-chart gallery and a 30-request eval.

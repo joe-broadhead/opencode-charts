@@ -3,7 +3,7 @@ Copyright (c) 2026 Joe Broadhead. MIT licensed (see LICENSE).
 
 The published package bundles third-party software and fonts under their own licences: Vega and Vega-Lite
 (BSD-3-Clause), Apache ECharts (Apache-2.0; its NOTICE is in licenses/packages/echarts@6.1.0.NOTICE.txt), ZRender
-(BSD-3-Clause), resvg (MPL-2.0; licenses/MPL-2.0.txt), d3 modules (ISC), hyparquet and zod (MIT), Inter, Geist and
+(BSD-3-Clause), resvg (MPL-2.0; licenses/MPL-2.0.txt), d3 modules (ISC), hyparquet and zod (MIT), Inter and
 JetBrains Mono (SIL OFL 1.1). The full list, with each licence text, is THIRD_PARTY_NOTICES.md and licenses/.
 
 ## Design adapted from other projects

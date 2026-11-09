@@ -102,7 +102,7 @@ Rejected:
 
 - **SVG.** Vega's `View.toSVG()` with `renderer: "none"` and the deny-all loader, running in the worker; then ECharts `renderToSVGString()`.
 - **Fonts, identical everywhere.**
-  - Bundled: Inter (Regular, SemiBold), Geist (Regular, Medium) and JetBrains Mono, subset to Latin, Greek and Cyrillic with **OpenType layout features removed**. A string's width is then exactly the sum of its advances.
+  - Bundled: Inter (Regular, SemiBold) and JetBrains Mono, subset to Latin, Greek and Cyrillic with **OpenType layout features removed**. A string's width is then exactly the sum of its advances.
   - Vega's documented user hook (`textMetrics.width`, as vl-convert uses) and ECharts' `measureText` both measure with tables parsed from those files (`src/fonts.ts`). resvg draws with the same files and never reads a system font.
   - `test/output.test.ts` checks that the drawn width equals the measured width within 1.5 px over 35-character strings for every face. A subsetting bug that the test caught: name ID 16 had been dropped, so SemiBold drew as Regular.
 - **PNG.** `@resvg/resvg-wasm` 2.6.2 (MPL-2.0), wasm, not the native prebuild. The wasm is 2.4 MB, one file for linux-x64, linux-arm64 and macOS; each native prebuild is 3.5–4.4 MB (`@resvg/resvg-js-linux-x64-gnu` 4.38 MB, `darwin-arm64` 3.54 MB) and needs per-platform optional dependencies with glibc/musl selection. Speed is fine: passing only the faces an SVG uses (resvg parses every buffer it is given: 5 faces cost 232 ms, 2 faces 66 ms) puts a 2x PNG at about 60 ms.
@@ -177,13 +177,7 @@ Rejected:
   - `high-contrast`: heavier strokes
   - `print`: greyscale-safe
   - `presentation`: 16:9 with large type
-- **Toqan.** `toqan` and `toqan-night` are **built from Toqan's own token file** (`assets/brand/toqan-tokens.json`, copied byte-identical; `src/themes/toqan.ts` resolves its `{references}` and modes, and retypes no colour).
-  - The ground is `colour.viz.ground` (ochre/200 `#EDD1AA`).
-  - Series 1 and 2 are `colour.viz.series-1/2` (blue/700, blue/500), then the coral and blue scales.
-  - Neutrals are paper, ink and night only; Geist is used throughout, Medium at most; there are no gradients or shadows.
-  - Text is ink, never coral/500 on a light ground.
-  - `toqan-night` draws directly on night with paper text. The token file sets `viz.ground` to ochre in night mode too, which suits a chart *panel* on a night slide. **Which one night charts want is unconfirmed**; both are one token away.
-  - Season Mix is not bundled: its licence is unconfirmed.
+- **Brand themes.** A brand theme is not built in. Save one with `charts_theme_save`, or set it in the plugin's options, and use it by name like any other theme.
 - **Custom themes.** Tokens over any base with `"extends"`, inline per chart, saved by name (`charts_theme_save` writes `.charts/themes/<name>.json`) or set in the plugin's options (`themes: {name: tokens}`). A theme can add workspace `.ttf`/`.otf` files with `font.files`; they are measured and drawn like the bundled fonts.
 - **Colour tokens in specs.** Any string `"theme:<token>"` in a spec (for example `"theme:negative"` or `"theme:categorical.2"`) becomes the active theme's colour, so a spec stays on-brand in every theme.
 
@@ -255,7 +249,7 @@ Both write to `outputs/`, so both become saved files the same way.
   - font-metric parity;
   - every safety refusal, and the worker kill;
   - validation and lint teaching;
-  - themes, Toqan from tokens, data formats;
+  - themes, data formats;
   - the built bundle loaded with a fake host;
   - the registry's projections of every surface (registry, palette, recommend, figure, RPC);
   - the tools RPC called through the fake host.

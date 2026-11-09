@@ -37,7 +37,7 @@ Both end the same way: a file under `outputs/` that the person can open. Prefer 
 
 ## Themes
 
-Built in: `light` (default), `dark`, `high-contrast`, `print`, `presentation`, `toqan`, `toqan-night`. Each theme's palette carries its published colours first and then generated ones (up to 20 series), so a chart with more series than the published set still differs by colour; `print` and `high-contrast` stay as published. A brand: `charts_theme_save {"name": "acme", "theme": {"extends": "light", "colors": {"categorical": ["#…", …]}, "font": {"family": "Geist"}}}`, then `theme: "acme"` everywhere. `charts_themes {"name": "light"}` shows every token to copy. Bundled fonts: Inter, Geist, JetBrains Mono; a theme can add workspace `.ttf` files with `font.files`.
+Built in: `light` (default), `dark`, `high-contrast`, `print`, `presentation`. Each theme's palette carries its published colours first and then generated ones (up to 20 series), so a chart with more series than the published set still differs by colour; `print` and `high-contrast` stay as published. A brand: `charts_theme_save {"name": "acme", "theme": {"extends": "light", "colors": {"categorical": ["#…", …]}, "font": {"family": "Inter"}}}`, then `theme: "acme"` everywhere. `charts_themes {"name": "light"}` shows every token to copy. Bundled fonts: Inter, JetBrains Mono; a theme can add workspace `.ttf` files with `font.files`.
 
 ## Before relying on an output
 

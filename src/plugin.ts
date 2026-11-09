@@ -80,7 +80,7 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
       const toolEnv = { workspace, packageRoot, configuredThemes: opts.themes ?? {}, defaults }
       const status = () => buildStatus({
         version, hostVersion: ctx.app.version, packageRoot, defaults, access: opts.access,
-        themes: { workspace, packageRoot, configured: opts.themes ?? {} },
+        themes: { workspace, configured: opts.themes ?? {} },
         agents: async () => (await ctx.agent.list(location)).data as readonly { id: string; permissions: Rule[] }[],
         tools: () => ctx.tool.list(),
         skills: { listed: async () => (await ctx.skill.list(location)).data.map(skill => ({ id: String(skill.id), path: String(skill.path) })), own: skills.map(skill => ({ id: skill.id, path: skill.path })) },

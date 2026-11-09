@@ -81,7 +81,7 @@ function scriptsOf(fonts: FontBook): { readonly scripts: readonly string[]; read
 export interface CapabilitySources extends Pick<Environment, "packageRoot" | "workspace" | "configuredThemes"> {}
 
 export function capabilities(env: CapabilitySources): CapabilityView {
-  const themes = builtinThemes(env.packageRoot)
+  const themes = builtinThemes()
   const fonts = bundledFonts(env.packageRoot)
   const coverage = scriptsOf(fonts)
   const families = [...new Set(BUNDLED.map(f => f.family))]
@@ -97,7 +97,7 @@ export function capabilities(env: CapabilitySources): CapabilityView {
   }
   const png = pngProblem(env.packageRoot) === undefined && existsSync(join(env.packageRoot, "dist", "resvg.wasm"))
   const html = htmlProblem(env.packageRoot) === undefined
-  const saved = (() => { try { return savedThemeNames({ workspace: env.workspace, packageRoot: env.packageRoot, configured: env.configuredThemes }) } catch { return [] as string[] } })()
+  const saved = (() => { try { return savedThemeNames({ workspace: env.workspace, configured: env.configuredThemes }) } catch { return [] as string[] } })()
   const hasCjk = coverage.scripts.includes("CJK")
   return {
     version: packageVersion(env.packageRoot),
