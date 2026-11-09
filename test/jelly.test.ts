@@ -43,7 +43,7 @@ describe("the jelly declaration", () => {
     expect(jelly.signIns).toEqual([])
     expect(jelly.rpc).toEqual([])
     expect(jelly.views).toEqual([])
-    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", description: expect.any(String) }] })
+    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", default: "all", description: expect.any(String) }] })
   })
 })
 
