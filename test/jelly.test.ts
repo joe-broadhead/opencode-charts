@@ -37,13 +37,13 @@ describe("the jelly declaration", () => {
     for (const name of names.filter(name => !TOOLS[name].readOnly)) expect(effectFromRules(denied)(permissionOf(name))).toBe("deny")
   })
 
-  test("is titled Charts, names the skills it loads, and has no sign-ins, RPC, views or contributions", () => {
+  test("is titled Charts, names the skills it loads, and declares the access setting", () => {
     expect(jelly.title).toBe("Charts")
     expect(jelly.skills).toEqual([...SKILLS])
     expect(jelly.signIns).toEqual([])
     expect(jelly.rpc).toEqual([])
     expect(jelly.views).toEqual([])
-    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [] })
+    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", description: expect.any(String) }] })
   })
 })
 
