@@ -27,6 +27,7 @@ for (const version of TESTED_HOSTS) {
 
     beforeAll(async () => {
       host = await startHost(version)
+      console.log(`stock OpenCode ${version}: started`)
       reader = await session(host, "reader")
       writer = await session(host, "writer")
       locked = await session(host, "locked")

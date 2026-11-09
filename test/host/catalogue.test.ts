@@ -110,5 +110,6 @@ describe("the Code Mode catalogue", () => {
     expect(text.startsWith("- charts (")).toBe(true)
     expect(tokens(text)).toBeLessThanOrEqual(1000)
     expect(text).toContain("charts skill")
-  })
+    expect(text).toContain('search({ namespace: "charts", query })')
+  }, 120_000)
 })
