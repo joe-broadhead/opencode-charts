@@ -26,4 +26,8 @@ This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode 
   imports, a shell, private host source, another checkout's worktree, machine-local paths, and internal wording (who
   decided something, a lead, a team lane). `scripts/check-forbidden.mjs` is the list, and it runs in `npm run check`.
 - **Releases.** One `## [x.y.z] - date` CHANGELOG entry per release; a release is a `v<version>` tag on `master`.
+- **No personal email in anything we publish.** Every commit, tag and package is authored and committed as
+  `joe-broadhead <91376460+joe-broadhead@users.noreply.github.com>`. Before committing or tagging, check that
+  `git config user.email` is that address: a fresh clone inherits the machine's global identity, which is not that
+  address. Never commit, tag or publish with a work or personal address, or with a local hostname.
 - **Commits.** `type(scope): summary`.
