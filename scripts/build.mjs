@@ -18,6 +18,8 @@ const HOST = ["@opencode/plugin", "@opencode/plugin/*", "@opentui/core", "@opent
 const allowed = path => path.startsWith("node:") || builtinModules.includes(path) || HOST.some(name => (name.endsWith("/*") ? path.startsWith(name.slice(0, -1)) : path === name))
 const sha256 = file => createHash("sha256").update(readFileSync(file)).digest("hex")
 const kib = file => `${(statSync(file).size / 1024).toFixed(0)} KiB`
+// A minified bundle writes its imports without spaces (`from"x"`, `import{a}`). The TUI part must keep them plain.
+const MINIFIED_IMPORT = /\bfrom"|\bimport[{*]/
 
 rmSync(`${ROOT}dist`, { recursive: true, force: true })
 mkdirSync(`${ROOT}dist/browser`, { recursive: true })
@@ -44,10 +46,10 @@ for (const [name, contents] of Object.entries(browser)) {
 // 2. resvg's wasm.
 copyFileSync(`${ROOT}node_modules/@resvg/resvg-wasm/index_bg.wasm`, `${ROOT}dist/resvg.wasm`)
 
-// 3. The plugin and its worker.
-const result = await build({
+// 3. The plugin, its worker and the TUI part. The plugin and worker are minified; the TUI part is not, because OpenCode
+//    cannot load the minified form of its host imports from a local-path install ("Cannot find package 'solid-js'").
+const shared = {
   absWorkingDir: ROOT,
-  entryPoints: { index: "src/index.ts", tui: "src/tui.ts", "vega-worker": "src/engines/vega-worker.ts" },
   outdir: "dist",
   bundle: true,
   splitting: false,
@@ -58,19 +60,22 @@ const result = await build({
   define: { RESVG_WASM_SHA256: JSON.stringify(sha256(`${ROOT}dist/resvg.wasm`)), BROWSER_RUNTIME_SHA256: JSON.stringify(browserHashes) },
   // Vega's optional node-canvas is never used (text is measured with the bundled fonts); keep it out.
   alias: { canvas: `${ROOT}scripts/empty.mjs` },
-  // Minified: the bundle carries three chart engines; names stay so stack traces still read.
-  minify: true,
   keepNames: true,
   legalComments: "none",
   metafile: true,
   logLevel: "warning",
-})
-for (const input of Object.keys(result.metafile.inputs)) bundledInputs.add(input)
+}
+// Minified: the bundle carries three chart engines; names stay so stack traces still read.
+const plugin = await build({ ...shared, entryPoints: { index: "src/index.ts", "vega-worker": "src/engines/vega-worker.ts" }, minify: true })
+const tui = await build({ ...shared, entryPoints: { tui: "src/tui.ts" }, minify: false })
+const metafiles = [plugin.metafile, tui.metafile]
+for (const metafile of metafiles) for (const input of Object.keys(metafile.inputs)) bundledInputs.add(input)
+if (MINIFIED_IMPORT.test(readFileSync(`${ROOT}dist/tui.js`, "utf8"))) throw new Error("build: dist/tui.js is minified. OpenCode cannot load its host imports from a local-path install, so build the TUI part with minify: false.")
 for (const data of ["@resvg/resvg-wasm/index_bg.wasm", "world-atlas/package.json", "us-atlas/package.json", "i18n-iso-countries/package.json"]) bundledInputs.add(`node_modules/${data}`)
 writeNotices([...bundledInputs])
-const outputs = Object.keys(result.metafile.outputs).sort()
+const outputs = metafiles.flatMap((metafile) => Object.keys(metafile.outputs)).sort()
 if (outputs.join() !== "dist/index.js,dist/tui.js,dist/vega-worker.js") throw new Error(`build: expected dist/index.js, dist/tui.js and dist/vega-worker.js, got ${outputs.join(", ")}.`)
-const unexpected = Object.entries(result.metafile.outputs).flatMap(([file, output]) => output.imports.filter(entry => !allowed(entry.path)).map(entry => `${file}: ${entry.path}`))
+const unexpected = metafiles.flatMap((metafile) => Object.entries(metafile.outputs)).flatMap(([file, output]) => output.imports.filter(entry => !allowed(entry.path)).map(entry => `${file}: ${entry.path}`))
 if (unexpected.length > 0) throw new Error(`build: outputs import modules the host does not supply:\n  ${unexpected.join("\n  ")}`)
 for (const file of ["dist/index.js", "dist/tui.js", "dist/vega-worker.js", "dist/resvg.wasm", "dist/browser/vega.js", "dist/browser/echarts.js"]) console.log(`built ${file} (${kib(`${ROOT}${file}`)})`)
 

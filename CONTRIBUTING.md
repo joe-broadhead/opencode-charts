@@ -15,7 +15,8 @@ Node 24 and Bun 1.4.4 are what CI uses. `npm ci` is enough for every stage; no o
 `actionlint`, `pack`, `evals` and `host`. It is the gate for every commit: never skip, weaken or delete a stage to
 get a green run.
 
-- `build` writes `dist/`: the plugin, its Vega worker, the PNG rasteriser and the two browser runtimes.
+- `build` writes `dist/`: the plugin, its Vega worker, the PNG rasteriser and the two browser runtimes. The TUI part is
+  unminified, and the build fails if it is minified.
 - `unit` is every `test/*.test.ts`. `pack` installs the tarball into a temp project and runs it there.
 - `host` starts a stock `opencode serve` for each release in `TESTED_HOSTS`, from `OPENCODE_BIN_<version>` or
   `~/opencode-release/qa/stock/<version>`. A missing binary prints a skip notice; in CI it fails, because a release

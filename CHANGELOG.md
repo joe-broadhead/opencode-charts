@@ -36,6 +36,8 @@ All notable changes to this project are documented in this file. The format foll
   rule for an owned output schema). A host case on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 calls all eight tools and asserts every
   result is accepted.
 
+- The TUI part (`dist/tui.js`) loads from a local-path install again. It is built unminified: OpenCode could not resolve the minified form of its `solid-js` import, so the status dialog never started. The build fails if the file is minified.
+
 ### Changed
 
 - The Code Mode catalogue no longer pins `charts_quick` or `charts_render`. Their signatures are large; the charts skill holds the workflow, and `search({ namespace: "charts", query })` finds a tool.

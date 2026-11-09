@@ -65,7 +65,7 @@ Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities
 **This repo follows all of it**, with two deliberate differences:
 
 1. **Data files in `dist/`.** Besides `index.js`, `dist/` has `vega-worker.js` (a worker needs its own file), `resvg.wasm` and `browser/{vega,echarts}.js` (inlined into HTML, never loaded by the plugin). The build compiles each file's SHA-256 into `index.js`, so a stale or swapped sibling is refused rather than used. This answers the same in-place-update concern that makes the owner keep `dist/` to one file.
-2. **Minified bundles.** The bundles are minified with names kept: three chart engines would be 4.5 MB unminified.
+2. **Minified bundles.** The bundles are minified with names kept: three chart engines would be 4.5 MB unminified. The TUI part is the exception: OpenCode cannot load the minified form of its host imports from a local-path install, so `dist/tui.js` is built with `minify: false`, and the build fails if it is minified.
 
 The plugin is MCP-free: an OpenCode plugin's own tools need no server process. There are no sign-ins.
 
