@@ -4,7 +4,7 @@ Two suites, both deterministic and both runnable with no model:
 
 ```
 bun eval/run.ts <dir>                      # 30 render cases: does the right call draw the right chart?
-bun eval/recommend.ts <dir>                # 22 advice cases: does the right chart win, and what must not?
+bun eval/recommend.ts <dir>                # 21 advice cases: does the right chart win, and what must not?
 bun eval/recommend.ts <dir> --update-baseline
 bun eval/perf.ts                           # warm medians per chart
 ```

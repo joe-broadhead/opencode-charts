@@ -223,7 +223,7 @@ its next step is in [docs/configuration.md](docs/configuration.md#errors).
 ```bash
 npm ci
 npm run check              # typecheck, build, unit tests, shared copies, icons, package shape, pack, evals, host
-bun scripts/gallery.ts /tmp/gallery     # 67 charts across all themes + contact sheets
+bun scripts/gallery.ts /tmp/gallery     # 63 charts across all themes + contact sheets
 bun eval/run.ts /tmp/eval  # 28 natural-language requests, checked
 bun eval/recommend.ts /tmp/rec  # 21 advice cases against the committed baseline
 bun eval/perf.ts           # timings
@@ -252,6 +252,7 @@ it is built, [docs/jelly.md](docs/jelly.md) for Jelly, and
 - **Built-in themes are neutral.** Brand themes are not in the plugin. Save one with `charts_theme_save`, or set it in the plugin's options, and use it by name.
 - **Nothing is loaded from the network.** A remote data file or image is not fetched.
 - **PNG and HTML need the packaged runtime.** A missing runtime is reported as `PNG_UNAVAILABLE` or `HTML_UNAVAILABLE`; reinstalling the plugin restores it.
+- **Package size.** The package is about 8 MB unpacked, and `dist/index.js` is 2.3 MB: Vega, ECharts and the PNG rasteriser are bundled, so a render needs no network.
 - **Host range.** OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
 
 ## Links
