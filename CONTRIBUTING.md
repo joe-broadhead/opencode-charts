@@ -23,7 +23,7 @@ get a green run.
   that did not run is not evidence.
 - `evals` renders every catalogue example and checks the advice gates against the committed baseline.
 
-`npm run drift` compares the tool table with the live server's list, when you have one to point it at.
+`npm run drift` compares the Jelly declaration's tool list in `package.json` with the tool table in `src/registry.ts`, prints each difference by name and exits 1 when there is one. It is a manual check, not part of `npm run check`.
 
 ## Adding or changing a chart
 
