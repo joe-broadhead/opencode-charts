@@ -19,8 +19,6 @@ const OPEN = /^(open|o|first|start_value)$/i
 const CLOSE = /^(close|c|last|end_value)$/i
 const HIGH = /^(high|h|max_value)$/i
 const LOW = /^(low|l|min_value)$/i
-const SIZE = /^(size|weight|volume|count|population|magnitude)$/i
-const MEASURE_HINT = /(revenue|sales|orders|amount|total|value|count|users|visits|price|cost|score|rate|latency|duration|spend|margin|profit|qty|quantity|units|weight|percent|share|index|nps|conversion|impressions|clicks|sessions)$/i
 
 const US_STATES = new Set(["alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", "nevada", "new hampshire", "new jersey", "new mexico", "new york", "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming"])
 

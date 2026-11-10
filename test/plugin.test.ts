@@ -15,7 +15,6 @@ const tools = new Map<string, { name: string; description: string; options: { na
 const skills: { id: string; content: string; path: string }[] = []
 const commands = new Map<string, { name: string; execute: (input: { sessionID: string; delivery: string; prompt: { text: string } }) => Promise<void> }>()
 const posted: { sessionID: string; text: string; description: string }[] = []
-let rpcRegistration: { contract: { id: string; methods: Record<string, unknown> }; handlers: Record<string, (input: unknown, context: unknown) => Promise<unknown>> } | undefined
 // Agents as OpenCode lists them: build with its base allow, and a read-only helper with none.
 const agents = [
   { id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] as { action: string; resource: string; effect: string }[] },
@@ -37,12 +36,9 @@ beforeAll(async () => {
       list: async () => ({ data: agents }),
     },
     command: { transform: async (fn: (editor: unknown) => void) => fn({ add: (c: never) => commands.set((c as { name: string }).name, c) }) },
-    // The tools RPC: the contract and its handlers, kept so a test can call a method with no model.
+    // The tools RPC: accepted and disposed, so the plugin starts without a model.
     rpc: {
-      register: async (contract: unknown, handlers: unknown) => {
-        rpcRegistration = { contract: contract as { id: string; methods: Record<string, unknown> }, handlers: handlers as Record<string, (input: unknown, context: unknown) => Promise<unknown>> }
-        return { dispose: async () => { rpcRegistration = undefined } }
-      },
+      register: async () => ({ dispose: async () => undefined }),
     },
     session: { synthetic: async (input: { sessionID: string; text: string; description: string }) => { posted.push(input) } },
     permission: {

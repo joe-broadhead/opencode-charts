@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ACCESS_VALUES, defaultRules } from "../src/permissions.ts"
-import { DESCRIPTORS, NAMESPACE, TOOL_NAMES, type ToolName } from "../src/registry.ts"
+import { DESCRIPTORS, NAMESPACE, TOOL_NAMES } from "../src/registry.ts"
 import { HOST_RANGE, TESTED_HOSTS, inRange } from "../src/status.ts"
 import { ROOT } from "./helpers.ts"
 
@@ -11,7 +11,6 @@ const readme = read("README.md")
 const skill = read("skills/charts/SKILL.md")
 const security = read("SECURITY.md")
 const configuration = read("docs/configuration.md")
-const changelog = read("CHANGELOG.md")
 
 describe("the README", () => {
   test("opens Permissions with the default, and names the three ways to restrict", () => {

@@ -1,8 +1,8 @@
 import type { Plugin } from "@opencode/plugin"
 import type { Environment } from "../pipeline.js"
-import { DESCRIPTORS, descriptor, inputSchema, manifest, permissionOfTool, type ToolDescriptor, type ToolName } from "../registry.js"
+import { DESCRIPTORS, inputSchema, manifest, permissionOfTool, type ToolDescriptor, type ToolName } from "../registry.js"
 import { runTool } from "../tools.js"
-import { METHODS, registerToolsRpc, TOOLS_RPC_ID, type ToolCall, type ToolsRpcContext } from "./tools-rpc.js"
+import { METHODS, registerToolsRpc, type ToolCall, type ToolsRpcContext } from "./tools-rpc.js"
 
 export { pluginError, TOOLS_RPC_ID } from "./tools-rpc.js"
 

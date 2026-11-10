@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { bundledFonts } from "../src/fonts.js"
-import { figureOf, figureText, markedSvg, textRoles } from "../src/figure.js"
+import { figureText, markedSvg, textRoles } from "../src/figure.js"
 import { renderChart } from "../src/pipeline.js"
 import { ROOT, ROWS, BAR, workspace } from "./helpers.js"
 

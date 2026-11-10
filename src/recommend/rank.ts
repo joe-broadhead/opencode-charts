@@ -1,4 +1,4 @@
-import { CATALOGUE, catalogueEntry } from "../catalogue.js"
+import { CATALOGUE } from "../catalogue.js"
 import { loadData, type Row } from "../data.js"
 import type { Json } from "../engines/common.js"
 import { ChartsError } from "../errors.js"
@@ -181,12 +181,6 @@ function draftFor(id: string, shape: Shape | undefined, rows: readonly Row[] | u
   const built = buildDraft(id, shape, rows, encoding)
   if (built) return { call: built.call, warnings: [...built.warnings] }
   return { call: exampleDraft(id).call, warnings: [...exampleDraft(id).warnings] }
-}
-
-/** The two dimensions of a heatmap, when there are two of them. */
-function misc(shape: Shape): { x?: string } | undefined {
-  const dimensions = shape.dimensions.filter(d => d !== shape.series?.name)
-  return dimensions.length ? { x: dimensions[0] } : undefined
 }
 
 const confidenceOf = (score: number) => (score >= SCORING.confidence.highMin ? "high" : score >= SCORING.confidence.mediumMin ? "medium" : "low") as Suggestion["confidence"]

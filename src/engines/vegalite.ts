@@ -234,11 +234,11 @@ export function prepareVegaLite(input: Json, ctx: VegaLiteContext): PreparedVega
   // Units share axes in a layer, so a title on any of them names the axis.
   const titled = new Set<string>()
   for (const unit of units(spec)) for (const c of ["x", "y"]) { const d = unit.encoding[c]; if (isObject(d) && ((d.title !== undefined && !autoTitled.has(d)) || (isObject(d.axis) && (d.axis as Json).title !== undefined))) titled.add(c) }
-  for (const unit of units(spec)) lintUnit(unit, prof, ctx, issues, values, titled)
+  for (const unit of units(spec)) lintUnit(unit, prof, issues, values, titled)
   return { spec, ...(prof ? { profile: prof } : {}), issues, notes }
 }
 
-function lintUnit(unit: Unit, prof: Profile | undefined, ctx: VegaLiteContext, issues: Issue[], values: Row[] | undefined, titled: Set<string>) {
+function lintUnit(unit: Unit, prof: Profile | undefined, issues: Issue[], values: Row[] | undefined, titled: Set<string>) {
   const { encoding: e, path, mark } = unit
   const at = (...p: (string | number)[]) => pointer([...path, ...p])
   const distinct = (field: unknown) => (typeof field === "string" && values ? new Set(values.map(r => r[field])).size : 0)

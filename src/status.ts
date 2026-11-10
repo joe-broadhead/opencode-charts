@@ -1,7 +1,7 @@
 import type { Plugin } from "@opencode/plugin"
 import { ChartsError, formatFailure } from "./errors.js"
 import { htmlProblem } from "./html.js"
-import { AGENT_FIX, ACCESS_VALUES, defaultRules, unguardedAgents, type Access, type Rule } from "./permissions.js"
+import { AGENT_FIX, defaultRules, unguardedAgents, type Access, type Rule } from "./permissions.js"
 import { pngProblem } from "./png.js"
 import { NAMESPACE, TOOLS } from "./tools.js"
 import { builtinThemes, savedThemeNames, THEME_DIR, type ThemeSources } from "./themes/store.js"

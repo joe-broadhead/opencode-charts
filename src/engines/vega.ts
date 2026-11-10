@@ -1,5 +1,4 @@
-import { ChartsError, suggest, type Issue, pointer } from "../errors.js"
-import type { FontBook } from "../fonts.js"
+import { suggest, type Issue, pointer } from "../errors.js"
 import type { Row } from "../data.js"
 import { profile as profileRows, type Profile } from "../data.js"
 import type { ResolvedLocale } from "../locale.js"

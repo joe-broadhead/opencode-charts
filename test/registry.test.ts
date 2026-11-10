@@ -18,7 +18,6 @@ import { ROOT, workspace } from "./helpers.js"
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string; jelly: { tools: { name: string; permission: string; effect: string; readOnly: boolean }[] } }
 const readme = readFileSync(join(ROOT, "README.md"), "utf8")
 const parity = readFileSync(join(ROOT, "docs", "tool-parity.md"), "utf8")
-const scripting = readFileSync(join(ROOT, "docs", "scripting.md"), "utf8")
 
 describe("the registry", () => {
   test("is the only list: every surface names exactly its tools, in its order", () => {
