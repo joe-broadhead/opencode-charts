@@ -14,7 +14,7 @@ opencode api post /api/rpc/charts.tools/render -H "x-opencode-directory:$PWD" -d
 ```
 
 The envelope is `{"input":{"sessionID":"<id>","input":{…}}}`, with no other key. The session is created for the script
-with an agent (`opencode api post /api/session`, with `data.id` kept).
+with an agent and the project as its `location` (`opencode api post /api/session`, with `data.id` kept). A session made without a location belongs to the service's default location, where the project's agents may not exist, and each call then fails `Agent not found`.
 
 Each call returns `{ output, text }`: the structured result the model would see, and the text it would read. Images are
 never inlined into a script's result — the files are in the workspace, as for a model's call.
