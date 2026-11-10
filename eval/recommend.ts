@@ -4,7 +4,7 @@
  *   bun eval/recommend.ts [out-dir]                  grade against eval/baseline.json
  *   bun eval/recommend.ts [out-dir] --update-baseline  rewrite the baseline after a reviewed change
  *
- * The gates, from the eval design (`~/opencode-release/evals-lab/EVALS-DESIGN.md`) and MCP Clearsight's ranking gates:
+ * The gates, from the eval design (EVALS-DESIGN.md, kept outside this repository) and MCP Clearsight's ranking gates:
  *
  *   - zero must-not violations;
  *   - top-3 recall at least 0.90 over the cases that name a must;

@@ -19,7 +19,7 @@ get a green run.
   unminified, and the build fails if it is minified.
 - `unit` is every `test/*.test.ts`. `pack` installs the tarball into a temp project and runs it there.
 - `host` starts a stock `opencode serve` for each release in `TESTED_HOSTS`, from `OPENCODE_BIN_<version>` or
-  `~/opencode-release/qa/stock/<version>`. A missing binary prints a skip notice; in CI it fails, because a release
+  `<version>/` under `OPENCODE_STOCK_ROOT`. A missing binary prints a skip notice; in CI it fails, because a release
   that did not run is not evidence.
 - `evals` renders every catalogue example and checks the advice gates against the committed baseline.
 
