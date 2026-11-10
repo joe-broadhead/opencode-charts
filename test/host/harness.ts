@@ -1,8 +1,8 @@
 // A small harness for the Charts host tests: an isolated stock `opencode serve`, its own HOME/XDG/TMPDIR, the built
 // plugin loaded only in project A, and no model, no credential and no network.
 //
-// Copied in shape from the family's tools RPC v2 host harness (`~/opencode-release-rpc/shared-v2/test/host/harness.ts`,
-// which is not a shared module and is not pinned), so the isolation is the same one every plugin's host suite uses.
+// Copied in shape from the family's tools RPC v2 host harness (a copy kept outside the packages: it is not a shared module
+// and is not pinned), so the isolation is the same one every plugin's host suite uses.
 import { execFileSync, spawn, type ChildProcess } from "node:child_process"
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
@@ -12,14 +12,16 @@ import { randomBytes, randomUUID } from "node:crypto"
 
 /** The versions the family tests. A missing binary skips that version with a line in the test output. */
 export const TESTED_HOSTS = ["2.2.3", "2.2.4", "2.2.5", "2.2.6"] as const
-const QA = join(process.env.HOME ?? "", "opencode-release/qa/stock")
+/** A folder holding one `<version>/node_modules` tree of stock releases, when the environment names one. */
+const STOCK_ROOT = process.env.OPENCODE_STOCK_ROOT
 const platform = `@opencode/cli-${process.platform}-${process.arch}`
 
-/** Every stock binary's path: the environment first, then the machine's pinned copies. */
+/** Every stock binary's path: the environment first, then the stock root, if one is set. */
 export function binary(version: string): string {
   const override = process.env[`OPENCODE_BIN_${version.replaceAll(".", "_")}`]
   if (override) return override
-  return join(QA, version, "node_modules", platform, "bin", "opencode")
+  if (STOCK_ROOT === undefined) return `OPENCODE_BIN_${version.replaceAll(".", "_")} (unset)`
+  return join(STOCK_ROOT, version, "node_modules", platform, "bin", "opencode")
 }
 
 export const available = (version: string) => existsSync(binary(version))
