@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.0.0] - 2026-11-10
+
 ### Added
 
 - **One tool registry** (`src/registry.ts`): each tool is defined once, and the plugin's tool registration, the Jelly
