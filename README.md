@@ -24,14 +24,6 @@ Run `opencode reload`, or restart OpenCode, then run `/charts-status`.
 The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
 A new release is a new tag: install it with its own `#v<version>` spec.
 
-Options (all optional):
-
-```json
-{ "plugin": [["@joe-broadhead/opencode-charts", { "theme": "light", "locale": "en-GB", "outDir": "outputs/charts", "themes": { "acme": { "extends": "light", "colors": { "categorical": ["#0B5FFF", "#FF6A3D", "#00A87E"] } } } }]] }
-```
-
-Options, limits and errors are in [docs/configuration.md](docs/configuration.md).
-
 ## Use
 
 Ask for the chart you want, as a question or a spec:

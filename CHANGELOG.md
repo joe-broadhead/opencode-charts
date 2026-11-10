@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.0.0] - 2026-11-10
+<!-- kit-release: the GitHub release v0.0.0 -->
+
 ### Added
 
 - **One tool registry** (`src/registry.ts`): each tool is defined once, and the plugin's tool registration, the Jelly
@@ -26,6 +28,11 @@ All notable changes to this project are documented in this file. The format foll
   return, and the README's and `docs/configuration.md`'s error tables now list them all — the validation and lint
   issue codes included. `test/codes.test.ts` fails when a code is raised that is not in the table, or either table
   differs from it.
+- The tools `charts_render`, `charts_quick`, `charts_validate`, `charts_catalogue`, `charts_themes` and `charts_theme_save`.
+- Engines: Vega-Lite and Vega (rendered in a worker with time and memory limits) and ECharts server-side SVG. PNG through resvg (wasm). Offline interactive HTML.
+- Validation with did-you-mean and JSON paths; lint; layout checks (label collisions, clipping, duplicate ticks); PNG previews for the model.
+- A cookbook skill generated from the 53-type catalogue.
+- Bundled fonts: Inter and JetBrains Mono.
 
 ### Fixed
 
@@ -100,20 +107,3 @@ The first release on npm, to Jelly's plugin authors' standard.
 - `docs/architecture.md`, `docs/configuration.md` and `docs/scripting.md`.
 - CI on Linux and macOS, x64 and arm64, and a release workflow that publishes a `v*` tag to npm with provenance
   through trusted publishing, after approval in the `release` environment.
-
-## Before the first release
-
-### 0.0.1 - 2026-11-04, never published to npm
-
-Never published to npm.
-
-#### Added
-
-- `charts_render`, `charts_quick`, `charts_validate`, `charts_catalogue`, `charts_themes` and `charts_theme_save`.
-- Engines: Vega-Lite and Vega (rendered in a worker with time and memory limits) and ECharts server-side SVG. PNG
-  through resvg (wasm). Offline interactive HTML.
-- Seven built-in themes, two of them brand themes, plus custom and saved
-  themes. Bundled fonts: Inter, a brand font and JetBrains Mono.
-- Validation with did-you-mean and JSON paths; lint; layout checks (label collisions, clipping, duplicate ticks); PNG
-  previews for the model.
-- 53-type catalogue, a cookbook skill generated from it, 110 tests, a 67-chart gallery and a 30-request eval.
