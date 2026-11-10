@@ -71,7 +71,7 @@ The plugin is MCP-free: an OpenCode plugin's own tools need no server process. T
 
 ## 3. Jelly's contract
 
-From hey-jelly's plugin contract.
+From Jelly's plugin contract.
 
 - **Declaration.**
   - `protocol/contracts/src/plugin-contract.ts` `PluginDeclarationSchema`: `title` (≤60), `tools[] {name, permission, effect, readOnly}`, `skills`, `rpc`, `views`, `signIns`, `contributes`. It is `.strict()`, so unknown keys are refused.
@@ -208,7 +208,7 @@ projections of it. `test/registry.test.ts` fails when any of them drifts.
 that carries `output` from a tool that declares none (0.0.3's fix). The schema is a real one — the fields the tool
 returns, with `additionalProperties` open so a later field cannot fail a call — and the tools RPC validates each
 script's result against the same object, which also enforces the shared module's rule that an owned output schema may
-carry no `pattern`. A host case calls all eight tools on 2.2.3, 2.2.4 and 2.2.5 and asserts each result is accepted.
+carry no `pattern`. A host case calls all eight tools on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 and asserts each result is accepted.
 
 **The tools RPC.** `charts.tools`, v2.1 of the family module, makes every tool a method with its class, so a script
 draws and checks charts with no model. The five reads need only an agent that allows them; the three that write need an
@@ -254,7 +254,7 @@ Both write to `outputs/`, so both become saved files the same way.
   - the registry's projections of every surface (registry, palette, recommend, figure, RPC);
   - the tools RPC called through the fake host.
 - **Gallery.** `bun scripts/gallery.ts <dir>`: 67 charts (all 53 types, cycling the 7 themes, plus two charts in every theme), with an HTML contact sheet and contact-sheet PNGs.
-- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4 and 2.2.5 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
+- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5 and 2.2.6 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
 - **Eval.** `bun eval/run.ts <dir>`: 30 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
 - **Advice eval.** `bun eval/recommend.ts`: 22 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
 - **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2x PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.

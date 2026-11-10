@@ -35,7 +35,7 @@ const stages = {
   // The evals: every catalogue example renders to a checked picture, and the advice passes its gates against the
   // committed baseline. Both are deterministic and need no model.
   evals: () => run("bun", ["eval/run.ts", join(root, ".eval", "render")]) || run("bun", ["eval/recommend.ts", join(root, ".eval", "recommend")]),
-  // The host suite: the tools RPC on the isolated stock 2.2.3, 2.2.4 and 2.2.5 binaries. A version without a stock
+  // The host suite: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5 and 2.2.6 binaries. A version without a stock
   // binary is skipped with a line, so this stage passes on a machine that has only one of them.
   host: () => run("bun", ["test", "./test/host"]),
 }
