@@ -7,18 +7,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { available, binary, rpc, session, startHost, TESTED_HOSTS, unwrap, refusedCode, type Host } from "./harness.js"
+import { stockGate } from "../support/stock-gate.js"
 
 for (const version of TESTED_HOSTS) {
-  if (!available(version)) {
-    test(`${version}: the stock binary is missing, so this version is skipped`, () => {
-      // R11: a skip is loud, and in CI it is a failure: a release that did not run is not evidence.
-      if (process.env.CI === "true" || process.env.CI === "1") throw new Error(`no stock binary for ${version} at ${binary(version)}`)
-      console.log(`skip: no stock binary for ${version} at ${binary(version)}; set OPENCODE_BIN_${version.replaceAll(".", "_")}`)
-    })
-    continue
-  }
-
-  describe(`the Charts tools RPC on stock ${version}`, () => {
+  // A missing stock binary skips with a line on a laptop and fails in CI (R34): a release that did not run is not evidence.
+  const gate = stockGate(version, binary(version), available(version))
+  describe.skipIf(gate === "skip")(`the Charts tools RPC on stock ${version}`, () => {
     let host: Host
     let reader = ""
     let writer = ""
