@@ -224,7 +224,7 @@ its next step is in [docs/configuration.md](docs/configuration.md#errors).
 npm ci
 npm run check              # typecheck, build, unit tests, shared copies, icons, package shape, pack, evals, host
 bun scripts/gallery.ts /tmp/gallery     # 67 charts across all themes + contact sheets
-bun eval/run.ts /tmp/eval  # 30 natural-language requests, checked
+bun eval/run.ts /tmp/eval  # 28 natural-language requests, checked
 bun eval/recommend.ts /tmp/rec  # 21 advice cases against the committed baseline
 bun eval/perf.ts           # timings
 UPDATE_GOLDEN=1 bun test test/output.test.ts   # accept a reviewed change in output
@@ -244,6 +244,15 @@ See [DESIGN.md](DESIGN.md) for the design and its evidence, [docs/architecture.m
 it is built, [docs/jelly.md](docs/jelly.md) for Jelly, and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences: Vega and Vega-Lite (BSD-3-Clause), ECharts
 (Apache-2.0), resvg (MPL-2.0), and the fonts (OFL-1.1).
+
+## Known limits
+
+- **No PDF output, and no Plotly or Mermaid input.** [docs/status.md](https://github.com/joe-broadhead/opencode-charts/blob/HEAD/docs/status.md) says what does not work and why, and `charts_capabilities` reports what this build supports.
+- **Bundled fonts cover Latin, Greek and Cyrillic.** A label beyond them gets `FONT_GLYPH_MISSING`; the fix is a font file with `theme.font.files`.
+- **Built-in themes are neutral.** Brand themes are not in the plugin. Save one with `charts_theme_save`, or set it in the plugin's options, and use it by name.
+- **Nothing is loaded from the network.** A remote data file or image is not fetched.
+- **PNG and HTML need the packaged runtime.** A missing runtime is reported as `PNG_UNAVAILABLE` or `HTML_UNAVAILABLE`; reinstalling the plugin restores it.
+- **Host range.** OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
 
 ## Links
 
