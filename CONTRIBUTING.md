@@ -53,3 +53,5 @@ head that CI passed, and the tag points at it.
    `SHA256SUMS`.
 
 A tag that already exists stops step 3. Delete the old tag and its Release first, then start again.
+
+A Git install is removed and updated by its installed spec: `opencode plugin remove github:joe-broadhead/opencode-charts#v0.0.0`. `opencode plugin update` and `opencode plugin check` take the same spec.
