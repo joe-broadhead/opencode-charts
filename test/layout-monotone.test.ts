@@ -5,6 +5,8 @@ import { afterAll, describe, expect, test } from "bun:test"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { workspace } from "./helpers.ts"
 import { draw } from "./support/documents.ts"
+import { recipeDefinition } from "../src/recipes/definitions.ts"
+import { RECIPE_IDS } from "../src/recipes/types.ts"
 
 const ws = workspace()
 const env = { ...ws.env, assertFiles: async () => undefined }
@@ -93,7 +95,7 @@ describe("a refusal suggests only what would fit", () => {
   const withRecipe = (doc: Record<string, unknown>, recipe: string) => ({ ...doc, chart: { ...(doc.chart as object), recipe } })
 
   const claims = (text: string) => [...text.matchAll(/(\d+) px wide at (\d+) px tall|(\d+) px tall at (\d+) px wide/g)].map(m => (m[1] ? [Number(m[1]), Number(m[2])] : [Number(m[4]), Number(m[3])]) as [number, number])
-  const sentence = (fix: string, start: string) => { const i = fix.indexOf(start); return i < 0 ? "" : fix.slice(i, fix.indexOf(".", fix.indexOf(" px", i)) + 1) }
+  const sentence = (fix: string, start: string) => { const i = fix.toLowerCase().indexOf(start.toLowerCase()); return i < 0 ? "" : fix.slice(i, fix.indexOf(".", fix.indexOf(" px", i)) + 1) }
 
   for (const [recipe, width, height] of [["bar", 320, 320], ["bar", 600, 300], ["horizontal_bar", 360, 480], ["horizontal_bar", 320, 320]] as const) test(`${recipe} with long labels at ${width}×${height}: the other bar is offered first only if it fits this size, and every size the fix names draws`, async () => {
     const doc = categorical(recipe, LONG)
@@ -106,7 +108,7 @@ describe("a refusal suggests only what would fit", () => {
       expect(fix).not.toContain(`A ${other} of the same data fits`)
       for (const [w, h] of claims(sentence(fix, `A ${other} does not fit`))) expect(await fitsAt(alternative, w, h)).toBe(true)
     }
-    const own = claims(sentence(fix, "fits from"))
+    const own = claims(sentence(fix, "this chart fits at"))
     expect(own.length).toBeGreaterThan(0)
     for (const [w, h] of own) expect(await fitsAt(doc, w, h)).toBe(true)
   }, 120_000)
@@ -116,7 +118,7 @@ describe("a refusal suggests only what would fit", () => {
     const fix = await refuse({ ...doc, layout: { width: 360, height: 480 } })
     expect(fix.startsWith('A bar of the same data fits 360×480 px: send the same document with chart.recipe "bar"')).toBe(true)
     // The requested chart's own minimum comes after it.
-    expect(fix.indexOf("Or keep the horizontal_bar: this chart fits from")).toBeGreaterThan(0)
+    expect(fix.indexOf("Or keep the horizontal_bar: this chart fits at")).toBeGreaterThan(0)
     const { result } = await draw(env, { ...withRecipe(doc, "bar"), layout: { width: 360, height: 480 } })
     expect({ width: result.width, height: result.height }).toEqual({ width: 360, height: 480 })
   }, 120_000)
@@ -125,8 +127,8 @@ describe("a refusal suggests only what would fit", () => {
     const doc = categorical("bar", LONG)
     const fix = await refuse({ ...doc, layout: { width: 320, height: 320 } })
     expect(await fitsAt(withRecipe(doc, "horizontal_bar"), 320, 320)).toBe(false)
-    expect(fix.startsWith("This chart fits from")).toBe(true)
-    for (const [w, h] of claims(sentence(fix, "fits from"))) expect(await fitsAt(doc, w, h)).toBe(true)
+    expect(fix.startsWith("This chart fits at")).toBe(true)
+    for (const [w, h] of claims(sentence(fix, "this chart fits at"))) expect(await fitsAt(doc, w, h)).toBe(true)
   }, 120_000)
 
   test("a bar chart the horizontal bar would fit gets that suggestion first, and the horizontal bar does fit", async () => {
@@ -160,3 +162,36 @@ test("a plot left small by its guides is reported as an adjustment, with its siz
   const roomy = await draw(env, { ...categorical("bar", SHORT), layout: { width: 720, height: 480 } })
   expect(roomy.fitted.report.adjustments.filter(a => a.path === "/layout")).toEqual([])
 }, 60_000)
+
+test("every recipe's refusal names only sizes, and swaps, that fit when requested", async () => {
+  const swapTitles = (doc: Record<string, any>, recipe: string) => {
+    const options = { ...(doc.chart.options ?? {}) }
+    const [x, y] = [options.xTitle, options.yTitle]
+    delete options.xTitle; delete options.yTitle
+    if (y !== undefined) options.xTitle = y
+    if (x !== undefined) options.yTitle = x
+    return { ...doc, chart: { ...doc.chart, recipe, options } }
+  }
+  const fitsAt = (doc: Record<string, unknown>, width: number, height: number) => draw(env, { ...doc, layout: { mode: "fixed", width, height } }).then(() => true, (e: { code?: string }) => { if (e.code !== "LAYOUT_UNSATISFIABLE") throw e; return false })
+  const claims = (text: string) => [...text.matchAll(/(\d+) px wide at (\d+) px tall|(\d+) px tall at (\d+) px wide/g)].map(m => (m[1] ? [Number(m[1]), Number(m[2])] : [Number(m[4]), Number(m[3])]) as [number, number])
+  const wrong: string[] = []
+  let refusals = 0
+  for (const recipe of RECIPE_IDS) for (const [width, height] of [[240, 180], [360, 300]] as const) {
+    const doc = { ...structuredClone(recipeDefinition(recipe).examples()[0]!.document) as Record<string, any>, layout: { mode: "fixed", width, height } }
+    const error = await draw(env, doc).then(() => undefined, (e: { code?: string; issues?: { fix?: string }[] }) => { if (e.code !== "LAYOUT_UNSATISFIABLE") throw e; return e })
+    if (!error) continue
+    refusals++
+    const fix = error.issues![0]!.fix!
+    const ownAt = fix.toLowerCase().indexOf("this chart fits at")
+    const own = ownAt < 0 ? [] : claims(fix.slice(ownAt, fix.indexOf(")", ownAt)))
+    for (const [w, h] of own) if (!(await fitsAt(doc, w, h))) wrong.push(`${recipe} ${width}×${height}: named ${w}×${h}, which is refused`)
+    const swapped = /A (bar|horizontal_bar) (of the same data fits|does not fit)/.exec(fix)
+    if (swapped) {
+      const other = swapTitles(doc, swapped[1]!)
+      if (swapped[2] === "of the same data fits") { if (!(await fitsAt(other, width, height))) wrong.push(`${recipe} ${width}×${height}: offered ${swapped[1]} here, which is refused`) }
+      else for (const [w, h] of claims(fix.slice(fix.indexOf(`A ${swapped[1]} does not fit`)).split(".")[0]!.split("either;")[1] ?? "")) if (!(await fitsAt(other, w, h))) wrong.push(`${recipe} ${width}×${height}: named ${swapped[1]} at ${w}×${h}, which is refused`)
+    }
+  }
+  expect(wrong).toEqual([])
+  expect(refusals).toBeGreaterThan(3) // the sizes are small enough that several recipes refuse
+}, 600_000)

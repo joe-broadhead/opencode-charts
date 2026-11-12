@@ -127,7 +127,10 @@ function titleChannels(encoding: Json, options: Json) {
 const WHOLE_AXIS = { labelLimit: 0, titleLimit: 0, maxExtent: LIMITS.dimension }
 const WHOLE_LEGEND = { labelLimit: 0, titleLimit: 0, symbolLimit: 0 }
 
-export class LayoutUnsatisfiable extends DocumentInvalid {}
+/** A refusal, with what it was made from, so the server can check its alternatives by drawing and restate it. */
+export class LayoutUnsatisfiable extends DocumentInvalid {
+  constructor(issues: readonly Issue[], readonly basis: { readonly conflicts: readonly Conflict[]; readonly measured: boolean; readonly alternatives?: Alternatives }) { super(issues) }
+}
 
 /** What the refusal's alternatives are computed from: the planner's view of the chart, and the text measurements. */
 export interface AlternativeContext {
@@ -160,46 +163,72 @@ function smallest(fits: (size: number) => boolean, after: number): number | unde
   return Math.min(max, hi * STEP)
 }
 
+/** What a refusal can offer instead, each size one that fits (along one dimension, with the other kept). */
+export interface Alternatives {
+  /** The recipe of the same family drawn the other way round: whether it fits the requested size, else what it needs. */
+  readonly swap?: { readonly recipe: string; readonly here: boolean; readonly need: { readonly w?: number; readonly h?: number } }
+  /** The requested chart: a width at the requested height, and a height at the requested width, that fit. */
+  readonly own: { readonly w?: number; readonly h?: number }
+}
+
 /**
- * Alternatives that keep the chart's meaning, each checked with the planner: first any recipe of the same family
- * (bar and horizontal_bar) that fits the requested size, so the size can be kept; then the smallest width (at this
- * height) and height (at this width) at which the requested chart fits; then the size an alternative that does not fit
- * here would need. Nothing is offered on a guess.
+ * The planner's estimate of the alternatives: first any recipe of the same family (bar and horizontal_bar) that fits
+ * the requested size, then the smallest width (at this height) and height (at this width) at which the requested chart
+ * fits, then the size the other recipe needs when it does not fit here. The server checks each by drawing it before
+ * a refusal names it (fit.ts).
  */
-export function layoutAlternatives(context: AlternativeContext, width: number, height: number, measured: boolean): string[] {
+export function layoutAlternatives(context: AlternativeContext, width: number, height: number, measured: boolean): Alternatives {
   const fits = (planner: Omit<PlannerInput, "width">, w: number, h: number) => planLayout({ ...planner, width: w, height: h }, context.measure).ok
   // A drawing that failed its check at this size needs more room than the planner's estimate of it.
   const sizes = (planner: Omit<PlannerInput, "width">, above: boolean) => ({
     w: smallest(size => fits(planner, size, height), above ? width : 0),
     h: smallest(size => fits(planner, width, size), above ? height : 0),
   })
-  const phrase = (need: { w?: number; h?: number }) => [need.w !== undefined ? `${need.w} px wide at ${height} px tall` : undefined, need.h !== undefined ? `${need.h} px tall at ${width} px wide` : undefined].filter(Boolean) as string[]
-  const first: string[] = [], last: string[] = []
   const swap = SWAPS[context.recipe]
   const swapped = swap ? swapAxes(context.planner) : undefined
-  if (swap && swapped) {
-    if (fits(swapped, width, height)) first.push(`A ${swap} of the same data fits ${width}×${height} px: send the same document with chart.recipe "${swap}" to keep this size (bindings and options stay; xTitle and yTitle name the physical axes, so swap them if set).`)
-    else {
-      const need = phrase(sizes(swapped, false))
-      last.push(need.length ? `A ${swap} does not fit ${width}×${height} px either; it needs ${need.join(", or ")}.` : `A ${swap} does not fit at any size up to ${LIMITS.dimension} px either.`)
-    }
+  return {
+    ...(swap && swapped ? { swap: fits(swapped, width, height) ? { recipe: swap, here: true, need: {} } : { recipe: swap, here: false, need: sizes(swapped, false) } } : {}),
+    own: sizes(context.planner, measured || fits(context.planner, width, height)),
   }
-  const own = phrase(sizes(context.planner, measured || fits(context.planner, width, height)))
-  const ownText = own.length ? `This chart fits from ${own.join(", or from ")} (layout.width, layout.height).` : `No size up to ${LIMITS.dimension} px fits this chart as it is: shorten the labels or the title, or use fewer categories.`
-  return [...first, first.length ? `Or keep the ${context.recipe}: ${ownText.charAt(0).toLowerCase()}${ownText.slice(1)}` : ownText, ...last]
 }
 
-/** The LAYOUT_UNSATISFIABLE issue for a set of conflicts, with alternatives that keep the chart's meaning. */
-export function unsatisfiable(settings: EffectiveSettings, conflicts: readonly Conflict[], measured = false, context?: AlternativeContext): LayoutUnsatisfiable {
+/** The alternatives as the refusal's next step, in the order to try them; each sentence once. */
+export function alternativesText(a: Alternatives, recipe: string, width: number, height: number): string[] {
+  const phrase = (need: { w?: number; h?: number }) => [need.w !== undefined ? `${need.w} px wide at ${height} px tall` : undefined, need.h !== undefined ? `${need.h} px tall at ${width} px wide` : undefined].filter(Boolean) as string[]
+  const first: string[] = [], last: string[] = []
+  if (a.swap?.here) first.push(`A ${a.swap.recipe} of the same data fits ${width}×${height} px: send the same document with chart.recipe "${a.swap.recipe}" to keep this size (bindings and options stay; xTitle and yTitle name the physical axes, so swap them if set).`)
+  else if (a.swap) {
+    const need = phrase(a.swap.need)
+    last.push(need.length ? `A ${a.swap.recipe} does not fit ${width}×${height} px either; it fits at ${need.join(", or at ")}.` : `A ${a.swap.recipe} does not fit at any size up to ${LIMITS.dimension} px either.`)
+  }
+  const own = phrase(a.own)
+  const ownText = own.length ? `This chart fits at ${own.join(", or at ")} (layout.width, layout.height).` : `No size up to ${LIMITS.dimension} px fits this chart as it is: shorten the labels or the title, or use fewer categories.`
+  return [...new Set([...first, first.length ? `Or keep the ${recipe}: ${ownText.charAt(0).toLowerCase()}${ownText.slice(1)}` : ownText, ...last])]
+}
+
+/** More legend entries than this, and a refusal says to draw fewer series as well as giving sizes. */
+const LEGEND_MANY = 12
+
+/** A refusal's issue: the conflicts, and the alternatives (or, without them, the generic next step). */
+export function refusalIssue(settings: EffectiveSettings, conflicts: readonly Conflict[], measured: boolean, alternatives?: { readonly found: Alternatives; readonly recipe: string }): Issue {
   const l = settings.layout!
-  const list = conflicts.slice(0, 6).map(c => `${c.what} (needs ${c.needed}, has ${c.available}, at ${c.path})`).join("; ")
-  const alternatives = context ? layoutAlternatives(context, l.width, l.height, measured) : []
-  return new LayoutUnsatisfiable([{
+  const seen = new Set<string>()
+  const list = conflicts.map(c => `${c.what} (needs ${c.needed}, has ${c.available}, at ${c.path})`).filter(t => !seen.has(t) && seen.add(t)).slice(0, 6).join("; ")
+  const offered = alternatives ? alternativesText(alternatives.found, alternatives.recipe, l.width, l.height) : []
+  return {
     level: "error", code: "LAYOUT_UNSATISFIABLE",
     message: `The chart does not fit ${l.width}×${l.height} px with every label at ${l.minLabelSize} px or more, in any of the three layout candidates${measured ? " (measured on the drawn chart)" : ""}: ${list}.`,
     path: "/layout",
-    fix: `${conflicts.some(c => c.path.startsWith("/encoding/color/legend")) ? "The legend cannot show every series: draw fewer series (combine the small ones into one with an explicit data.transform, or split the chart), or give it more room. " : ""}${alternatives.length ? `${alternatives.join(" ")} ` : "Give it more room (a larger layout.width or layout.height, or a layout.target such as report). "}Otherwise shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter. Labels are never shrunk below ${l.minLabelSize} px, and no category, series or legend entry is dropped to fit.`,
-  }])
+    // Too many series for one legend is its own advice; a legend that only needs room is covered by the sizes below.
+    fix: `${conflicts.some(c => c.path.startsWith("/encoding/color/legend") && Number(/^(\d+) legend entries/.exec(c.what)?.[1] ?? 0) > LEGEND_MANY) ? "The legend cannot show every series: draw fewer series (combine the small ones into one with an explicit data.transform, or split the chart), or give it more room. " : ""}${offered.length ? `${offered.join(" ")} ` : "Give it more room (a larger layout.width or layout.height, or a layout.target such as report). "}Otherwise shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter. Labels are never shrunk below ${l.minLabelSize} px, and no category, series or legend entry is dropped to fit.`,
+  }
+}
+
+/** The LAYOUT_UNSATISFIABLE issue for a set of conflicts, with the planner's alternatives (verified later by drawing). */
+export function unsatisfiable(settings: EffectiveSettings, conflicts: readonly Conflict[], measured = false, context?: AlternativeContext): LayoutUnsatisfiable {
+  const l = settings.layout!
+  const found = context ? layoutAlternatives(context, l.width, l.height, measured) : undefined
+  return new LayoutUnsatisfiable([refusalIssue(settings, conflicts, measured, found && context ? { found, recipe: context.recipe } : undefined)], { conflicts, measured, ...(found ? { alternatives: found } : {}) })
 }
 
 /** Builds the drawn chart from a recipe compilation, with the first feasible layout candidate from `from` on. */
@@ -236,12 +265,19 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
   const xReading = radial ? undefined : axisInput(encoding.x, rows)
   const yReading = radial ? undefined : axisInput(encoding.y, rows)
   const x = xReading?.axis, y = yReading?.axis
+  // A size key (bubble): about five entries, their symbols' areas spread evenly over the size scale's range.
+  const sizeDef = isObject(encoding.size) ? encoding.size as Json : undefined
+  const sizeRange = sizeDef && isObject(sizeDef.scale) && Array.isArray((sizeDef.scale as Json).range) ? (sizeDef.scale as Json).range as number[] : undefined
+  const [areaLo, areaHi] = [Number(sizeRange?.[0] ?? 30), Number(sizeRange?.[1] ?? 30)]
+  const sizeLegend = sizeDef && typeof sizeDef.field === "string" && sizeDef.legend !== null
+    ? { labels: Array(5).fill(numberSamples(rows.map(r => r[sizeDef.field as string]))[0]!), ...(typeof sizeDef.title === "string" ? { title: sizeDef.title } : {}), symbols: [0, 1, 2, 3, 4].map(i => 2 * Math.sqrt((areaLo + ((areaHi - areaLo) * i) / 4) / Math.PI)) }
+    : undefined
   const planner: Omit<PlannerInput, "width"> = {
     height: layout.height, padding: tokens.layout.padding, floor: layout.minLabelSize,
     labelSize: tokens.font.labelSize, axisTitleSize: tokens.font.size, titleSize: tokens.font.titleSize, labelPadding: tokens.axis.labelPadding,
     legendOrient: tokens.legend.orient,
     ...(input.title ? { title: input.title } : {}),
-    ...(x ? { x } : {}), ...(y ? { y } : {}), ...(legend ? { legend } : {}), ...(radial ? { radial: true } : {}),
+    ...(x ? { x } : {}), ...(y ? { y } : {}), ...(legend ? { legend } : {}), ...(sizeLegend ? { sizeLegend } : {}), ...(radial ? { radial: true } : {}),
   }
   const outcome = planLayout({ ...planner, width: layout.width }, input.measure)
   const context: AlternativeContext = { recipe: compilation.recipe, planner, measure: input.measure }
@@ -292,7 +328,8 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
   // read on a dark canvas as well as a light one.
   if (isObject(encoding.size)) {
     const size = encoding.size as Json
-    size.legend = { ...(isObject(size.legend) ? size.legend as Json : {}), ...WHOLE_LEGEND, symbolOpacity: 1 }
+    // One column in either place (Vega takes no expression for a symbol legend's direction), as the planner measures it.
+    size.legend = { ...(isObject(size.legend) ? size.legend as Json : {}), ...WHOLE_LEGEND, symbolOpacity: 1, direction: "vertical" }
   }
   spec.params = [...params, ...(Array.isArray(spec.params) ? spec.params as Json[] : [])]
 

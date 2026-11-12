@@ -67,6 +67,11 @@ export interface PlannerInput {
   readonly x?: PlannerAxis
   readonly y?: PlannerAxis
   readonly legend?: PlannerLegend
+  /**
+   * A size key (a bubble chart's), drawn as one column: its entries' labels and symbol diameters, and its title. It
+   * stacks under the colour legend beside the plot, and stands beside it below the plot.
+   */
+  readonly sizeLegend?: { readonly labels: readonly string[]; readonly title?: string; readonly symbols: readonly number[] }
   /** Where the theme puts the legend in candidate 0. */
   readonly legendOrient: "right" | "bottom" | "left" | "top"
   /** Pie and donut: no axes, the plot is a circle. */
@@ -239,8 +244,10 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
 
   // Legend: where the theme puts it first, below the plot after that.
   const legend = input.legend
-  const legendOrient: PlanSignals["charts_legend_orient"] = c === 0 ? input.legendOrient : input.legendOrient === "top" ? "top" : "bottom"
+  // A size key is one column, which sits beside the plot, never below it: a chart with one keeps its legends at the side.
+  const legendOrient: PlanSignals["charts_legend_orient"] = input.sizeLegend ? (input.legendOrient === "left" ? "left" : "right") : c === 0 ? input.legendOrient : input.legendOrient === "top" ? "top" : "bottom"
   let legendW = 0, legendH = 0, legendColumns = 1
+  let colourSideH = 0, colourBottomW = 0
   if (legend) {
     const titleW = legend.title ? m(legend.title, lbl) : 0
     const titleRow = legend.title ? lbl * LINE + 5 : 0
@@ -254,6 +261,7 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
         legendW = Math.max(item, titleW) + 18
         // Every entry is drawn (no "…N entries"), one per row beside the plot.
         const rows = legend.labels.length * (lbl + 6) + titleRow
+        colourSideH = rows + 2
         if (rows > availH - titleH) fail(`${legend.labels.length} legend entries need ${Math.ceil(rows)} px of height beside the plot`, "/encoding/color/legend", rows, availH - titleH)
       } else {
         legendColumns = Math.max(1, Math.min(legend.labels.length, Math.floor((availW + 10) / (item + 10))))
@@ -261,10 +269,31 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
         if (titleW > availW) fail(`the legend title needs ${Math.ceil(titleW)} px`, "/encoding/color/legend/title", titleW, availW)
         const rows = Math.ceil(legend.labels.length / legendColumns)
         legendH = rows * (lbl + 6) + titleRow + 18
+        colourBottomW = Math.max(titleW, legendColumns * (item + 10))
       }
     }
+  }
+  const sizeKey = input.sizeLegend
+  if (sizeKey) {
+    const titleW = sizeKey.title ? m(sizeKey.title, lbl) : 0
+    const titleRow = sizeKey.title ? lbl * LINE + 5 : 0
+    const labelW = Math.max(0, ...sizeKey.labels.map(label))
+    // One column: each entry as tall as its symbol (or its label), 11 px apart (as Vega lays it out).
+    const width = Math.max(titleW, Math.max(0, ...sizeKey.symbols) + 4 + labelW)
+    const height = titleRow + sizeKey.symbols.reduce((sum, d) => sum + Math.max(lbl, d), 0) + 11 * Math.max(0, sizeKey.symbols.length - 1)
+    if (legendOrient === "right" || legendOrient === "left") {
+      legendW = Math.max(legendW, width + 18)
+      const stacked = colourSideH + (legend ? 8 : 0) + height
+      if (stacked > availH - titleH) fail(`the legends need ${Math.ceil(stacked)} px of height beside the plot`, "/encoding/size/legend", stacked, availH - titleH)
+    } else {
+      const total = width + (legend ? colourBottomW + 16 : 0)
+      legendH = Math.max(legendH, height + 18)
+      if (total > availW) fail(`the legends need ${Math.ceil(total)} px of width below the plot`, "/encoding/size/legend", total, availW)
+    }
+  }
+  if (legend || sizeKey) {
     if (legendW > availW * PLANNER_LIMITS.legendShare) fail(`the legend needs ${Math.ceil(legendW)} px beside the plot`, "/encoding/color/legend", legendW, availW * PLANNER_LIMITS.legendShare)
-    if (legendH > availH * PLANNER_LIMITS.legendShare) fail(`the legend needs ${Math.ceil(legendH)} px below the plot`, "/encoding/color/legend", legendH, availH * PLANNER_LIMITS.legendShare)
+    if (legendH > availH * PLANNER_LIMITS.legendShare) fail(legend && legend.kind === "symbol" ? `${legend.labels.length} legend entries need ${Math.ceil(legendH)} px below the plot` : `the legend needs ${Math.ceil(legendH)} px below the plot`, "/encoding/color/legend", legendH, availH * PLANNER_LIMITS.legendShare)
     if (legendOrient !== input.legendOrient) adjustments.push({ path: "/encoding/color/legend/orient", reason: `moved the legend ${legendOrient === "bottom" ? "below" : "above"} the plot${legendColumns > 1 ? ` in ${legendColumns} columns` : ""} to give the plot the width` })
   }
 
