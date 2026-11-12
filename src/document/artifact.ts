@@ -280,18 +280,35 @@ export function verifyFontDependencies(fonts: readonly FontDependencyV1[], diges
 // ---------------------------------------------------------------------------------------------------------------
 // The render fingerprint: what a generated bundle's bytes and membership depend on, beyond the document revision.
 
+/** Engine and rasteriser versions: each can change SVG or PNG bytes. */
+export interface RendererVersions {
+  readonly "vega-lite": string
+  readonly vega: string
+  readonly echarts: string
+  readonly resvg: string
+}
+
+/** Digests of the build's runtime assets that end up in outputs: the two HTML runtimes and the PNG rasteriser. */
+export interface RuntimeAssetDigests {
+  readonly "browser/vega.js": string
+  readonly "browser/echarts.js": string
+  readonly "resvg.wasm": string
+}
+
 export interface RenderFingerprintInput {
   /** The document revision being rendered. */
   readonly revision: string
-  /** Engine, rasteriser and runtime versions: vega, vega-lite, echarts, resvg… */
-  readonly renderers: Readonly<Record<string, string>>
-  /** Digests of runtime assets that end up in outputs (browser bundles, wasm, embedded fonts). */
-  readonly runtimeAssets: Readonly<Record<string, string>>
+  /** The plugin release: its own code (themes, lint, layout) shapes the outputs too. */
+  readonly plugin: string
+  /** RECIPE_COMPILER_VERSION of the compiler that turned the document into a spec. */
+  readonly recipeCompiler: number
+  readonly renderers: RendererVersions
+  readonly runtimeAssets: RuntimeAssetDigests
   /** The resolved outer viewport. */
-  readonly viewport: { readonly width: number; readonly height: number; readonly mode: string }
-  readonly formats: readonly string[]
+  readonly viewport: { readonly width: number; readonly height: number; readonly mode: "fixed" | "responsive" | "native" }
+  readonly formats: readonly ("svg" | "png" | "html" | "spec" | "document")[]
   /** PNG densities in the order given: the first is written without a suffix. */
-  readonly scales: readonly number[]
+  readonly scales: readonly (1 | 2 | 3)[]
   readonly fonts: readonly { readonly family: string; readonly weight: number; readonly sha256: string }[]
   readonly svgText: "text" | "paths" | "embed"
   readonly marks: "problems" | "all" | "none"
@@ -303,9 +320,35 @@ export interface RenderFingerprintInput {
   readonly platform: string
 }
 
+const VERSION = z.string().min(1).max(64)
+const DIGEST = z.string().regex(REVISION_PATTERN)
+/** The fingerprint's input, strict: an unknown key or a missing one is a mistake in the caller, not a new input. */
+const RenderFingerprintInputSchema = z.strictObject({
+  revision: DIGEST,
+  plugin: VERSION,
+  recipeCompiler: z.number().int().min(1),
+  renderers: z.strictObject({ "vega-lite": VERSION, vega: VERSION, echarts: VERSION, resvg: VERSION }),
+  runtimeAssets: z.strictObject({ "browser/vega.js": DIGEST, "browser/echarts.js": DIGEST, "resvg.wasm": DIGEST }),
+  viewport: z.strictObject({ width: z.number().int().min(1).max(LIMITS.dimension), height: z.number().int().min(1).max(LIMITS.dimension), mode: z.enum(["fixed", "responsive", "native"]) }),
+  formats: z.array(z.enum(["svg", "png", "html", "spec", "document"])).min(1).max(5),
+  scales: z.array(z.union([z.literal(1), z.literal(2), z.literal(3)])).max(3),
+  fonts: z.array(z.strictObject({ family: z.string().min(1).max(100), weight: z.number().int().min(100).max(900), sha256: DIGEST })).max(16),
+  svgText: z.enum(["text", "paths", "embed"]),
+  marks: z.enum(["problems", "all", "none"]),
+  inspect: z.boolean(),
+  preview: z.boolean(),
+  name: z.string().min(1).max(80),
+  platform: z.string().min(1).max(64),
+})
+
 /** `sha256:` over every input that can change a bundle's bytes or its file list. Formats are a set; scales an order. */
 export function renderFingerprint(input: RenderFingerprintInput): string {
-  if (!isDigest(input.revision)) throw new ChartsError("DOCUMENT_INVALID", "The render fingerprint needs a document revision.", "Pass the revision of the captured document.", "/revision")
+  const parsed = RenderFingerprintInputSchema.safeParse(input)
+  if (!parsed.success) {
+    const first = parsed.error.issues[0]!
+    const path = pointer(first.path as (string | number)[])
+    throw new ChartsError("DOCUMENT_INVALID", `The render fingerprint input is invalid at ${path}: ${first.message}.`, "Pass exactly the fields RenderFingerprintInput declares, with sha256: digests and the declared versions.", path)
+  }
   const normalised = { ...input, formats: [...new Set(input.formats)].sort() }
   return sha256(FINGERPRINT_DOMAIN + canonicalJson(normalised))
 }

@@ -298,16 +298,20 @@ describe("dependencies and the render fingerprint", () => {
     expect(e.hint).toContain("create a new document")
   })
 
+  const digest = (c: string) => `sha256:${c.repeat(64)}`
   const INPUT: RenderFingerprintInput = {
-    revision: `sha256:${"1".repeat(64)}`, renderers: { vega: "6.4.0", "vega-lite": "6.5.0", resvg: "2.6.2" }, runtimeAssets: { "browser/vega.js": `sha256:${"2".repeat(64)}` },
-    viewport: { width: 720, height: 420, mode: "responsive" }, formats: ["svg", "png", "spec", "document"], scales: [2, 1], fonts: [{ family: "Inter", weight: 400, sha256: `sha256:${"3".repeat(64)}` }],
+    revision: digest("1"), plugin: "0.0.0", recipeCompiler: 1,
+    renderers: { "vega-lite": "6.5.0", vega: "6.4.0", echarts: "6.1.0", resvg: "2.6.2" },
+    runtimeAssets: { "browser/vega.js": digest("2"), "browser/echarts.js": digest("6"), "resvg.wasm": digest("7") },
+    viewport: { width: 720, height: 420, mode: "responsive" }, formats: ["svg", "png", "spec", "document"], scales: [2, 1], fonts: [{ family: "Inter", weight: 400, sha256: digest("3") }],
     svgText: "text", marks: "problems", inspect: false, preview: true, name: "revenue", platform: "linux-x64",
   }
   test("every input that changes bundle bytes or membership changes it", () => {
     const base = renderFingerprint(INPUT)
     expect(base).toMatch(/^sha256:[0-9a-f]{64}$/)
     const variants: Partial<RenderFingerprintInput>[] = [
-      { revision: `sha256:${"4".repeat(64)}` }, { renderers: { ...INPUT.renderers, vega: "6.4.1" } }, { runtimeAssets: { "browser/vega.js": `sha256:${"5".repeat(64)}` } },
+      { revision: digest("4") }, { plugin: "0.0.1" }, { recipeCompiler: 2 }, { renderers: { ...INPUT.renderers, vega: "6.4.1" } }, { renderers: { ...INPUT.renderers, resvg: "2.6.3" } },
+      { runtimeAssets: { ...INPUT.runtimeAssets, "browser/vega.js": digest("5") } }, { runtimeAssets: { ...INPUT.runtimeAssets, "resvg.wasm": digest("8") } },
       { viewport: { width: 721, height: 420, mode: "responsive" } }, { viewport: { width: 720, height: 420, mode: "fixed" } }, { formats: ["svg", "png", "spec", "document", "html"] },
       { scales: [1, 2] }, { scales: [2] }, { fonts: [] }, { svgText: "embed" }, { marks: "all" }, { inspect: true }, { preview: false }, { name: "revenue-2" }, { platform: "darwin-arm64" },
     ]
@@ -317,5 +321,18 @@ describe("dependencies and the render fingerprint", () => {
   test("formats are a set; the revision must be a revision", () => {
     expect(renderFingerprint({ ...INPUT, formats: ["document", "spec", "png", "svg", "svg"] })).toBe(renderFingerprint(INPUT))
     expect(refusal(() => renderFingerprint({ ...INPUT, revision: "x" })).code).toBe("DOCUMENT_INVALID")
+  })
+  test("the input is strict: unknown, missing or malformed renderer and asset entries are refused with their path", () => {
+    const bad: [unknown, string][] = [
+      [{ ...INPUT, renderers: { ...INPUT.renderers, plotly: "1.0" } }, "/renderers"],
+      [{ ...INPUT, renderers: { "vega-lite": "6.5.0", vega: "6.4.0", resvg: "2.6.2" } }, "/renderers/echarts"],
+      [{ ...INPUT, runtimeAssets: { ...INPUT.runtimeAssets, "browser/vega.js": "abc" } }, "/runtimeAssets/browser~1vega.js"],
+      [{ ...INPUT, runtimeAssets: { ...INPUT.runtimeAssets, "extra.js": digest("9") } }, "/runtimeAssets"],
+      [{ ...INPUT, recipeCompiler: undefined }, "/recipeCompiler"],
+      [{ ...INPUT, scales: [4] }, "/scales/0"],
+      [{ ...INPUT, formats: ["gif"] }, "/formats/0"],
+      [{ ...INPUT, timing: 12 }, "/"],
+    ]
+    for (const [input, path] of bad) expect(refusal(() => renderFingerprint(input as RenderFingerprintInput))).toMatchObject({ code: "DOCUMENT_INVALID", path })
   })
 })
