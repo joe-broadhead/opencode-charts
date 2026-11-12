@@ -50,8 +50,8 @@ baseline, and only a real browser test can show it.
 
 ## Observed while adding the tests
 
-Under `bun test`, a reply from the Vega worker thread (`src/engines/vega-pool.ts`, which `unref`s the worker) was seen
-to wait until the 10 s render timeout fired when nothing else was pending, so an ordinary render failed as
-`SPEC_TOO_EXPENSIVE`. It reproduced only inside the test runner, in one test order, and not in a plain `bun` script.
-`test/publication.test.ts` therefore renders in the calling thread (`CHARTS_IN_PROCESS=1`, restored afterwards). The
-worker pool itself is unchanged; whether the same delay can happen inside a host process is not established.
+Under `bun test`, awaiting a render through `expect(promise).rejects.toThrow(…)` stalled the Vega worker's reply
+(`src/engines/vega-pool.ts`) until the 10 s render timeout fired, so an ordinary render failed as
+`SPEC_TOO_EXPENSIVE`. Awaiting the same promise directly (`await p.catch(e => e)`, or `try`/`await`) does not stall,
+in `bun test` or in plain `bun`, so it is an artefact of the test matcher, not of the worker pool or the plugin.
+`test/publication.test.ts` awaits failures that way and renders through the worker thread production uses.

@@ -25,6 +25,12 @@ export type CommitProbe = (file: string) => void
  * are deleted. This is a best-effort rollback, not a crash-safe transaction: several renames cannot be made atomic
  * together, and the error says exactly which files could not be restored. Files the render does not name are never
  * touched. Staging names carry a random token; they never reach the files' contents.
+ *
+ * The rollback works within one process only. Renders from different processes that write the same file names are not
+ * coordinated (there is no lock), so the last move wins file by file and a set can mix their outputs. A crash or a
+ * killed process between staging and clean-up can leave hidden `.<file>.<token>.tmp` (staged bytes) or
+ * `.<file>.<token>.bak` (the previous version of a replaced file) beside the charts; they are never read back, and are
+ * safe to delete when no render is running.
  */
 export function publish(workspace: Workspace, outDir: string, artifacts: readonly Artifact[], probe?: CommitProbe): string[] {
   const dir = ensureDirectory(workspace, outDir)

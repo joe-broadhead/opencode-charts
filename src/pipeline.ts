@@ -141,9 +141,9 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   const formats = new Set<Format>(request.formats ?? ["svg", "png", "spec"])
   const checked = write ? formats : new Set<Format>(request.formats ?? [])
   const scales = [...new Set(request.scales ?? [2])]
-  for (const scale of scales) if (![1, 2, 3].includes(scale)) throw new ChartsError("SCALE_INVALID", `PNG scale ${scale} is not 1, 2 or 3.`, "Use scales such as [1, 2, 3].", "/scales")
-  const outDir = request.outDir ?? env.defaults.outDir
   const preflight: { problem: ChartsError; path: string }[] = []
+  for (const scale of scales) if (![1, 2, 3].includes(scale)) preflight.push({ problem: new ChartsError("SCALE_INVALID", `PNG scale ${scale} is not 1, 2 or 3.`, "Use scales such as [1, 2, 3].", "/scales"), path: "/scales" })
+  const outDir = request.outDir ?? env.defaults.outDir
   try { confine(env.workspace, outDir, "write") } catch (error) { if (error instanceof ChartsError) preflight.push({ problem: error, path: "/outDir" }); else throw error }
   if (checked.has("html")) { const problem = htmlProblem(env.packageRoot); if (problem) preflight.push({ problem, path: "/formats" }) }
   if (checked.has("png") || request.preview || (write && request.svgText === "paths")) { const problem = pngProblem(env.packageRoot); if (problem) preflight.push({ problem, path: checked.has("png") ? "/formats" : "/inspect" }) }

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
+import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
@@ -10,23 +10,23 @@ import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
  * F9: every requested file and the preview are made before anything is written; a failure while preparing leaves the
  * output folder as it was; a failure while committing puts back what it replaced and removes its staging files; and
  * charts_validate creates nothing at all. Failures are injected with the environment's probe, through the public tool
- * path.
+ * path, with the Vega worker thread production uses.
  *
- * The renders here run in the calling thread (`CHARTS_IN_PROCESS=1`, restored afterwards): what is under test is the
- * file handling, and under `bun test` a reply from the unreferenced Vega worker can wait for the render timeout when
- * nothing else is pending, which would turn an ordinary render into a spurious `SPEC_TOO_EXPENSIVE`.
+ * A failure is awaited as `await p.catch(e => e)`, never `expect(p).rejects`: under `bun test`, awaiting a render
+ * through `expect(promise).rejects.toThrow` can stall the worker's reply until the render timeout fires, so an
+ * ordinary render fails as `SPEC_TOO_EXPENSIVE`. A plain await does not; neither does plain `bun`.
  */
 setDefaultTimeout(60_000)
 type Step = "svg" | "png" | "html" | "spec" | "preview" | "commit"
 const spaces: { cleanup: () => void }[] = []
-const inProcess = process.env.CHARTS_IN_PROCESS
-beforeAll(() => { process.env.CHARTS_IN_PROCESS = "1" })
-afterAll(async () => {
-  if (inProcess === undefined) delete process.env.CHARTS_IN_PROCESS
-  else process.env.CHARTS_IN_PROCESS = inProcess
-  for (const s of spaces) s.cleanup()
-  await closeVegaWorker()
-})
+afterAll(async () => { for (const s of spaces) s.cleanup(); await closeVegaWorker() })
+
+/** The error a promise rejects with, or a failure when it resolves. */
+async function failure(promise: Promise<unknown>): Promise<Error> {
+  const outcome: unknown = await promise.catch((error: unknown) => error)
+  if (!(outcome instanceof Error)) throw new Error("expected the call to fail, and it succeeded")
+  return outcome
+}
 
 function setup(probe?: (step: Step, file?: string) => void, packageRoot = ROOT) {
   const ws = workspace()
@@ -75,7 +75,7 @@ describe("charts_validate creates nothing", () => {
 
   test("A18: the same call to charts_render fails before any work, with no folder and no file", async () => {
     const { dir, env } = setup(undefined, packageWithoutHtml())
-    await expect(runTool(env as never, "render", { spec: BAR, data: { rows: ROWS }, formats: ["svg", "html"], outDir: "fresh/charts" })).rejects.toThrow(/^HTML_UNAVAILABLE: /)
+    expect((await failure(runTool(env as never, "render", { spec: BAR, data: { rows: ROWS }, formats: ["svg", "html"], outDir: "fresh/charts" }))).message).toMatch(/^HTML_UNAVAILABLE: /)
     expect(tree(dir)).toEqual({})
   })
 
@@ -104,21 +104,33 @@ describe("a failure while preparing leaves the folder as it was", () => {
     writeFileSync(join(dir, "outputs", "charts", "notes.txt"), "unrelated")
     const before = tree(dir)
     armed = true
-    await expect(runTool(env as never, "render", second)).rejects.toThrow(`injected ${step} failure`)
+    expect((await failure(runTool(env as never, "render", second))).message).toMatch(`injected ${step} failure`)
     expect(tree(dir)).toEqual(before)
   })
 
   test("A30: a PNG over the pixel limit is refused before any file is written", async () => {
     const { dir, env } = setup()
     const option = { xAxis: { type: "category" }, yAxis: { type: "value", name: "€k" }, series: [{ type: "bar", encode: { x: "region", y: "revenue" } }] }
-    await expect(runTool(env as never, "render", { spec: option, data: { rows: ROWS }, width: 4000, height: 4000, scales: [1, 2], formats: ALL })).rejects.toThrow(/^PNG_TOO_LARGE: /)
+    expect((await failure(runTool(env as never, "render", { spec: option, data: { rows: ROWS }, width: 4000, height: 4000, scales: [1, 2], formats: ALL }))).message).toMatch(/^PNG_TOO_LARGE: /)
     expect(tree(dir)).toEqual({})
   })
 
   test("an invalid PNG scale is refused before the SVG is written", async () => {
     const { renderChart } = await import("../src/pipeline.ts")
     const { dir, env } = setup()
-    await expect(renderChart({ spec: BAR, data: { rows: ROWS }, scales: [4] }, env)).rejects.toThrow(/^SCALE_INVALID: /)
+    expect((await failure(renderChart({ spec: BAR, data: { rows: ROWS }, scales: [4] }, env))).message).toMatch(/^SCALE_INVALID: /)
+    expect(tree(dir)).toEqual({})
+  })
+
+  test("a check with an invalid PNG scale is an invalid result with the coded problem, not a thrown error", async () => {
+    const { renderChart } = await import("../src/pipeline.ts")
+    const { SpecInvalid } = await import("../src/errors.ts")
+    const { dir, env } = setup()
+    const error = await failure(renderChart({ spec: BAR, data: { rows: ROWS }, formats: ["png"], scales: [2, 4] }, env, false))
+    expect(error).toBeInstanceOf(SpecInvalid)
+    expect((error as InstanceType<typeof SpecInvalid>).issues.filter(i => i.level === "error").map(i => [i.code, i.path])).toEqual([["SCALE_INVALID", "/scales"]])
+    // At the tool boundary the schema refuses the scale first (the plugin reports it as INPUT_INVALID), before any work.
+    expect((await failure(runTool(env as never, "validate", { spec: BAR, data: { rows: ROWS }, scales: [4], inspect: false }))).name).toBe("ZodError")
     expect(tree(dir)).toEqual({})
   })
 })
@@ -131,8 +143,8 @@ describe("a failure while committing puts back what it replaced", () => {
     writeFileSync(join(dir, "outputs", "charts", "notes.txt"), "unrelated")
     const before = tree(dir)
     armed = true
-    const failure = runTool(env as never, "render", second)
-    await expect(failure).rejects.toThrow(/^OUTPUT_WRITE_FAILED: Writing outputs\/charts\/chart\.png failed \(injected commit failure\)\. The 1 file\(s\) already written were put back as they were\./)
+    const commit = runTool(env as never, "render", second)
+    expect((await failure(commit)).message).toMatch(/^OUTPUT_WRITE_FAILED: Writing outputs\/charts\/chart\.png failed \(injected commit failure\)\. The 1 file\(s\) already written were put back as they were\./)
     // chart.html did not exist before, and is not there now; chart.svg is the first version again.
     expect(tree(dir)).toEqual(before)
   })
@@ -142,7 +154,7 @@ describe("a failure while committing puts back what it replaced", () => {
     mkdirSync(join(dir, "outputs", "charts", "chart.png"), { recursive: true })
     writeFileSync(join(dir, "outputs", "charts", "notes.txt"), "unrelated")
     const before = tree(dir)
-    await expect(runTool(env as never, "render", { ...second, inspect: false })).rejects.toThrow(/^OUTPUT_WRITE_FAILED: /)
+    expect((await failure(runTool(env as never, "render", { ...second, inspect: false }))).message).toMatch(/^OUTPUT_WRITE_FAILED: /)
     expect(tree(dir)).toEqual(before)
   })
 

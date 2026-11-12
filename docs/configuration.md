@@ -67,6 +67,21 @@ folder too:
 
 A refusal that names `external_directory` costs nothing: nothing was read and nothing was written.
 
+## Output files
+
+A render makes every requested file, and the preview, in memory before it writes anything, so a failure while
+preparing a format leaves the output folder as it was. The files are then staged beside their targets and moved into
+place one by one; if a move fails, the files already moved are put back, the staging files are removed, and
+`OUTPUT_WRITE_FAILED` names any file that could not be restored. Files the render does not name are never touched.
+
+- The rollback is best-effort, within one process. Several renames cannot be made atomic together.
+- Renders from different processes that write the same file names are not coordinated: there is no lock, so the last
+  move wins file by file. Give concurrent renders different `name`s or `outDir`s.
+- A crash or a killed process mid-write can leave hidden `.<file>.<token>.tmp` (staged bytes) or `.<file>.<token>.bak`
+  (the previous version of a replaced file) in the output folder, such as `.revenue.svg.1a2b-3c4d5e6f7a8b.tmp`. They are
+  never read back; delete them when no render is running.
+- `charts_validate` writes nothing and creates no folder.
+
 ## Limits
 
 | What | Limit |
