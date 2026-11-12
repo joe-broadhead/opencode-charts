@@ -308,6 +308,13 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
     ;(presets.spec.encoding as Json).description = { field: as, type: "nominal" }
   }
 
+  // Vega-Lite's box plot drops a unit's params (and warns that selections are unsupported): the plan's signals are
+  // view-level variables, so a box plot is drawn as the one layer of a view that holds them.
+  if ((presets.spec.mark as Json | undefined)?.type === "boxplot") {
+    const { mark, encoding: boxEncoding, ...view } = presets.spec
+    presets.spec = { ...view, layer: [{ mark, encoding: boxEncoding }] } as Json
+  }
+
   return {
     spec: presets.spec,
     rows,

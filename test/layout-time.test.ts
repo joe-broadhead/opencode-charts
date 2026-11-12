@@ -77,3 +77,12 @@ describe("ISO date categories are written as dates", () => {
     expect(fitted.presentation.rows.some(r => /^2024-\d\d-01$/.test(String(Object.values(r)[0])))).toBe(true)
   }, 60_000)
 })
+
+test("a box plot draws with no Vega-Lite warning, and the plan's signals still reach it (its title is drawn)", async () => {
+  for (const layout of [{}, { width: 360, height: 300 }, { width: 1280, height: 640 }]) {
+    const doc = { ...structuredClone(recipeDefinition("box_plot").examples()[0]!.document) as Json, title: "Response times by region", layout }
+    const { result } = await draw(env, doc)
+    expect(result.issues.filter(i => i.code === "VEGA_LITE_WARNING")).toEqual([])
+    expect(result.figure.nodes.some(n => n.kind === "title" && n.text === "Response times by region")).toBe(true)
+  }
+}, 60_000)
