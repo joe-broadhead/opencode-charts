@@ -50,7 +50,7 @@ const shared = {
   platform: "node",
   target: "es2022",
   external: HOST,
-  define: { RESVG_WASM_SHA256: JSON.stringify(sha256(`${ROOT}dist/resvg.wasm`)), BROWSER_RUNTIME_SHA256: JSON.stringify(browserHashes) },
+  define: { RESVG_WASM_SHA256: JSON.stringify(sha256(`${ROOT}dist/resvg.wasm`)), BROWSER_RUNTIME_SHA256: JSON.stringify(browserHashes), RESVG_VERSION: JSON.stringify(JSON.parse(readFileSync(`${ROOT}node_modules/@resvg/resvg-wasm/package.json`, "utf8")).version) },
   // Vega's optional node-canvas is never used (text is measured with the bundled fonts); keep it out.
   alias: { canvas: `${ROOT}scripts/empty.mjs` },
   keepNames: true,
