@@ -2,6 +2,7 @@ import * as z from "zod"
 import { ChartsError, pointer, suggest, type ChartsCode, type Issue } from "../errors.js"
 import { DEFINITIONS, recipeDefinition } from "../recipes/definitions.js"
 import { RECIPE_IDS, type RecipeId } from "../recipes/types.js"
+import { CURRENCY_FIELD, CURRENCY_SYMBOLS, isKnownCurrency, LOCALE_FIELD } from "../locale-fields.js"
 import { checkSpec, LIMITS } from "../safety.js"
 import { ThemeTokensSchema } from "../themes/tokens.js"
 import { DOCUMENT_DEPTH, scanJson } from "./canonical.js"
@@ -119,8 +120,9 @@ const topShape = {
   version: z.literal(DOCUMENT_VERSION),
   title: z.string().max(200).optional(),
   description: z.string().max(1000).optional().describe("Alt text."),
-  locale: z.string().min(2).max(16).optional().describe("Number and date formats, such as en-GB. Default: the configured locale, else en-US."),
-  currency: z.string().length(3).optional().describe("ISO 4217 code (EUR, USD…)."),
+  // The legacy tools' locale and currency fields; the currency is also checked against the table the renderer formats.
+  locale: LOCALE_FIELD,
+  currency: CURRENCY_FIELD.refine(code => code === undefined || code.length !== 3 || isKnownCurrency(code), { message: `an ISO 4217 code the plugin formats: ${Object.keys(CURRENCY_SYMBOLS).join(", ")}` }),
   seed: z.number().int().min(0).max(2 ** 31).optional(),
   appearance: AppearanceV1Schema.optional(),
   interactions: InteractionsV1Schema.optional(),
