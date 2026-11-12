@@ -132,7 +132,7 @@ for (const version of TESTED_HOSTS) {
       expect(output.update.from).toEqual({ documentPath: made.output.files.document, revision: made.output.revision })
       expect(output.update.to.revision).not.toBe(made.output.revision)
       expect(existsSync(join(host.a, output.files.document))).toBe(true)
-      expect(output.generation.directory).toMatch(/\/host-document-[0-9a-f]{16}$/)
+      expect(output.generation.directory).toMatch(/^outputs\/charts\/host-update-[0-9-]+-[0-9a-f]{16}$/)
       const stale = await rpc(host, "update", writer, { documentPath: made.output.files.document, expectedRevision: `sha256:${"0".repeat(64)}`, patch })
       expect(JSON.stringify(stale.data)).toContain("DOCUMENT_REVISION_MISMATCH")
     })
