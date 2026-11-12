@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.0.1] - 2026-11-12
 
 The tool contract moves from 1.0.0 to 1.1.0 (`CONTRACT_VERSION`); the change is additive. Every 1.0.0 call keeps its
 meaning, apart from the refusals under Security and Fixed that correct defects, and new warnings. The chart document
@@ -114,6 +114,13 @@ introduced here is version 1.
   an adjustment at `/layout`.
 - An empty recipe dataset is `DATA_EMPTY` at `/document/chart/data`, and `charts_validate` reports it as
   `valid: false`.
+- **Recipe charts from the gallery review.** A time axis takes one calendar unit and one format from the data's span
+  (months as `Jan…Dec`, the year only when the span crosses one), ticks on calendar boundaries and keeps a gap between
+  labels; ISO date categories (as in `stacked_bar`) are written as dates. A bubble's size key is drawn in the theme's
+  muted text colour, so it shows on dark. A box plot keeps the layout plan's signals and no longer warns. A pie or donut
+  lists its legend in slice order. The dark theme's sequential ramp is the light theme's blue family, turned round. A
+  layout refusal first offers the same-family recipe that fits the size asked, names only sizes that draw, and counts
+  a bubble's size key.
 
 ### Changed
 
