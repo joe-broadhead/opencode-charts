@@ -4,6 +4,7 @@ import { DocumentInvalid } from "../document/issues.js"
 import { formatMismatch } from "../interactions/presets.js"
 import { LAYOUT_PROFILES } from "../document/defaults.js"
 import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook, type FontResource } from "../fonts.js"
+import type { FigureNode } from "../figure.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "../pipeline.js"
 import { resolveAppearance } from "./appearance.js"
 import type { Conflict } from "./planner.js"
@@ -56,6 +57,25 @@ async function fontsFor(env: Environment, files: readonly { family: string; weig
 }
 
 const MEASURED_FINDINGS = new Set(["LABEL_COLLISION", "LABEL_CLIPPED"])
+
+/** The least gap, in pixels, between two flat labels side by side on the x axis. */
+export const MIN_LABEL_GAP = 3
+
+/**
+ * Pairs of axis labels side by side on one line (the same top edge) whose gap is under MIN_LABEL_GAP, left to right.
+ * Any axis label counts: the figure can file a flush first label under the y axis.
+ */
+export function touchingLabels(nodes: readonly FigureNode[]): [FigureNode, FigureNode][] {
+  const labels = nodes.filter(n => n.kind === "label").slice().sort((a, b) => a.box[0] - b.box[0])
+  const out: [FigureNode, FigureNode][] = []
+  for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+    const a = labels[i]!, b = labels[j]!
+    if (Math.abs(a.box[1] - b.box[1]) > 2) continue
+    if (b.box[0] - a.box[2] < MIN_LABEL_GAP) out.push([a, b])
+    break
+  }
+  return out
+}
 
 /**
  * Below this share of the canvas, the plot is reported: there is no minimum plot area beyond the planner's 64 × 48 px,
@@ -121,6 +141,8 @@ export async function fitRecipe(prepared: Prepared, env: Environment, options: F
     if (check.width !== layout.width || check.height !== layout.height) conflicts.push({ what: `the drawing is ${check.width}×${check.height} px, not the requested ${layout.width}×${layout.height}`, path: "/layout", needed: Math.max(check.width, check.height), available: Math.max(layout.width, layout.height) })
     for (const pair of check.layout.overlaps) conflicts.push({ what: `labels "${pair[0]}" and "${pair[1]}" overlap`, path: "/encoding", needed: 0, available: 0 })
     for (const text of check.layout.clipped) conflicts.push({ what: `label "${text}" runs past the edge`, path: "/encoding", needed: 0, available: 0 })
+    // Labels that touch read as one ("NovemberDecember") even when they do not overlap: flat x labels keep a gap.
+    if (presentation.plan.signals.charts_x_angle === 0) for (const [a, b] of touchingLabels(check.figure.nodes)) conflicts.push({ what: `x labels "${a.text}" and "${b.text}" are ${Math.max(0, Math.round((b.box[0] - a.box[2]) * 10) / 10)} px apart`, path: "/encoding/x/axis", needed: MIN_LABEL_GAP, available: Math.max(0, b.box[0] - a.box[2]) })
     const legend = presentation.runtime.planner.legend
     if (legend?.kind === "symbol") {
       const drawn = legendEntries(check.svg)

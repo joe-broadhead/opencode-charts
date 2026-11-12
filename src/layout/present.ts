@@ -10,7 +10,8 @@ import { combinationIssues, interactionReport, type InteractionReport } from "..
 import type { RecipeCompilation } from "../recipes/types.js"
 import type { ThemeTokens } from "../themes/tokens.js"
 import type { ResolvedAppearance } from "./appearance.js"
-import { planLayout, SIGNALS, type Conflict, type Plan, type PlannerAxis, type PlannerInput, type PlannerLegend } from "./planner.js"
+import { dateCategories, timeAxis, type TimeAxis } from "./time.js"
+import { planLayout, SIGNALS, type Conflict, type Plan, type PlannerAxis, type PlannerInput, type PlannerLegend, type TimeUnit } from "./planner.js"
 
 /**
  * A recipe compilation made into the chart that is drawn: the outer size (autosize fit, so the SVG is exactly the
@@ -71,18 +72,35 @@ function numberSamples(values: readonly unknown[]): string[] {
   const body = max >= 10_000 ? "999.9k" : max >= 1000 ? "9,999" : max >= 100 ? "999" : max >= 1 ? "9.9" : "0.99"
   return [negative ? `−${body}` : body]
 }
-const TIME_SAMPLES = ["September", "2024"]
+/**
+ * The tick interval for a time unit and the plan's step, as a Vega expression. Days past one go by weeks: d3's day
+ * steps restart every month (the 29th, then the 1st), while week steps stay even. Vega calls its hour interval hours.
+ */
+function tickInterval(unit: TimeUnit): string {
+  const step = SIGNALS.xTimeStep
+  if (unit === "day") return `${step} === 1 ? {interval: 'day', step: 1} : {interval: 'week', step: ${step} / 7}`
+  return `{interval: '${unit === "hour" ? "hours" : unit}', step: ${step}}`
+}
 
-function axisInput(def: unknown, rows: readonly Json[]): PlannerAxis | undefined {
+/** A planner axis, and how the axis writes its labels when they are dates (a time format, or date categories). */
+interface AxisReading { readonly axis: PlannerAxis; readonly time?: TimeAxis; readonly dateFormat?: string }
+
+function axisInput(def: unknown, rows: readonly Json[]): AxisReading | undefined {
   if (!isObject(def)) return undefined
   const title = typeof def.title === "string" ? def.title : undefined
   const field = typeof def.field === "string" ? def.field : undefined
   if ((def.type === "nominal" || def.type === "ordinal") && !def.bin && field) {
     const order = Array.isArray(def.sort) ? def.sort : [...new Map(rows.map(r => [JSON.stringify(r[field] ?? null), r[field] ?? null])).values()]
-    return { kind: "discrete", labels: order.map(label), ...(title ? { title } : {}) }
+    const labels = order.map(label)
+    // ISO dates as categories (a stacked bar per month, say) read as dates, not as 2024-01-01.
+    const dates = dateCategories(labels)
+    return { axis: { kind: "discrete", labels: dates ? [...dates.display] : labels, ...(title ? { title } : {}) }, ...(dates ? { dateFormat: dates.format } : {}) }
   }
-  if (def.type === "temporal") return { kind: "continuous", labels: TIME_SAMPLES, temporal: true, ...(title ? { title } : {}) }
-  return { kind: "continuous", labels: field ? numberSamples(rows.map(r => r[field])) : ["9,999"], ...(title ? { title } : {}) }
+  if (def.type === "temporal") {
+    const time = field ? timeAxis(rows.map(r => r[field])) : undefined
+    return { axis: { kind: "continuous", labels: time ? [...time.labels] : ["September", "2024"], temporal: true, ...(time ? { time: { unit: time.unit, intervals: time.intervals, labels: time.labels } } : {}), ...(title ? { title } : {}) }, ...(time ? { time } : {}) }
+  }
+  return { axis: { kind: "continuous", labels: field ? numberSamples(rows.map(r => r[field])) : ["9,999"], ...(title ? { title } : {}) } }
 }
 
 /** Every axis and legend gets an explicit title, so the planner measures the text Vega draws. */
@@ -209,8 +227,9 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
     if (color.type === "quantitative") legend = { kind: "gradient", labels: numberSamples(rows.map(r => r[color.field as string])), ...(title ? { title } : {}) }
     else legend = { kind: "symbol", labels: (input.categories?.domain ?? []).map(label), ...(title ? { title } : {}) }
   }
-  const x = radial ? undefined : axisInput(encoding.x, rows)
-  const y = radial ? undefined : axisInput(encoding.y, rows)
+  const xReading = radial ? undefined : axisInput(encoding.x, rows)
+  const yReading = radial ? undefined : axisInput(encoding.y, rows)
+  const x = xReading?.axis, y = yReading?.axis
   const planner: Omit<PlannerInput, "width"> = {
     height: layout.height, padding: tokens.layout.padding, floor: layout.minLabelSize,
     labelSize: tokens.font.labelSize, axisTitleSize: tokens.font.size, titleSize: tokens.font.titleSize, labelPadding: tokens.axis.labelPadding,
@@ -231,18 +250,24 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
   spec.autosize = { type: "fit", contains: "padding", resize: true }
   if (input.title) spec.title = { text: { expr: SIGNALS.title } }
   const params: Json[] = Object.entries(plan.signals).map(([name, value]) => ({ name, value }))
-  const wrapExpr = (keys: string, lines: string) => `indexof(${keys}, datum.label) >= 0 ? ${lines}[indexof(${keys}, datum.label)] : datum.label`
+  // The text an axis draws for a label: the label itself, or a date category written as a date; wrapped when the
+  // plan wraps that text.
+  const shown = (reading?: AxisReading) => (reading?.dateFormat ? `utcFormat(toDate(datum.label), ${JSON.stringify(reading.dateFormat)})` : "datum.label")
+  const wrapExpr = (keys: string, lines: string, reading?: AxisReading) => `indexof(${keys}, ${shown(reading)}) >= 0 ? ${lines}[indexof(${keys}, ${shown(reading)})] : ${shown(reading)}`
   if (isObject(encoding.x)) {
     const def = encoding.x as Json
     const axis = isObject(def.axis) ? def.axis as Json : {}
-    if (x?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelAngle: { expr: SIGNALS.xAngle }, labelAlign: { expr: `${SIGNALS.xAngle} === 0 ? 'center' : 'right'` }, labelBaseline: { expr: `${SIGNALS.xAngle} === -90 ? 'middle' : 'top'` }, labelExpr: wrapExpr(SIGNALS.xKeys, SIGNALS.xLines), labelOverlap: false }
+    if (x?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelAngle: { expr: SIGNALS.xAngle }, labelAlign: { expr: `${SIGNALS.xAngle} === 0 ? 'center' : 'right'` }, labelBaseline: { expr: `${SIGNALS.xAngle} === -90 ? 'middle' : 'top'` }, labelExpr: wrapExpr(SIGNALS.xKeys, SIGNALS.xLines, xReading), labelOverlap: false }
+    // A time axis: ticks on calendar boundaries, the plan's number of units per tick, one format for every label.
+    else if (xReading?.time) def.axis = { ...axis, ...WHOLE_AXIS, format: xReading.time.format, tickCount: { expr: tickInterval(xReading.time.unit) }, labelOverlap: false }
     else if (x) def.axis = { ...axis, ...WHOLE_AXIS, tickCount: { expr: `max(2, ceil(width / ${SIGNALS.xTickStep}))` } }
   }
   if (isObject(encoding.y)) {
     const def = encoding.y as Json
     const axis = isObject(def.axis) ? def.axis as Json : {}
-    if (y?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelExpr: wrapExpr(SIGNALS.yKeys, SIGNALS.yLines), labelOverlap: false }
-    else if (y) def.axis = { ...axis, ...WHOLE_AXIS, tickCount: { expr: `max(2, ceil(height / ${SIGNALS.yTickStep}))` } }
+    if (y?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelExpr: wrapExpr(SIGNALS.yKeys, SIGNALS.yLines, yReading), labelOverlap: false }
+    // Flush: the end labels sit inside the axis, so the bottom one never meets the x axis's first label at the corner.
+    else if (y) def.axis = { ...axis, ...WHOLE_AXIS, labelFlush: true, tickCount: { expr: `max(2, ceil(height / ${SIGNALS.yTickStep}))` } }
   }
   if (color && legend) {
     const own = isObject(color.legend) ? color.legend as Json : {}

@@ -26,6 +26,7 @@ const grouped = (labels: readonly string[]) => ({ version: 1, title: "Tickets by
 const line = { version: 1, title: "Tickets per month by channel", chart: { kind: "recipe", recipe: "line", data: { rows: ["2024-01-01", "2024-02-01", "2024-03-01", "2024-04-01", "2024-05-01", "2024-06-01"].flatMap((month, i) => SERIES.map((channel, j) => ({ month, channel, tickets: 100 + i * 10 + j * 25 }))) }, bindings: { x: "month", y: "tickets", series: "channel" }, options: { xType: "temporal", yTitle: "Tickets (n)" } } }
 const heatmap = { version: 1, title: "Tickets by category and weekday", chart: { kind: "recipe", recipe: "heatmap", data: { rows: LONG.slice(0, 5).flatMap((row, i) => ["Mon", "Tue", "Wed", "Thu", "Fri"].map((column, j) => ({ row, column, tickets: i * 5 + j }))) }, bindings: { column: "column", row: "row", value: "tickets" } } }
 
+const timeline = (recipe: string, n: number, at: (i: number) => string) => ({ version: 1, title: "Active users", chart: { kind: "recipe", recipe, data: { rows: Array.from({ length: n }, (_, i) => ({ day: at(i), users: 1000 + ((i * 137) % 400) })) }, bindings: { x: "day", y: "users" }, options: { xType: "temporal", yTitle: "Users (n)" } } })
 const CASES: [string, Record<string, unknown>][] = [
   ["bar, long labels", categorical("bar", LONG)],
   ["bar, short labels", categorical("bar", SHORT)],
@@ -37,6 +38,12 @@ const CASES: [string, Record<string, unknown>][] = [
   ["line with long series names", line],
   ["heatmap, long row labels", heatmap],
   ["pie, long labels", categorical("pie", LONG)],
+  // Time axes: the plan spaces calendar ticks, so a wider canvas never has more crowded labels.
+  ["line, a year of months", timeline("line", 12, i => `2024-${String(i + 1).padStart(2, "0")}-01`)],
+  ["area, three years of months", timeline("area", 36, i => `${2022 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}-01`)],
+  ["line, ninety days", timeline("line", 90, i => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10))],
+  ["line, two days of hours", timeline("line", 48, i => new Date(Date.UTC(2024, 0, 1, i)).toISOString())],
+  ["area, twelve years", timeline("area", 12, i => `${2013 + i}-01-01`)],
 ]
 const WIDTHS = [320, 480, 600, 720, 1000, 1280]
 const HEIGHTS = [320, 480, 720]
