@@ -598,3 +598,36 @@ describe("recipe documents are fitted by the layout planner", () => {
     expect(out.diagnostics.map((d: { code: string }) => d.code)).toContain("CATEGORY_COLOR_UNUSED")
   }, 60_000)
 })
+
+describe("typed theme tokens through the one theme reader", () => {
+  test("charts_theme_save's input is the typed definition of the canonical tokens, strict at every depth", async () => {
+    const { inputSchema } = await import("../src/registry.ts")
+    const theme = (inputSchema("theme_save").properties as Record<string, any>).theme
+    expect(theme.additionalProperties).toBe(false)
+    expect(Object.keys(theme.properties).sort()).toEqual(["axis", "colors", "description", "extends", "font", "layout", "legend", "marks", "mode", "name"])
+    expect(theme.properties.colors.additionalProperties).toBe(false)
+    expect(theme.properties.colors.properties.categorical.type).toBe("array")
+  })
+
+  test("theme_save keeps saving a brand theme, and refuses an unknown token before anything is written", async () => {
+    const t = setup()
+    const saved = await t.call("theme_save", { name: "acme-dark", theme: { extends: "dark", colors: { categorical: ["#FF6600", "#3366FF"] }, font: { titleSize: 20 } } })
+    expect(saved.theme).toMatchObject({ name: "acme-dark", mode: "dark", font: { titleSize: 20 } })
+    expect(t.files()).toContain(".charts/themes/acme-dark.json")
+    const error = await t.failed("theme_save", { name: "acme-bad", theme: { extends: "dark", colors: { bakground: "#000000" } } })
+    expect(error.message).toMatch(/bakground/)
+    expect(t.files()).not.toContain(".charts/themes/acme-bad.json")
+  }, 30_000)
+
+  test("a legacy inline theme object: valid ones draw as before; an unknown token is THEME_INVALID at its path, with the near name", async () => {
+    const t = setup()
+    const out = await t.call("render", { spec: BAR, data: { rows: ROWS }, theme: { extends: "dark", colors: { background: "#101010" } }, formats: ["svg"], inspect: false })
+    expect(out.theme).toBe("dark-custom")
+    const error = await t.refusal("render", { spec: BAR, data: { rows: ROWS }, theme: { extends: "dark", colors: { bakground: "#101010" } }, formats: ["svg"] })
+    expect(error.code).toBe("THEME_INVALID")
+    expect(error.path).toBe("/theme/colors/bakground")
+    expect(error.hint).toContain('"background"')
+    const nested = await t.refusal("validate", { spec: BAR, data: { rows: ROWS }, theme: { font: { size: 2 } } })
+    expect([nested.code, nested.path]).toEqual(["THEME_INVALID", "/theme/font/size"])
+  }, 30_000)
+})
