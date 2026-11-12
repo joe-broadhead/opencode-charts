@@ -15,6 +15,7 @@ import { readCustomFonts, type FontResource } from "./fonts.js"
 import { confine, slug } from "./paths.js"
 import type { Environment, Format, RenderRequest, RenderResult } from "./pipeline.js"
 import { fitRecipe, type FittedRecipe } from "./layout/fit.js"
+import { htmlPresets } from "./layout/present.js"
 import { quickSpec } from "./quick.js"
 import { RECIPE_COMPILER_VERSION } from "./recipes/registry.js"
 import type { RecipeCompilation } from "./recipes/types.js"
@@ -406,7 +407,8 @@ export function documentFields(env: { readonly packageRoot: string }, resolved: 
   for (const format of context.formats) {
     if (format === "svg" || format === "png") byFormat[format] = { interactive: false, view: "initial" }
     // The live page is never executed here: nothing in a result claims an interaction was seen to work.
-    if (format === "html") byFormat.html = { interactive: true, view: "initial", presets: [], verified: false }
+    // A recipe's HTML carries its compiled presets; an engine document's carries what its own spec declares.
+    if (format === "html") byFormat.html = { interactive: true, view: "initial", presets: fitted ? htmlPresets(fitted.presentation) : [], verified: false }
   }
   const compiled = (compilation?.diagnostics ?? []).map(i => ({ ...i, path: docPath(i.path) }))
   const diagnostics = [...compiled, ...issues].slice(0, DIAGNOSTICS_MAX)

@@ -230,3 +230,21 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
     issues: appearance.issues,
   }
 }
+
+/**
+ * The presets the interactive HTML of a recipe carries, as compiled: each with the browser-tested interaction it is
+ * (RECIPE_INTERACTIONS' id), its selection parameter, and the keyboard controls the page offers for it. A generated
+ * page has not run anywhere, so the format report beside it says verified: false.
+ */
+export function htmlPresets(presentation: RecipePresentation): Json[] {
+  const e = presentation.interactions.effective
+  const c = presentation.runtime.controls
+  const out: Json[] = []
+  if (e.tooltip === "auto") out.push({ preset: "tooltip", value: "auto", id: "recipe-tooltip", controls: ["Data table"] })
+  if (c.legend) out.push({ preset: "legend", value: "highlight", id: "recipe-legend-highlight", param: c.legend.param, controls: ["a button per series", "Clear highlight"] })
+  if (c.zoom) out.push({ preset: "zoom", value: "x", id: "recipe-x-zoom", param: c.zoom.param, controls: ["Reset zoom"] })
+  if (c.brush) out.push({ preset: "brush", value: "interval", id: "recipe-interval-brush", param: c.brush.param, controls: ["Clear selection"] })
+  if ([c.legend, c.zoom, c.brush].filter(Boolean).length > 1) out[out.length - 1] = { ...out[out.length - 1], controls: [...(out[out.length - 1]!.controls as string[]), "Reset all"] }
+  if (presentation.runtime.mode === "responsive") out.push({ preset: "layout", value: "responsive", id: "recipe-responsive" })
+  return out
+}

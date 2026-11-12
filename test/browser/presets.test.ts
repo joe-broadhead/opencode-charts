@@ -10,7 +10,7 @@ import { closeVegaWorker } from "../../src/engines/vega-pool.ts"
 import { DIMMED_OPACITY } from "../../src/interactions/vegalite.ts"
 import { workspace } from "../helpers.ts"
 import { draw } from "../support/documents.ts"
-import { closeBrowser, launch, open, type Opened } from "./harness.ts"
+import { closeBrowser, launch, open, startPlugin, type Opened } from "./harness.ts"
 
 const ws = workspace()
 const env = { ...ws.env, assertFiles: async () => undefined }
@@ -414,3 +414,20 @@ describe("lifecycle (A25)", () => {
     await p.close()
   }, T)
 })
+
+test("a document sent to the built plugin's charts_render draws the same live presets, and the result lists them unverified", async () => {
+  const plugin = await startPlugin()
+  try {
+    const result = await plugin.call("render", { document: line({ legend: "highlight", zoom: "x" }), formats: ["html"], name: "through-tool", inspect: false })
+    const html = result.output.interactions as { formats: { html: { presets: { id: string }[]; verified: boolean } } }
+    expect(html.formats.html.verified).toBe(false)
+    expect(html.formats.html.presets.map(p => p.id)).toEqual(["recipe-tooltip", "recipe-legend-highlight", "recipe-x-zoom", "recipe-responsive"])
+    const p = await open(join(plugin.dir, (result.output.files as { html: string }).html), { viewport: { width: 1000, height: 800 } })
+    expect(await p.status()).toBe("ready")
+    await press(p.page, 'button[aria-label="Highlight North"]')
+    await settle(p.page)
+    for (const m of (await marks(p.page, "*")).filter(m => /region/i.test(m.label))) expect(m.opacity).toBe(m.label.includes("North") ? 1 : DIMMED_OPACITY)
+    clean(p)
+    await p.close()
+  } finally { await plugin.close() }
+}, T)

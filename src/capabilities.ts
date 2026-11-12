@@ -7,7 +7,7 @@ import { BUNDLED, bundledFonts, type FontBook } from "./fonts.js"
 import { htmlProblem } from "./html.js"
 import { localeIds } from "./locale.js"
 import { pngProblem } from "./png.js"
-import { ECHARTS_UNBUNDLED, HTML_INTERACTIONS, type RuntimeInteraction } from "./runtime-support.js"
+import { ECHARTS_UNBUNDLED, HTML_INTERACTIONS, RECIPE_INTERACTIONS, type RuntimeInteraction } from "./runtime-support.js"
 import { MAX_SERIES, paletteReport } from "./themes/palette.js"
 import { builtinThemes, savedThemeNames } from "./themes/store.js"
 import { LIMITS } from "./safety.js"
@@ -45,9 +45,10 @@ export interface CapabilityView {
   readonly knownLimits: readonly string[]
   /**
    * What interactive HTML does once its runtime has started in a browser: only interactions this build bundles and a
-   * browser test exercises. `unsupported` names the ECharts components an option may not use, with what to do instead.
+   * browser test exercises. `presets` are the interaction presets of recipe documents (and their responsive layout),
+   * compiled to Vega-Lite. `unsupported` names the ECharts components an option may not use, with what to do instead.
    */
-  readonly interactions: { readonly html: readonly RuntimeInteraction[]; readonly unsupported: readonly { readonly engine: "echarts"; readonly option: string; readonly instead: string }[] }
+  readonly interactions: { readonly html: readonly RuntimeInteraction[]; readonly presets: readonly RuntimeInteraction[]; readonly unsupported: readonly { readonly engine: "echarts"; readonly option: string; readonly instead: string }[] }
   /** Every tool is a method of the tools RPC, so a script reaches all of them with no model. */
   readonly scriptable: boolean
 }
@@ -139,7 +140,7 @@ export function capabilities(env: CapabilitySources): CapabilityView {
       "There is no PDF output and no Plotly or Mermaid input: the engines are Vega-Lite, Vega and ECharts.",
       `A categorical palette distinguishes up to ${MAX_SERIES} series; past a theme's published colours the rest are generated and are not a tested colour-blind-safe set.`,
     ],
-    interactions: { html: HTML_INTERACTIONS, unsupported: Object.entries(ECHARTS_UNBUNDLED).map(([option, instead]) => ({ engine: "echarts" as const, option, instead })) },
+    interactions: { html: HTML_INTERACTIONS, presets: RECIPE_INTERACTIONS, unsupported: Object.entries(ECHARTS_UNBUNDLED).map(([option, instead]) => ({ engine: "echarts" as const, option, instead })) },
     scriptable: true,
   }
 }
@@ -156,7 +157,7 @@ export function describeCapabilities(view: CapabilityView): string {
     `Data: ${view.dataFormats.join(", ")}; ${view.limits.rows.toLocaleString("en-US")} rows, ${Math.round(view.limits.dataBytes / 1024 / 1024)} MB, ${view.locales} locales.`,
     `Maps: ${view.atlases.map(a => a.name).join(", ")}.`,
     `Tools: ${view.tools.map(t => `${t.name} (${t.class})`).join(", ")}.`,
-    `Interactive HTML: ${view.interactions.html.map(i => `${i.engine} ${i.id.replace(/^(?:vega-lite|vega|echarts)-/, "")}`).join(", ")}; ECharts refuses ${view.interactions.unsupported.map(u => u.option).join(", ")}.`,
+    `Interactive HTML: ${view.interactions.html.map(i => `${i.engine} ${i.id.replace(/^(?:vega-lite|vega|echarts)-/, "")}`).join(", ")}; recipe presets ${view.interactions.presets.map(i => i.id.replace(/^recipe-/, "")).join(", ")}; ECharts refuses ${view.interactions.unsupported.map(u => u.option).join(", ")}.`,
     `Determinism: ${view.determinism.exact.join(" and ")} byte-exact on one platform; ${view.determinism.tolerance}.`,
     `Known limits:\n${view.knownLimits.map(l => `- ${l}`).join("\n")}`,
   ].join("\n")

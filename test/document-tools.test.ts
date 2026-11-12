@@ -100,6 +100,13 @@ describe("the recommended document call (brief §5.4), with real data", () => {
     // SVG and PNG are static; the live page is never claimed as verified by a render.
     expect(out.interactions.formats.svg).toEqual({ interactive: false, view: "initial" })
     expect(out.interactions.formats.html.verified).toBe(false)
+    // The HTML carries the presets as compiled, each the browser-tested interaction it is.
+    expect(out.interactions.formats.html.presets.map((p: { preset: string; id: string; param?: string }) => [p.preset, p.id, p.param ?? null])).toEqual([
+      ["tooltip", "recipe-tooltip", null], ["legend", "recipe-legend-highlight", "charts_legend"], ["zoom", "recipe-x-zoom", "charts_zoom"], ["layout", "recipe-responsive", null],
+    ])
+    const page = t.read(out.files.html)
+    expect(page).toContain('"name":"charts_legend"')
+    expect(page).toContain('data-action="reset-all"')
     // The encoded values are the independently computed sums.
     const spec = JSON.parse(t.read(out.files.spec))
     const drawn = Object.fromEntries((spec.data.values as { month: string; region: string; revenue_eur: number }[]).map(v => [`${v.month.slice(0, 10)}|${v.region}`, v.revenue_eur]))
