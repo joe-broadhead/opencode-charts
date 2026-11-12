@@ -4,10 +4,14 @@ import { DocumentInvalid } from "../document/issues.js"
 import { formatMismatch } from "../interactions/presets.js"
 import { LAYOUT_PROFILES } from "../document/defaults.js"
 import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook, type FontResource } from "../fonts.js"
+import type { FigureNode } from "../figure.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "../pipeline.js"
 import { resolveAppearance } from "./appearance.js"
-import type { Conflict } from "./planner.js"
-import { presentRecipe, unsatisfiable, type RecipePresentation } from "./present.js"
+import { PLANNER_LIMITS, type Conflict } from "./planner.js"
+import { LayoutUnsatisfiable, presentRecipe, refusalIssue, unsatisfiable, type Alternatives, type RecipePresentation } from "./present.js"
+import { LIMITS } from "../safety.js"
+import { compileRecipe } from "../recipes/compile.js"
+import type { CapturedRecipeChartV1 } from "../document/types.js"
 import { legendEntries, type PlotBounds } from "./vega.js"
 
 /**
@@ -57,6 +61,25 @@ async function fontsFor(env: Environment, files: readonly { family: string; weig
 
 const MEASURED_FINDINGS = new Set(["LABEL_COLLISION", "LABEL_CLIPPED"])
 
+/** The least gap, in pixels, between two flat labels side by side on the x axis. */
+export const MIN_LABEL_GAP = 3
+
+/**
+ * Pairs of axis labels side by side on one line (the same top edge) whose gap is under MIN_LABEL_GAP, left to right.
+ * Any axis label counts: the figure can file a flush first label under the y axis.
+ */
+export function touchingLabels(nodes: readonly FigureNode[]): [FigureNode, FigureNode][] {
+  const labels = nodes.filter(n => n.kind === "label").slice().sort((a, b) => a.box[0] - b.box[0])
+  const out: [FigureNode, FigureNode][] = []
+  for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+    const a = labels[i]!, b = labels[j]!
+    if (Math.abs(a.box[1] - b.box[1]) > 2) continue
+    if (b.box[0] - a.box[2] < MIN_LABEL_GAP) out.push([a, b])
+    break
+  }
+  return out
+}
+
 /**
  * Below this share of the canvas, the plot is reported: there is no minimum plot area beyond the planner's 64 × 48 px,
  * so a chart whose labels take most of the room still fits, and the result says so.
@@ -76,10 +99,87 @@ export interface FitOptions {
    * this); measured and drawn with as they are, never read again. Without it the theme's font files are read here.
    */
   readonly fonts?: readonly FontResource[]
+  /** Refuse without drawing the alternatives (the check of one alternative uses it). */
+  readonly unverified?: boolean
 }
 
-/** Fits a prepared recipe document. Throws LAYOUT_UNSATISFIABLE (a DocumentInvalid) when no candidate passes. */
+/**
+ * Fits a prepared recipe document. Throws LAYOUT_UNSATISFIABLE (a DocumentInvalid) when no candidate passes; every
+ * size its next step names has been fitted and drawn at that size first (see `verifiedRefusal`).
+ */
 export async function fitRecipe(prepared: Prepared, env: Environment, options: FitOptions = {}): Promise<FittedRecipe> {
+  try { return await fitOnce(prepared, env, options) } catch (error) {
+    if (!(error instanceof LayoutUnsatisfiable) || options.unverified) throw error
+    throw await verifiedRefusal(error, prepared, env, options)
+  }
+}
+
+/** Tries at most this many sizes per named alternative before leaving it out of the refusal. */
+const VERIFY_TRIES = 6
+
+/**
+ * A refusal restated with alternatives that draw: the planner's estimate of each size is a starting point, and each is
+ * fitted and drawn there (growing in steps when the drawing still refuses) before it is named. The planner can miss
+ * part of a chart (a bubble's size key, say), so its estimate alone is never offered as a size that fits.
+ */
+async function verifiedRefusal(error: LayoutUnsatisfiable, prepared: Prepared, env: Environment, options: FitOptions): Promise<LayoutUnsatisfiable> {
+  const found = error.basis.alternatives
+  const settings = prepared.settings
+  const layout = settings.layout!
+  if (!found || !prepared.compilation) return error
+  const at = (p: Prepared, width: number, height: number) => fitOnce({ ...p, settings: { ...p.settings, layout: { ...p.settings.layout!, width, height } } }, env, { ...options, unverified: true }).then(() => true, (e: unknown) => { if (e instanceof LayoutUnsatisfiable) return false; throw e })
+  // From the estimate, grow by doubling steps until a size draws, then bisect back (in 10 px) to the smallest that does.
+  const grow = async (fits: (size: number) => Promise<boolean>, start: number | undefined) => {
+    if (start === undefined) return undefined
+    let failed = start - 10, found: number | undefined
+    for (let i = 0; i < VERIFY_TRIES && found === undefined; i++) {
+      const size = Math.min(LIMITS.dimension, start + 10 * (2 ** i - 1))
+      if (await fits(size)) found = size
+      else if (size >= LIMITS.dimension) break
+      else failed = size
+    }
+    if (found === undefined) return undefined
+    let best: number = found
+    while (best - failed > 10) {
+      const mid: number = failed + Math.ceil((best - failed) / 20) * 10
+      if (await fits(mid)) best = mid; else failed = mid
+    }
+    return best
+  }
+  const own = {
+    w: await grow(w => at(prepared, w, layout.height), found.own.w),
+    h: await grow(h => at(prepared, layout.width, h), found.own.h),
+  }
+  let swap: Alternatives["swap"] = found.swap
+  const swapped = found.swap ? swappedRecipe(prepared, found.swap.recipe) : undefined
+  if (found.swap && !swapped) swap = undefined
+  else if (found.swap && swapped) {
+    const here = found.swap.here && await at(swapped, layout.width, layout.height)
+    const need = here ? {} : {
+      w: await grow(w => at(swapped, w, layout.height), found.swap.need.w ?? layout.width),
+      h: await grow(h => at(swapped, layout.width, h), found.swap.need.h ?? layout.height),
+    }
+    swap = { recipe: found.swap.recipe, here, need: { ...(need.w !== undefined ? { w: need.w } : {}), ...(need.h !== undefined ? { h: need.h } : {}) } }
+  }
+  const verified: Alternatives = { ...(swap ? { swap } : {}), own: { ...(own.w !== undefined ? { w: own.w } : {}), ...(own.h !== undefined ? { h: own.h } : {}) } }
+  return new LayoutUnsatisfiable([refusalIssue(settings, error.basis.conflicts, error.basis.measured, { found: verified, recipe: prepared.compilation.recipe })], { ...error.basis, alternatives: verified })
+}
+
+/** The same prepared chart as the other recipe of its family (its axis titles swapped, since they name physical axes). */
+function swappedRecipe(prepared: Prepared, recipe: string): Prepared | undefined {
+  const chart = prepared.artifact.document.chart as CapturedRecipeChartV1
+  const options = { ...(chart.options ?? {}) } as Record<string, unknown>
+  const [x, y] = [options.xTitle, options.yTitle]
+  delete options.xTitle; delete options.yTitle
+  if (typeof y === "string") options.xTitle = y
+  if (typeof x === "string") options.yTitle = x
+  try {
+    const compilation = compileRecipe({ ...chart, recipe, options } as never, (prepared.rows ?? []) as Record<string, unknown>[], prepared.artifact.captured.categories ? { categoryDomain: prepared.artifact.captured.categories.domain } : {})
+    return { ...prepared, compilation }
+  } catch { return undefined }
+}
+
+async function fitOnce(prepared: Prepared, env: Environment, options: FitOptions): Promise<FittedRecipe> {
   const { artifact, compilation, settings } = prepared
   if (!compilation || !settings.layout) throw new TypeError("fitRecipe needs a prepared recipe document")
   const doc = artifact.document
@@ -121,6 +221,10 @@ export async function fitRecipe(prepared: Prepared, env: Environment, options: F
     if (check.width !== layout.width || check.height !== layout.height) conflicts.push({ what: `the drawing is ${check.width}×${check.height} px, not the requested ${layout.width}×${layout.height}`, path: "/layout", needed: Math.max(check.width, check.height), available: Math.max(layout.width, layout.height) })
     for (const pair of check.layout.overlaps) conflicts.push({ what: `labels "${pair[0]}" and "${pair[1]}" overlap`, path: "/encoding", needed: 0, available: 0 })
     for (const text of check.layout.clipped) conflicts.push({ what: `label "${text}" runs past the edge`, path: "/encoding", needed: 0, available: 0 })
+    // Labels that touch read as one ("NovemberDecember") even when they do not overlap: flat x labels keep a gap.
+    const overlapping = new Set(check.layout.overlaps.map(pair => [...pair].sort().join("\u0000")))
+    // A pair that overlaps is reported once, as an overlap, not again as touching.
+    if (presentation.plan.signals.charts_x_angle === 0) for (const [a, b] of touchingLabels(check.figure.nodes)) if (!overlapping.has([a.text, b.text].sort().join("\u0000"))) conflicts.push({ what: `x labels "${a.text}" and "${b.text}" are ${Math.max(0, Math.round((b.box[0] - a.box[2]) * 10) / 10)} px apart`, path: "/encoding/x/axis", needed: MIN_LABEL_GAP, available: Math.max(0, b.box[0] - a.box[2]) })
     const legend = presentation.runtime.planner.legend
     if (legend?.kind === "symbol") {
       const drawn = legendEntries(check.svg)
@@ -128,7 +232,8 @@ export async function fitRecipe(prepared: Prepared, env: Environment, options: F
       const missing = legend.labels.filter(label => !shown.has(label))
       if (drawn.elided || missing.length) conflicts.push({ what: `the legend leaves out ${missing.length} of ${legend.labels.length} entries${missing.length ? ` (such as ${JSON.stringify(missing[0])})` : ""}${drawn.elided ? " behind an elided rest" : ""}`, path: "/encoding/color/legend", needed: legend.labels.length, available: legend.labels.length - missing.length })
     }
-    if (check.plot && (check.plot.width < 1 || check.plot.height < 1)) conflicts.push({ what: `the plot is ${check.plot.width}×${check.plot.height} px`, path: "/layout", needed: 1, available: Math.min(check.plot.width, check.plot.height) })
+    // The drawn plot keeps the planner's minimum: guides that squeeze it smaller are a refusal, not a chart.
+    if (check.plot && (check.plot.width < PLANNER_LIMITS.minPlotWidth || check.plot.height < PLANNER_LIMITS.minPlotHeight)) conflicts.push({ what: `the guides leave a ${Math.floor(check.plot.width)}×${Math.floor(check.plot.height)} px plot`, path: "/layout", needed: check.plot.width < PLANNER_LIMITS.minPlotWidth ? PLANNER_LIMITS.minPlotWidth : PLANNER_LIMITS.minPlotHeight, available: Math.floor(Math.min(check.plot.width < PLANNER_LIMITS.minPlotWidth ? check.plot.width : check.plot.height)) })
     if (!conflicts.length) {
       const report: LayoutReport = {
         target: layout.target, mode: layout.mode,

@@ -30,7 +30,21 @@ export interface PlannerAxis {
   readonly title?: string
   /** Temporal axes keep the theme's denser time ticks. */
   readonly temporal?: boolean
+  /**
+   * A temporal axis with ticks on calendar boundaries: the unit, how many units the data spans, and the tick labels at
+   * one tick per unit (formatted the way the axis draws them). The plan picks how many units one tick covers.
+   */
+  readonly time?: { readonly unit: TimeUnit; readonly intervals: number; readonly labels: readonly string[] }
 }
+
+export type TimeUnit = "year" | "month" | "day" | "hour"
+/**
+ * The tick steps a time unit allows, smallest first, each spacing ticks evenly: months by divisors of 12, hours of 24,
+ * days by whole weeks past one day.
+ */
+export const TIME_STEPS: Readonly<Record<TimeUnit, readonly number[]>> = { year: [1, 2, 5, 10, 20, 50, 100], month: [1, 2, 3, 6, 12], day: [1, 7, 14, 28], hour: [1, 2, 3, 6, 12] }
+/** The least space between two neighbouring labels on one axis, as a share of the label size (and never under 4 px). */
+export const LABEL_GAP = 0.5
 
 export interface PlannerLegend {
   readonly kind: "symbol" | "gradient"
@@ -53,6 +67,11 @@ export interface PlannerInput {
   readonly x?: PlannerAxis
   readonly y?: PlannerAxis
   readonly legend?: PlannerLegend
+  /**
+   * A size key (a bubble chart's), drawn as one column: its entries' labels and symbol diameters, and its title. It
+   * stacks under the colour legend beside the plot, and stands beside it below the plot.
+   */
+  readonly sizeLegend?: { readonly labels: readonly string[]; readonly title?: string; readonly symbols: readonly number[] }
   /** Where the theme puts the legend in candidate 0. */
   readonly legendOrient: "right" | "bottom" | "left" | "top"
   /** Pie and donut: no axes, the plot is a circle. */
@@ -70,6 +89,7 @@ export const SIGNALS = {
   legendOrient: "charts_legend_orient",
   legendColumns: "charts_legend_columns",
   xTickStep: "charts_x_tick_step",
+  xTimeStep: "charts_x_time_step",
   yTickStep: "charts_y_tick_step",
 } as const
 
@@ -83,6 +103,8 @@ export interface PlanSignals {
   readonly charts_legend_orient: "right" | "bottom" | "left" | "top"
   readonly charts_legend_columns: number
   readonly charts_x_tick_step: number
+  /** Units per tick on a calendar time axis (1 when the axis has none). */
+  readonly charts_x_time_step: number
   readonly charts_y_tick_step: number
 }
 
@@ -222,8 +244,10 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
 
   // Legend: where the theme puts it first, below the plot after that.
   const legend = input.legend
-  const legendOrient: PlanSignals["charts_legend_orient"] = c === 0 ? input.legendOrient : input.legendOrient === "top" ? "top" : "bottom"
+  // A size key is one column, which sits beside the plot, never below it: a chart with one keeps its legends at the side.
+  const legendOrient: PlanSignals["charts_legend_orient"] = input.sizeLegend ? (input.legendOrient === "left" ? "left" : "right") : c === 0 ? input.legendOrient : input.legendOrient === "top" ? "top" : "bottom"
   let legendW = 0, legendH = 0, legendColumns = 1
+  let colourSideH = 0, colourBottomW = 0
   if (legend) {
     const titleW = legend.title ? m(legend.title, lbl) : 0
     const titleRow = legend.title ? lbl * LINE + 5 : 0
@@ -237,6 +261,7 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
         legendW = Math.max(item, titleW) + 18
         // Every entry is drawn (no "…N entries"), one per row beside the plot.
         const rows = legend.labels.length * (lbl + 6) + titleRow
+        colourSideH = rows + 2
         if (rows > availH - titleH) fail(`${legend.labels.length} legend entries need ${Math.ceil(rows)} px of height beside the plot`, "/encoding/color/legend", rows, availH - titleH)
       } else {
         legendColumns = Math.max(1, Math.min(legend.labels.length, Math.floor((availW + 10) / (item + 10))))
@@ -244,10 +269,31 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
         if (titleW > availW) fail(`the legend title needs ${Math.ceil(titleW)} px`, "/encoding/color/legend/title", titleW, availW)
         const rows = Math.ceil(legend.labels.length / legendColumns)
         legendH = rows * (lbl + 6) + titleRow + 18
+        colourBottomW = Math.max(titleW, legendColumns * (item + 10))
       }
     }
+  }
+  const sizeKey = input.sizeLegend
+  if (sizeKey) {
+    const titleW = sizeKey.title ? m(sizeKey.title, lbl) : 0
+    const titleRow = sizeKey.title ? lbl * LINE + 5 : 0
+    const labelW = Math.max(0, ...sizeKey.labels.map(label))
+    // One column: each entry as tall as its symbol (or its label), 11 px apart (as Vega lays it out).
+    const width = Math.max(titleW, Math.max(0, ...sizeKey.symbols) + 4 + labelW)
+    const height = titleRow + sizeKey.symbols.reduce((sum, d) => sum + Math.max(lbl, d), 0) + 11 * Math.max(0, sizeKey.symbols.length - 1)
+    if (legendOrient === "right" || legendOrient === "left") {
+      legendW = Math.max(legendW, width + 18)
+      const stacked = colourSideH + (legend ? 8 : 0) + height
+      if (stacked > availH - titleH) fail(`the legends need ${Math.ceil(stacked)} px of height beside the plot`, "/encoding/size/legend", stacked, availH - titleH)
+    } else {
+      const total = width + (legend ? colourBottomW + 16 : 0)
+      legendH = Math.max(legendH, height + 18)
+      if (total > availW) fail(`the legends need ${Math.ceil(total)} px of width below the plot`, "/encoding/size/legend", total, availW)
+    }
+  }
+  if (legend || sizeKey) {
     if (legendW > availW * PLANNER_LIMITS.legendShare) fail(`the legend needs ${Math.ceil(legendW)} px beside the plot`, "/encoding/color/legend", legendW, availW * PLANNER_LIMITS.legendShare)
-    if (legendH > availH * PLANNER_LIMITS.legendShare) fail(`the legend needs ${Math.ceil(legendH)} px below the plot`, "/encoding/color/legend", legendH, availH * PLANNER_LIMITS.legendShare)
+    if (legendH > availH * PLANNER_LIMITS.legendShare) fail(legend && legend.kind === "symbol" ? `${legend.labels.length} legend entries need ${Math.ceil(legendH)} px below the plot` : `the legend needs ${Math.ceil(legendH)} px below the plot`, "/encoding/color/legend", legendH, availH * PLANNER_LIMITS.legendShare)
     if (legendOrient !== input.legendOrient) adjustments.push({ path: "/encoding/color/legend/orient", reason: `moved the legend ${legendOrient === "bottom" ? "below" : "above"} the plot${legendColumns > 1 ? ` in ${legendColumns} columns` : ""} to give the plot the width` })
   }
 
@@ -257,6 +303,7 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
   let xWrap: { keys: string[]; lines: string[][] } = { keys: [], lines: [] }
   let yWrap: { keys: string[]; lines: string[][] } = { keys: [], lines: [] }
   let plotW: number, plotH: number
+  let timeStep = 1
 
   if (input.radial) {
     plotW = availW - legendW
@@ -339,7 +386,18 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
     if (yRows && plotH / yRows < tallest * lbl * LINE) fail(`${yRows} y categories need ${Math.ceil(tallest * lbl * LINE)} px each and have ${Math.floor(plotH / yRows)} px`, "/encoding/y/axis", yRows * tallest * lbl * LINE, plotH)
     if (plotW < PLANNER_LIMITS.minPlotWidth) fail(`the axes${legendW ? " and legend" : ""} leave a ${Math.floor(plotW)} px wide plot`, "/width", PLANNER_LIMITS.minPlotWidth, plotW)
     if (plotH < PLANNER_LIMITS.minPlotHeight) fail(`the title, axes${legendH ? " and legend" : ""} leave a ${Math.floor(plotH)} px tall plot`, "/height", PLANNER_LIMITS.minPlotHeight, plotH)
-    if (c > 0 && input.x?.kind === "continuous") adjustments.push({ path: "/encoding/x/axis/tickCount", reason: `one tick per ${xTickStep} px` })
+    // A calendar time axis: the fewest units per tick that keep every label clear of its neighbours.
+    const time = input.x?.time
+    if (time) {
+      const gap = Math.max(4, lbl * LABEL_GAP)
+      const widest = Math.max(0, ...time.labels.map(label))
+      const steps = TIME_STEPS[time.unit]
+      const fits = (step: number) => time.intervals === 0 || (plotW * step) / time.intervals >= widest + gap
+      const step = steps.find(fits)
+      if (step === undefined) fail(`${time.unit} labels need ${Math.ceil(widest + gap)} px apart and have ${Math.floor((plotW * steps[steps.length - 1]!) / Math.max(1, time.intervals))} px at one label every ${steps[steps.length - 1]} ${time.unit}s`, "/encoding/x/axis", widest + gap, (plotW * steps[steps.length - 1]!) / Math.max(1, time.intervals))
+      timeStep = step ?? steps[steps.length - 1]!
+      if (timeStep > 1) adjustments.push({ path: "/encoding/x/axis/tickCount", reason: `one label every ${timeStep} ${time.unit}s, so the labels keep apart` })
+    } else if (c > 0 && input.x?.kind === "continuous") adjustments.push({ path: "/encoding/x/axis/tickCount", reason: `one tick per ${xTickStep} px` })
     if (c > 0 && input.y?.kind === "continuous") adjustments.push({ path: "/encoding/y/axis/tickCount", reason: `one tick per ${yTickStep} px` })
   }
 
@@ -361,6 +419,7 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
       charts_legend_orient: legendOrient,
       charts_legend_columns: legendColumns,
       charts_x_tick_step: xTickStep,
+      charts_x_time_step: timeStep,
       charts_y_tick_step: yTickStep,
     },
   }

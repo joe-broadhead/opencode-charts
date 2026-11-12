@@ -43,7 +43,8 @@ describe("tooltip", () => {
 
   test("a box plot uses Vega-Lite's own statistics tooltip; off sets no tooltip at all", async () => {
     const box = await spec({ version: 1, chart: { kind: "recipe", recipe: "box_plot", data: { rows: POINTS }, bindings: { category: "group", value: "y" } } })
-    expect(box.mark.tooltip).toBe(true)
+    // Drawn as the one layer of a view (Vega-Lite's box plot takes no params of its own).
+    expect(box.layer[0].mark.tooltip).toBe(true)
     const off = await spec(line({ tooltip: "off" }))
     expect(off.encoding.tooltip).toBeUndefined()
     expect(off.mark.tooltip).toBe(false)

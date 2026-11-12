@@ -74,6 +74,11 @@ export const OKABE_ITO = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9",
 export const OKABE_ITO_DARK = ["#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#D55E00", "#0072B2", "#BBBBBB"]
 export const TOL_HIGH_CONTRAST = ["#004488", "#DDAA33", "#BB5566", "#000000", "#777777"]
 export const BLUES = ["#EEF3FA", "#D3E1F2", "#AFC8E6", "#86ABD7", "#5E8DC6", "#3D6FAE", "#285389", "#183A63"]
+/**
+ * BLUES for a dark canvas: the same blue family as light's ramp, with the lightness turned round, so on either theme
+ * more is more salient (darker on white, brighter on near-black) and the lowest value still stands off the canvas.
+ */
+export const BLUES_DARK = ["#1E3550", "#24476E", "#2C5D8E", "#3874AD", "#4E8DC6", "#6FA8D8", "#97C3E6", "#C6DEF2"]
 export const VIRIDIS = ["#440154", "#46337E", "#365C8D", "#277F8E", "#1FA187", "#4AC16D", "#A0DA39", "#FDE725"]
 export const RDBU = ["#2166AC", "#4393C3", "#92C5DE", "#D1E5F0", "#F7F7F7", "#FDDBC7", "#F4A582", "#D6604D", "#B2182B"]
 export const RDBU_DARK = ["#4393C3", "#3A6E99", "#2E4C66", "#2A3340", "#262A31", "#4A3530", "#86493C", "#C0604D", "#F4A582"]
@@ -95,7 +100,7 @@ export const BUILTIN_THEMES: Readonly<Record<string, ThemeTokens>> = {
   },
   dark: {
     name: "dark", description: "For dark surfaces; Okabe–Ito palette ordered for contrast on a dark ground.", mode: "dark",
-    colors: { background: "#16181D", text: "#E6E8EB", muted: "#A3AAB3", grid: "#2A2F37", axis: "#596170", categorical: OKABE_ITO_DARK, sequential: VIRIDIS, diverging: RDBU_DARK, positive: "#3DBE8B", negative: "#F2707A", neutral: "#7D8590", highlight: "#F0E442" },
+    colors: { background: "#16181D", text: "#E6E8EB", muted: "#A3AAB3", grid: "#2A2F37", axis: "#596170", categorical: OKABE_ITO_DARK, sequential: BLUES_DARK, diverging: RDBU_DARK, positive: "#3DBE8B", negative: "#F2707A", neutral: "#7D8590", highlight: "#F0E442" },
     ...common,
   },
   "high-contrast": {

@@ -10,7 +10,8 @@ import { combinationIssues, interactionReport, type InteractionReport } from "..
 import type { RecipeCompilation } from "../recipes/types.js"
 import type { ThemeTokens } from "../themes/tokens.js"
 import type { ResolvedAppearance } from "./appearance.js"
-import { planLayout, SIGNALS, type Conflict, type Plan, type PlannerAxis, type PlannerInput, type PlannerLegend } from "./planner.js"
+import { dateCategories, timeAxis, type TimeAxis } from "./time.js"
+import { planLayout, SIGNALS, type Conflict, type Plan, type PlannerAxis, type PlannerInput, type PlannerLegend, type TimeUnit } from "./planner.js"
 
 /**
  * A recipe compilation made into the chart that is drawn: the outer size (autosize fit, so the SVG is exactly the
@@ -71,18 +72,35 @@ function numberSamples(values: readonly unknown[]): string[] {
   const body = max >= 10_000 ? "999.9k" : max >= 1000 ? "9,999" : max >= 100 ? "999" : max >= 1 ? "9.9" : "0.99"
   return [negative ? `−${body}` : body]
 }
-const TIME_SAMPLES = ["September", "2024"]
+/**
+ * The tick interval for a time unit and the plan's step, as a Vega expression. Days past one go by weeks: d3's day
+ * steps restart every month (the 29th, then the 1st), while week steps stay even. Vega calls its hour interval hours.
+ */
+function tickInterval(unit: TimeUnit): string {
+  const step = SIGNALS.xTimeStep
+  if (unit === "day") return `${step} === 1 ? {interval: 'day', step: 1} : {interval: 'week', step: ${step} / 7}`
+  return `{interval: '${unit === "hour" ? "hours" : unit}', step: ${step}}`
+}
 
-function axisInput(def: unknown, rows: readonly Json[]): PlannerAxis | undefined {
+/** A planner axis, and how the axis writes its labels when they are dates (a time format, or date categories). */
+interface AxisReading { readonly axis: PlannerAxis; readonly time?: TimeAxis; readonly dateFormat?: string }
+
+function axisInput(def: unknown, rows: readonly Json[]): AxisReading | undefined {
   if (!isObject(def)) return undefined
   const title = typeof def.title === "string" ? def.title : undefined
   const field = typeof def.field === "string" ? def.field : undefined
   if ((def.type === "nominal" || def.type === "ordinal") && !def.bin && field) {
     const order = Array.isArray(def.sort) ? def.sort : [...new Map(rows.map(r => [JSON.stringify(r[field] ?? null), r[field] ?? null])).values()]
-    return { kind: "discrete", labels: order.map(label), ...(title ? { title } : {}) }
+    const labels = order.map(label)
+    // ISO dates as categories (a stacked bar per month, say) read as dates, not as 2024-01-01.
+    const dates = dateCategories(labels)
+    return { axis: { kind: "discrete", labels: dates ? [...dates.display] : labels, ...(title ? { title } : {}) }, ...(dates ? { dateFormat: dates.format } : {}) }
   }
-  if (def.type === "temporal") return { kind: "continuous", labels: TIME_SAMPLES, temporal: true, ...(title ? { title } : {}) }
-  return { kind: "continuous", labels: field ? numberSamples(rows.map(r => r[field])) : ["9,999"], ...(title ? { title } : {}) }
+  if (def.type === "temporal") {
+    const time = field ? timeAxis(rows.map(r => r[field])) : undefined
+    return { axis: { kind: "continuous", labels: time ? [...time.labels] : ["September", "2024"], temporal: true, ...(time ? { time: { unit: time.unit, intervals: time.intervals, labels: time.labels } } : {}), ...(title ? { title } : {}) }, ...(time ? { time } : {}) }
+  }
+  return { axis: { kind: "continuous", labels: field ? numberSamples(rows.map(r => r[field])) : ["9,999"], ...(title ? { title } : {}) } }
 }
 
 /** Every axis and legend gets an explicit title, so the planner measures the text Vega draws. */
@@ -109,7 +127,10 @@ function titleChannels(encoding: Json, options: Json) {
 const WHOLE_AXIS = { labelLimit: 0, titleLimit: 0, maxExtent: LIMITS.dimension }
 const WHOLE_LEGEND = { labelLimit: 0, titleLimit: 0, symbolLimit: 0 }
 
-export class LayoutUnsatisfiable extends DocumentInvalid {}
+/** A refusal, with what it was made from, so the server can check its alternatives by drawing and restate it. */
+export class LayoutUnsatisfiable extends DocumentInvalid {
+  constructor(issues: readonly Issue[], readonly basis: { readonly conflicts: readonly Conflict[]; readonly measured: boolean; readonly alternatives?: Alternatives }) { super(issues) }
+}
 
 /** What the refusal's alternatives are computed from: the planner's view of the chart, and the text measurements. */
 export interface AlternativeContext {
@@ -118,11 +139,17 @@ export interface AlternativeContext {
   readonly measure: TextMeasure
 }
 
-/** The planner's view of the same data drawn as a horizontal bar chart: the category axis on y, the measure on x. */
-function asHorizontalBar(planner: Omit<PlannerInput, "width">): Omit<PlannerInput, "width"> | undefined {
-  if (planner.x?.kind !== "discrete" || planner.y?.kind !== "continuous") return undefined
+/**
+ * The recipes a refusal may offer in place of the one asked for: the same data, bindings and options, drawn the
+ * other way round (a vertical bar's categories along the bottom, a horizontal bar's down the side).
+ */
+const SWAPS: Readonly<Record<string, string>> = { bar: "horizontal_bar", horizontal_bar: "bar" }
+
+/** The planner's view of the same data with its axes swapped: the category axis moves to the other side. */
+function swapAxes(planner: Omit<PlannerInput, "width">): Omit<PlannerInput, "width"> | undefined {
   const { x, y, ...rest } = planner
-  return { ...rest, x: { kind: "continuous", labels: y.labels, ...(y.title ? { title: y.title } : {}) }, y: { kind: "discrete", labels: x.labels, ...(x.title ? { title: x.title } : {}) } }
+  if (!x || !y || x.kind === y.kind) return undefined
+  return { ...rest, x: { kind: y.kind, labels: y.labels, ...(y.title ? { title: y.title } : {}) }, y: { kind: x.kind, labels: x.labels, ...(x.title ? { title: x.title } : {}) } }
 }
 
 const STEP = 10
@@ -136,46 +163,72 @@ function smallest(fits: (size: number) => boolean, after: number): number | unde
   return Math.min(max, hi * STEP)
 }
 
-/**
- * Alternatives that keep the chart's meaning, each checked with the planner at the requested size: the same chart at
- * the smallest width (at this height) and height (at this width) that fit, and, for a vertical bar chart, the
- * horizontal bar chart of the same data, suggested only if it fits this size, otherwise with the size it needs.
- */
-export function layoutAlternatives(context: AlternativeContext, width: number, height: number, measured: boolean): string[] {
-  const fits = (planner: Omit<PlannerInput, "width">, w: number, h: number) => planLayout({ ...planner, width: w, height: h }, context.measure).ok
-  // A drawing that failed its check at this size needs more room than the planner's estimate of it.
-  const sizes = (planner: Omit<PlannerInput, "width">) => {
-    const w = smallest(size => fits(planner, size, height), measured || fits(planner, width, height) ? width : 0)
-    const h = smallest(size => fits(planner, width, size), measured || fits(planner, width, height) ? height : 0)
-    return { w, h }
-  }
-  const out: string[] = []
-  const own = sizes(context.planner)
-  const parts = [own.w !== undefined ? `${own.w} px wide at ${height} px tall` : undefined, own.h !== undefined ? `${own.h} px tall at ${width} px wide` : undefined].filter(Boolean)
-  out.push(parts.length ? `This chart fits from ${parts.join(", or from ")} (layout.width, layout.height).` : `No size up to ${LIMITS.dimension} px fits this chart as it is: shorten the labels or the title, or use fewer categories.`)
-  if (context.recipe === "bar") {
-    const horizontal = asHorizontalBar(context.planner)
-    if (horizontal && fits(horizontal, width, height)) out.push(`A horizontal_bar of the same data fits ${width}×${height} px: its long category labels run down the side.`)
-    else if (horizontal) {
-      const need = { w: smallest(size => fits(horizontal, size, height), 0), h: smallest(size => fits(horizontal, width, size), 0) }
-      const at = [need.w !== undefined ? `${need.w} px wide at ${height} px tall` : undefined, need.h !== undefined ? `${need.h} px tall at ${width} px wide` : undefined].filter(Boolean)
-      out.push(at.length ? `A horizontal_bar does not fit ${width}×${height} px either; it needs ${at.join(", or ")}.` : `A horizontal_bar does not fit at any size up to ${LIMITS.dimension} px either.`)
-    }
-  }
-  return out
+/** What a refusal can offer instead, each size one that fits (along one dimension, with the other kept). */
+export interface Alternatives {
+  /** The recipe of the same family drawn the other way round: whether it fits the requested size, else what it needs. */
+  readonly swap?: { readonly recipe: string; readonly here: boolean; readonly need: { readonly w?: number; readonly h?: number } }
+  /** The requested chart: a width at the requested height, and a height at the requested width, that fit. */
+  readonly own: { readonly w?: number; readonly h?: number }
 }
 
-/** The LAYOUT_UNSATISFIABLE issue for a set of conflicts, with alternatives that keep the chart's meaning. */
-export function unsatisfiable(settings: EffectiveSettings, conflicts: readonly Conflict[], measured = false, context?: AlternativeContext): LayoutUnsatisfiable {
+/**
+ * The planner's estimate of the alternatives: first any recipe of the same family (bar and horizontal_bar) that fits
+ * the requested size, then the smallest width (at this height) and height (at this width) at which the requested chart
+ * fits, then the size the other recipe needs when it does not fit here. The server checks each by drawing it before
+ * a refusal names it (fit.ts).
+ */
+export function layoutAlternatives(context: AlternativeContext, width: number, height: number, measured: boolean): Alternatives {
+  const fits = (planner: Omit<PlannerInput, "width">, w: number, h: number) => planLayout({ ...planner, width: w, height: h }, context.measure).ok
+  // A drawing that failed its check at this size needs more room than the planner's estimate of it.
+  const sizes = (planner: Omit<PlannerInput, "width">, above: boolean) => ({
+    w: smallest(size => fits(planner, size, height), above ? width : 0),
+    h: smallest(size => fits(planner, width, size), above ? height : 0),
+  })
+  const swap = SWAPS[context.recipe]
+  const swapped = swap ? swapAxes(context.planner) : undefined
+  return {
+    ...(swap && swapped ? { swap: fits(swapped, width, height) ? { recipe: swap, here: true, need: {} } : { recipe: swap, here: false, need: sizes(swapped, false) } } : {}),
+    own: sizes(context.planner, measured || fits(context.planner, width, height)),
+  }
+}
+
+/** The alternatives as the refusal's next step, in the order to try them; each sentence once. */
+export function alternativesText(a: Alternatives, recipe: string, width: number, height: number): string[] {
+  const phrase = (need: { w?: number; h?: number }) => [need.w !== undefined ? `${need.w} px wide at ${height} px tall` : undefined, need.h !== undefined ? `${need.h} px tall at ${width} px wide` : undefined].filter(Boolean) as string[]
+  const first: string[] = [], last: string[] = []
+  if (a.swap?.here) first.push(`A ${a.swap.recipe} of the same data fits ${width}×${height} px: send the same document with chart.recipe "${a.swap.recipe}" to keep this size (bindings and options stay; xTitle and yTitle name the physical axes, so swap them if set).`)
+  else if (a.swap) {
+    const need = phrase(a.swap.need)
+    last.push(need.length ? `A ${a.swap.recipe} does not fit ${width}×${height} px either; it fits at ${need.join(", or at ")}.` : `A ${a.swap.recipe} does not fit at any size up to ${LIMITS.dimension} px either.`)
+  }
+  const own = phrase(a.own)
+  const ownText = own.length ? `This chart fits at ${own.join(", or at ")} (layout.width, layout.height).` : `No size up to ${LIMITS.dimension} px fits this chart as it is: shorten the labels or the title, or use fewer categories.`
+  return [...new Set([...first, first.length ? `Or keep the ${recipe}: ${ownText.charAt(0).toLowerCase()}${ownText.slice(1)}` : ownText, ...last])]
+}
+
+/** More legend entries than this, and a refusal says to draw fewer series as well as giving sizes. */
+const LEGEND_MANY = 12
+
+/** A refusal's issue: the conflicts, and the alternatives (or, without them, the generic next step). */
+export function refusalIssue(settings: EffectiveSettings, conflicts: readonly Conflict[], measured: boolean, alternatives?: { readonly found: Alternatives; readonly recipe: string }): Issue {
   const l = settings.layout!
-  const list = conflicts.slice(0, 6).map(c => `${c.what} (needs ${c.needed}, has ${c.available}, at ${c.path})`).join("; ")
-  const alternatives = context ? layoutAlternatives(context, l.width, l.height, measured) : []
-  return new LayoutUnsatisfiable([{
+  const seen = new Set<string>()
+  const list = conflicts.map(c => `${c.what} (needs ${c.needed}, has ${c.available}, at ${c.path})`).filter(t => !seen.has(t) && seen.add(t)).slice(0, 6).join("; ")
+  const offered = alternatives ? alternativesText(alternatives.found, alternatives.recipe, l.width, l.height) : []
+  return {
     level: "error", code: "LAYOUT_UNSATISFIABLE",
     message: `The chart does not fit ${l.width}×${l.height} px with every label at ${l.minLabelSize} px or more, in any of the three layout candidates${measured ? " (measured on the drawn chart)" : ""}: ${list}.`,
     path: "/layout",
-    fix: `${conflicts.some(c => c.path.startsWith("/encoding/color/legend")) ? "The legend cannot show every series: draw fewer series (combine the small ones into one with an explicit data.transform, or split the chart), or give it more room. " : ""}${alternatives.length ? `${alternatives.join(" ")} ` : "Give it more room (a larger layout.width or layout.height, or a layout.target such as report). "}Otherwise shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter. Labels are never shrunk below ${l.minLabelSize} px, and no category, series or legend entry is dropped to fit.`,
-  }])
+    // Too many series for one legend is its own advice; a legend that only needs room is covered by the sizes below.
+    fix: `${conflicts.some(c => c.path.startsWith("/encoding/color/legend") && Number(/^(\d+) legend entries/.exec(c.what)?.[1] ?? 0) > LEGEND_MANY) ? "The legend cannot show every series: draw fewer series (combine the small ones into one with an explicit data.transform, or split the chart), or give it more room. " : ""}${offered.length ? `${offered.join(" ")} ` : "Give it more room (a larger layout.width or layout.height, or a layout.target such as report). "}Otherwise shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter. Labels are never shrunk below ${l.minLabelSize} px, and no category, series or legend entry is dropped to fit.`,
+  }
+}
+
+/** The LAYOUT_UNSATISFIABLE issue for a set of conflicts, with the planner's alternatives (verified later by drawing). */
+export function unsatisfiable(settings: EffectiveSettings, conflicts: readonly Conflict[], measured = false, context?: AlternativeContext): LayoutUnsatisfiable {
+  const l = settings.layout!
+  const found = context ? layoutAlternatives(context, l.width, l.height, measured) : undefined
+  return new LayoutUnsatisfiable([refusalIssue(settings, conflicts, measured, found && context ? { found, recipe: context.recipe } : undefined)], { conflicts, measured, ...(found ? { alternatives: found } : {}) })
 }
 
 /** Builds the drawn chart from a recipe compilation, with the first feasible layout candidate from `from` on. */
@@ -209,14 +262,22 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
     if (color.type === "quantitative") legend = { kind: "gradient", labels: numberSamples(rows.map(r => r[color.field as string])), ...(title ? { title } : {}) }
     else legend = { kind: "symbol", labels: (input.categories?.domain ?? []).map(label), ...(title ? { title } : {}) }
   }
-  const x = radial ? undefined : axisInput(encoding.x, rows)
-  const y = radial ? undefined : axisInput(encoding.y, rows)
+  const xReading = radial ? undefined : axisInput(encoding.x, rows)
+  const yReading = radial ? undefined : axisInput(encoding.y, rows)
+  const x = xReading?.axis, y = yReading?.axis
+  // A size key (bubble): about five entries, their symbols' areas spread evenly over the size scale's range.
+  const sizeDef = isObject(encoding.size) ? encoding.size as Json : undefined
+  const sizeRange = sizeDef && isObject(sizeDef.scale) && Array.isArray((sizeDef.scale as Json).range) ? (sizeDef.scale as Json).range as number[] : undefined
+  const [areaLo, areaHi] = [Number(sizeRange?.[0] ?? 30), Number(sizeRange?.[1] ?? 30)]
+  const sizeLegend = sizeDef && typeof sizeDef.field === "string" && sizeDef.legend !== null
+    ? { labels: Array(5).fill(numberSamples(rows.map(r => r[sizeDef.field as string]))[0]!), ...(typeof sizeDef.title === "string" ? { title: sizeDef.title } : {}), symbols: [0, 1, 2, 3, 4].map(i => 2 * Math.sqrt((areaLo + ((areaHi - areaLo) * i) / 4) / Math.PI)) }
+    : undefined
   const planner: Omit<PlannerInput, "width"> = {
     height: layout.height, padding: tokens.layout.padding, floor: layout.minLabelSize,
     labelSize: tokens.font.labelSize, axisTitleSize: tokens.font.size, titleSize: tokens.font.titleSize, labelPadding: tokens.axis.labelPadding,
     legendOrient: tokens.legend.orient,
     ...(input.title ? { title: input.title } : {}),
-    ...(x ? { x } : {}), ...(y ? { y } : {}), ...(legend ? { legend } : {}), ...(radial ? { radial: true } : {}),
+    ...(x ? { x } : {}), ...(y ? { y } : {}), ...(legend ? { legend } : {}), ...(sizeLegend ? { sizeLegend } : {}), ...(radial ? { radial: true } : {}),
   }
   const outcome = planLayout({ ...planner, width: layout.width }, input.measure)
   const context: AlternativeContext = { recipe: compilation.recipe, planner, measure: input.measure }
@@ -231,24 +292,44 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
   spec.autosize = { type: "fit", contains: "padding", resize: true }
   if (input.title) spec.title = { text: { expr: SIGNALS.title } }
   const params: Json[] = Object.entries(plan.signals).map(([name, value]) => ({ name, value }))
-  const wrapExpr = (keys: string, lines: string) => `indexof(${keys}, datum.label) >= 0 ? ${lines}[indexof(${keys}, datum.label)] : datum.label`
+  // The text an axis draws for a label: the label itself, or a date category written as a date; wrapped when the
+  // plan wraps that text.
+  const shown = (reading?: AxisReading) => (reading?.dateFormat ? `utcFormat(toDate(datum.label), ${JSON.stringify(reading.dateFormat)})` : "datum.label")
+  const wrapExpr = (keys: string, lines: string, reading?: AxisReading) => `indexof(${keys}, ${shown(reading)}) >= 0 ? ${lines}[indexof(${keys}, ${shown(reading)})] : ${shown(reading)}`
   if (isObject(encoding.x)) {
     const def = encoding.x as Json
     const axis = isObject(def.axis) ? def.axis as Json : {}
-    if (x?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelAngle: { expr: SIGNALS.xAngle }, labelAlign: { expr: `${SIGNALS.xAngle} === 0 ? 'center' : 'right'` }, labelBaseline: { expr: `${SIGNALS.xAngle} === -90 ? 'middle' : 'top'` }, labelExpr: wrapExpr(SIGNALS.xKeys, SIGNALS.xLines), labelOverlap: false }
+    if (x?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelAngle: { expr: SIGNALS.xAngle }, labelAlign: { expr: `${SIGNALS.xAngle} === 0 ? 'center' : 'right'` }, labelBaseline: { expr: `${SIGNALS.xAngle} === -90 ? 'middle' : 'top'` }, labelExpr: wrapExpr(SIGNALS.xKeys, SIGNALS.xLines, xReading), labelOverlap: false }
+    // A time axis: ticks on calendar boundaries, the plan's number of units per tick, one format for every label.
+    else if (xReading?.time) def.axis = { ...axis, ...WHOLE_AXIS, format: xReading.time.format, tickCount: { expr: tickInterval(xReading.time.unit) }, labelOverlap: false }
     else if (x) def.axis = { ...axis, ...WHOLE_AXIS, tickCount: { expr: `max(2, ceil(width / ${SIGNALS.xTickStep}))` } }
   }
   if (isObject(encoding.y)) {
     const def = encoding.y as Json
     const axis = isObject(def.axis) ? def.axis as Json : {}
-    if (y?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelExpr: wrapExpr(SIGNALS.yKeys, SIGNALS.yLines), labelOverlap: false }
-    else if (y) def.axis = { ...axis, ...WHOLE_AXIS, tickCount: { expr: `max(2, ceil(height / ${SIGNALS.yTickStep}))` } }
+    if (y?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelExpr: wrapExpr(SIGNALS.yKeys, SIGNALS.yLines, yReading), labelOverlap: false }
+    // Flush: the end labels sit inside the axis, so the bottom one never meets the x axis's first label at the corner.
+    else if (y) def.axis = { ...axis, ...WHOLE_AXIS, labelFlush: true, tickCount: { expr: `max(2, ceil(height / ${SIGNALS.yTickStep}))` } }
   }
   if (color && legend) {
     const own = isObject(color.legend) ? color.legend as Json : {}
     color.legend = legend.kind === "gradient"
       ? { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, gradientLength: { expr: `${SIGNALS.legendOrient} === 'right' || ${SIGNALS.legendOrient} === 'left' ? clamp(height * 0.8, 40, 200) : clamp(width * 0.5, 60, 240)` } }
       : { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, columns: { expr: SIGNALS.legendColumns } }
+    // A pie lists its slices in the order they are drawn (largest first when sorted by value); the colours stay keyed
+    // to the captured domain, so a category keeps its colour whatever the order.
+    if (radial && typeof color.field === "string") {
+      const field = color.field
+      const order = [...new Map(rows.map(r => [JSON.stringify(r[field] ?? null), r[field] ?? null])).values()]
+      ;(color.legend as Json).values = order
+    }
+  }
+  // A size key (bubble) has no colour scale: its symbols are drawn in the theme's muted text colour, fully opaque, so they
+  // read on a dark canvas as well as a light one.
+  if (isObject(encoding.size)) {
+    const size = encoding.size as Json
+    // One column in either place (Vega takes no expression for a symbol legend's direction), as the planner measures it.
+    size.legend = { ...(isObject(size.legend) ? size.legend as Json : {}), ...WHOLE_LEGEND, symbolOpacity: 1, direction: "vertical" }
   }
   spec.params = [...params, ...(Array.isArray(spec.params) ? spec.params as Json[] : [])]
 
@@ -275,6 +356,13 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
     const as = `${internal[0]}_description`
     presets.spec.transform = [...(presets.spec.transform as Json[]), { calculate: parts.join(" + '; ' + "), as }]
     ;(presets.spec.encoding as Json).description = { field: as, type: "nominal" }
+  }
+
+  // Vega-Lite's box plot drops a unit's params (and warns that selections are unsupported): the plan's signals are
+  // view-level variables, so a box plot is drawn as the one layer of a view that holds them.
+  if ((presets.spec.mark as Json | undefined)?.type === "boxplot") {
+    const { mark, encoding: boxEncoding, ...view } = presets.spec
+    presets.spec = { ...view, layer: [{ mark, encoding: boxEncoding }] } as Json
   }
 
   return {
