@@ -92,32 +92,48 @@ describe("a refusal suggests only what would fit", () => {
   const fitsAt = (doc: Record<string, unknown>, width: number, height: number) => draw(env, { ...doc, layout: { width, height } }).then(() => true, (e: { code?: string }) => { if (e.code !== "LAYOUT_UNSATISFIABLE") throw e; return false })
   const withRecipe = (doc: Record<string, unknown>, recipe: string) => ({ ...doc, chart: { ...(doc.chart as object), recipe } })
 
-  for (const [recipe, width, height] of [["bar", 320, 320], ["bar", 600, 300], ["horizontal_bar", 360, 480], ["horizontal_bar", 320, 320]] as const) test(`${recipe} with long labels at ${width}×${height}: every size the fix names draws, and a horizontal bar is offered only where it fits`, async () => {
+  const claims = (text: string) => [...text.matchAll(/(\d+) px wide at (\d+) px tall|(\d+) px tall at (\d+) px wide/g)].map(m => (m[1] ? [Number(m[1]), Number(m[2])] : [Number(m[4]), Number(m[3])]) as [number, number])
+  const sentence = (fix: string, start: string) => { const i = fix.indexOf(start); return i < 0 ? "" : fix.slice(i, fix.indexOf(".", fix.indexOf(" px", i)) + 1) }
+
+  for (const [recipe, width, height] of [["bar", 320, 320], ["bar", 600, 300], ["horizontal_bar", 360, 480], ["horizontal_bar", 320, 320]] as const) test(`${recipe} with long labels at ${width}×${height}: the other bar is offered first only if it fits this size, and every size the fix names draws`, async () => {
     const doc = categorical(recipe, LONG)
+    const other = recipe === "bar" ? "horizontal_bar" : "bar"
     const fix = await refuse({ ...doc, layout: { width, height } })
-    expect(fix).not.toContain("reads better")
-    const own = fix.slice(0, fix.indexOf(" A horizontal_bar") > 0 ? fix.indexOf(" A horizontal_bar") : fix.indexOf(" Otherwise"))
-    const claims = (text: string) => [...text.matchAll(/(\d+) px wide at (\d+) px tall|(\d+) px tall at (\d+) px wide/g)].map(m => (m[1] ? [Number(m[1]), Number(m[2])] : [Number(m[4]), Number(m[3])]) as [number, number])
-    expect(claims(own).length).toBeGreaterThan(0)
-    for (const [w, h] of claims(own)) expect(await fitsAt(doc, w, h)).toBe(true)
-    if (recipe !== "bar") { expect(fix).not.toContain("horizontal_bar"); return }
-    const horizontal = withRecipe(doc, "horizontal_bar")
-    const offered = fix.match(/A horizontal_bar of the same data fits (\d+)×(\d+) px/)
-    if (offered) expect(await fitsAt(horizontal, width, height)).toBe(true)
+    const alternative = withRecipe(doc, other)
+    const otherFits = await fitsAt(alternative, width, height)
+    if (otherFits) expect(fix.startsWith(`A ${other} of the same data fits ${width}×${height} px`)).toBe(true)
     else {
-      expect(fix).toContain("A horizontal_bar does not fit")
-      expect(await fitsAt(horizontal, width, height)).toBe(false)
-      const needs = claims(fix.slice(fix.indexOf("A horizontal_bar")))
-      expect(needs.length).toBeGreaterThan(0)
-      for (const [w, h] of needs) expect(await fitsAt(horizontal, w, h)).toBe(true)
+      expect(fix).not.toContain(`A ${other} of the same data fits`)
+      for (const [w, h] of claims(sentence(fix, `A ${other} does not fit`))) expect(await fitsAt(alternative, w, h)).toBe(true)
     }
+    const own = claims(sentence(fix, "fits from"))
+    expect(own.length).toBeGreaterThan(0)
+    for (const [w, h] of own) expect(await fitsAt(doc, w, h)).toBe(true)
   }, 120_000)
 
-  test("a bar chart the horizontal bar would fit gets that suggestion, and the horizontal bar does fit", async () => {
+  test("the corpus case: eight long labels as a horizontal_bar at 360 × 480 offer a bar at 360 × 480 first, and that bar draws there", async () => {
+    const doc = categorical("horizontal_bar", LONG)
+    const fix = await refuse({ ...doc, layout: { width: 360, height: 480 } })
+    expect(fix.startsWith('A bar of the same data fits 360×480 px: send the same document with chart.recipe "bar"')).toBe(true)
+    // The requested chart's own minimum comes after it.
+    expect(fix.indexOf("Or keep the horizontal_bar: this chart fits from")).toBeGreaterThan(0)
+    const { result } = await draw(env, { ...withRecipe(doc, "bar"), layout: { width: 360, height: 480 } })
+    expect({ width: result.width, height: result.height }).toEqual({ width: 360, height: 480 })
+  }, 120_000)
+
+  test("when no alternative fits the size, the refusal names the minimum size first", async () => {
+    const doc = categorical("bar", LONG)
+    const fix = await refuse({ ...doc, layout: { width: 320, height: 320 } })
+    expect(await fitsAt(withRecipe(doc, "horizontal_bar"), 320, 320)).toBe(false)
+    expect(fix.startsWith("This chart fits from")).toBe(true)
+    for (const [w, h] of claims(sentence(fix, "fits from"))) expect(await fitsAt(doc, w, h)).toBe(true)
+  }, 120_000)
+
+  test("a bar chart the horizontal bar would fit gets that suggestion first, and the horizontal bar does fit", async () => {
     // 900 × 300: too shallow for the turned labels, but they list down the side of a horizontal bar.
     const doc = categorical("bar", LONG)
     const fix = await refuse({ ...doc, layout: { width: 900, height: 300 } })
-    expect(fix).toContain("A horizontal_bar of the same data fits 900×300 px")
+    expect(fix.startsWith("A horizontal_bar of the same data fits 900×300 px")).toBe(true)
     expect(await fitsAt(withRecipe(doc, "horizontal_bar"), 900, 300)).toBe(true)
   }, 120_000)
 })

@@ -136,11 +136,17 @@ export interface AlternativeContext {
   readonly measure: TextMeasure
 }
 
-/** The planner's view of the same data drawn as a horizontal bar chart: the category axis on y, the measure on x. */
-function asHorizontalBar(planner: Omit<PlannerInput, "width">): Omit<PlannerInput, "width"> | undefined {
-  if (planner.x?.kind !== "discrete" || planner.y?.kind !== "continuous") return undefined
+/**
+ * The recipes a refusal may offer in place of the one asked for: the same data, bindings and options, drawn the
+ * other way round (a vertical bar's categories along the bottom, a horizontal bar's down the side).
+ */
+const SWAPS: Readonly<Record<string, string>> = { bar: "horizontal_bar", horizontal_bar: "bar" }
+
+/** The planner's view of the same data with its axes swapped: the category axis moves to the other side. */
+function swapAxes(planner: Omit<PlannerInput, "width">): Omit<PlannerInput, "width"> | undefined {
   const { x, y, ...rest } = planner
-  return { ...rest, x: { kind: "continuous", labels: y.labels, ...(y.title ? { title: y.title } : {}) }, y: { kind: "discrete", labels: x.labels, ...(x.title ? { title: x.title } : {}) } }
+  if (!x || !y || x.kind === y.kind) return undefined
+  return { ...rest, x: { kind: y.kind, labels: y.labels, ...(y.title ? { title: y.title } : {}) }, y: { kind: x.kind, labels: x.labels, ...(x.title ? { title: x.title } : {}) } }
 }
 
 const STEP = 10
@@ -155,32 +161,32 @@ function smallest(fits: (size: number) => boolean, after: number): number | unde
 }
 
 /**
- * Alternatives that keep the chart's meaning, each checked with the planner at the requested size: the same chart at
- * the smallest width (at this height) and height (at this width) that fit, and, for a vertical bar chart, the
- * horizontal bar chart of the same data, suggested only if it fits this size, otherwise with the size it needs.
+ * Alternatives that keep the chart's meaning, each checked with the planner: first any recipe of the same family
+ * (bar and horizontal_bar) that fits the requested size, so the size can be kept; then the smallest width (at this
+ * height) and height (at this width) at which the requested chart fits; then the size an alternative that does not fit
+ * here would need. Nothing is offered on a guess.
  */
 export function layoutAlternatives(context: AlternativeContext, width: number, height: number, measured: boolean): string[] {
   const fits = (planner: Omit<PlannerInput, "width">, w: number, h: number) => planLayout({ ...planner, width: w, height: h }, context.measure).ok
   // A drawing that failed its check at this size needs more room than the planner's estimate of it.
-  const sizes = (planner: Omit<PlannerInput, "width">) => {
-    const w = smallest(size => fits(planner, size, height), measured || fits(planner, width, height) ? width : 0)
-    const h = smallest(size => fits(planner, width, size), measured || fits(planner, width, height) ? height : 0)
-    return { w, h }
-  }
-  const out: string[] = []
-  const own = sizes(context.planner)
-  const parts = [own.w !== undefined ? `${own.w} px wide at ${height} px tall` : undefined, own.h !== undefined ? `${own.h} px tall at ${width} px wide` : undefined].filter(Boolean)
-  out.push(parts.length ? `This chart fits from ${parts.join(", or from ")} (layout.width, layout.height).` : `No size up to ${LIMITS.dimension} px fits this chart as it is: shorten the labels or the title, or use fewer categories.`)
-  if (context.recipe === "bar") {
-    const horizontal = asHorizontalBar(context.planner)
-    if (horizontal && fits(horizontal, width, height)) out.push(`A horizontal_bar of the same data fits ${width}×${height} px: its long category labels run down the side.`)
-    else if (horizontal) {
-      const need = { w: smallest(size => fits(horizontal, size, height), 0), h: smallest(size => fits(horizontal, width, size), 0) }
-      const at = [need.w !== undefined ? `${need.w} px wide at ${height} px tall` : undefined, need.h !== undefined ? `${need.h} px tall at ${width} px wide` : undefined].filter(Boolean)
-      out.push(at.length ? `A horizontal_bar does not fit ${width}×${height} px either; it needs ${at.join(", or ")}.` : `A horizontal_bar does not fit at any size up to ${LIMITS.dimension} px either.`)
+  const sizes = (planner: Omit<PlannerInput, "width">, above: boolean) => ({
+    w: smallest(size => fits(planner, size, height), above ? width : 0),
+    h: smallest(size => fits(planner, width, size), above ? height : 0),
+  })
+  const phrase = (need: { w?: number; h?: number }) => [need.w !== undefined ? `${need.w} px wide at ${height} px tall` : undefined, need.h !== undefined ? `${need.h} px tall at ${width} px wide` : undefined].filter(Boolean) as string[]
+  const first: string[] = [], last: string[] = []
+  const swap = SWAPS[context.recipe]
+  const swapped = swap ? swapAxes(context.planner) : undefined
+  if (swap && swapped) {
+    if (fits(swapped, width, height)) first.push(`A ${swap} of the same data fits ${width}×${height} px: send the same document with chart.recipe "${swap}" to keep this size (bindings and options stay; xTitle and yTitle name the physical axes, so swap them if set).`)
+    else {
+      const need = phrase(sizes(swapped, false))
+      last.push(need.length ? `A ${swap} does not fit ${width}×${height} px either; it needs ${need.join(", or ")}.` : `A ${swap} does not fit at any size up to ${LIMITS.dimension} px either.`)
     }
   }
-  return out
+  const own = phrase(sizes(context.planner, measured || fits(context.planner, width, height)))
+  const ownText = own.length ? `This chart fits from ${own.join(", or from ")} (layout.width, layout.height).` : `No size up to ${LIMITS.dimension} px fits this chart as it is: shorten the labels or the title, or use fewer categories.`
+  return [...first, first.length ? `Or keep the ${context.recipe}: ${ownText.charAt(0).toLowerCase()}${ownText.slice(1)}` : ownText, ...last]
 }
 
 /** The LAYOUT_UNSATISFIABLE issue for a set of conflicts, with alternatives that keep the chart's meaning. */
