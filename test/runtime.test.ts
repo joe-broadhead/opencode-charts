@@ -90,6 +90,12 @@ describe("ECharts tooltip text that would become HTML is refused", () => {
     expect(issues({ className: "my-tip x_1" })).toEqual([])
     expect(issues({ className: "x\" onmouseover=\"y" })).toEqual(["/tooltip/className"])
   })
+  test("the page runs the same check: the ECharts runtime bundles the spec check's module, and the boot calls it", async () => {
+    expect(readFileSync(join(ROOT, "src", "browser", "echarts.ts"), "utf8")).toContain('import { findTooltipMarkup } from "../engines/echarts-markup.js"')
+    expect(readFileSync(join(ROOT, "src", "safety.ts"), "utf8")).toContain('from "./engines/echarts-markup.js"')
+    const r = await runTool(env, "render", { spec: BAR_OPTION, title: "Boot", formats: ["html"], name: "boot-check", inspect: false })
+    expect(readFileSync(join(ws.dir, (r.output.files as { html: string }).html), "utf8")).toContain("var refused=chartsTooltipMarkup(option);if(refused.length)throw")
+  })
   test("other formatters are drawn as SVG text, and a dataset column called tooltip is data", () => {
     expect(echartsMarkupIssues({ xAxis: { axisLabel: { formatter: "{value} <b>" } }, series: [{ label: { formatter: "<{b}>" } }], dataset: { source: [{ tooltip: "<img>", v: 1 }] } })).toEqual([])
   })

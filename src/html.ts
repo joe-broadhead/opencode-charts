@@ -19,6 +19,10 @@ import type { ThemeTokens } from "./themes/tokens.js"
  * so. The page's runtime status is `initializing`, then `ready` or `failed`, on `<html data-chart-status>` and on the
  * `#chart-status` live region. A file that was only generated has not run anywhere: its status is `initializing`.
  *
+ * Before ECharts starts, the page runs the same tooltip-markup check as the spec check (engines/echarts-markup.ts,
+ * bundled into the ECharts runtime): markup that reaches the page anyway, including what a CSP cannot stop such as a
+ * meta refresh, puts it in `failed` with the static chart, and ECharts never sees it.
+ *
  * Vega runs with vega-interpreter: the spec is parsed with `{ast: true}` and the View evaluates expressions by walking
  * the syntax tree, so Vega never builds a function from a string (which the CSP would refuse).
  */
@@ -116,7 +120,7 @@ return view.initialize(live).runAsync().then(function(){if(errors.length)throw n
 }
 
 function echartsBoot(input: HtmlInput): string {
-  return `if(typeof echarts==="undefined"||typeof chartsCompact==="undefined")throw new Error("The ECharts runtime is not available.");
+  return `if(typeof echarts==="undefined"||typeof chartsCompact==="undefined"||typeof chartsTooltipMarkup==="undefined")throw new Error("The ECharts runtime is not available.");
 var option=JSON.parse(document.getElementById("chart-spec").textContent);
 var theme=JSON.parse(document.getElementById("chart-theme").textContent);
 var compact=chartsCompact;
@@ -126,7 +130,8 @@ var fmt=function(v){return Math.abs(v)>=10000?compact(v,spec):Number(v).toLocale
 if(!option.tooltip)option.tooltip={trigger:(option.series||[]).some(function(s){return s.type==="line"||s.type==="bar"})?"axis":"item",confine:true};
 echarts.registerTheme("chart",theme);
 var first=host.firstElementChild,w=first?first.getAttribute("width"):null,h=first?first.getAttribute("height"):null;
-start(function(el){var live=document.createElement("div");live.style.width=(w||640)+"px";live.style.height=(h||400)+"px";el.appendChild(live);
+start(function(el){var refused=chartsTooltipMarkup(option);if(refused.length)throw new Error("Refused tooltip markup at "+refused[0].path+": "+refused[0].what);
+var live=document.createElement("div");live.style.width=(w||640)+"px";live.style.height=(h||400)+"px";el.appendChild(live);
 var chart=echarts.init(live,"chart",{renderer:"svg"});cleanups.push(function(){chart.dispose()});
 chart.setOption(option);cleanups.length=0;return live;});`
 }
