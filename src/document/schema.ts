@@ -33,6 +33,9 @@ const EXCLUDED_TOKENS: Readonly<Record<string, string>> = {
   "layout.height": "A chart document is sized with layout.height (outer pixels), not a theme token.",
 }
 
+/** A hint by key: own properties only, so a key such as "toString" never finds an inherited function. */
+const hintFor = (hints: Readonly<Record<string, string>>, key: string): string | undefined => (Object.hasOwn(hints, key) ? hints[key] : undefined)
+
 const unwrap = (schema: z.ZodType): z.ZodType => {
   let s = schema
   while (s instanceof z.ZodOptional || s instanceof z.ZodDefault || s instanceof z.ZodNullable) s = (s as z.ZodOptional<z.ZodType>).unwrap() as z.ZodType
@@ -56,7 +59,7 @@ function partialTokens(schema: z.ZodType, path: readonly string[]): z.ZodType {
   if (inner instanceof z.ZodObject) {
     const shape: Record<string, z.ZodType> = {}
     for (const [key, child] of Object.entries(inner.shape as Record<string, z.ZodType>)) {
-      if (EXCLUDED_TOKENS[[...path, key].join(".")]) continue
+      if (hintFor(EXCLUDED_TOKENS, [...path, key].join("."))) continue
       shape[key] = partialTokens(child, [...path, key]).optional()
     }
     return z.strictObject(shape)
@@ -156,7 +159,7 @@ function schemaAt(schema: z.ZodType, path: Path): z.ZodType | undefined {
   let s: z.ZodType | undefined = schema
   for (const part of path) {
     s = s && unwrap(s)
-    if (s instanceof z.ZodObject) s = (s.shape as Record<string, z.ZodType>)[String(part)]
+    if (s instanceof z.ZodObject) s = Object.hasOwn(s.shape, String(part)) ? (s.shape as Record<string, z.ZodType>)[String(part)] : undefined
     else if (s instanceof z.ZodArray) s = s.element as z.ZodType
     else return undefined
   }
@@ -238,7 +241,7 @@ export function parseDocument(raw: unknown, options: ParseOptions = {}): ChartDo
   scanJson(raw, { maxDepth: DOCUMENT_DEPTH, code: "DOCUMENT_INVALID", what: "The document" })
   const issues: Issue[] = []
 
-  const top = check<JsonObject>(z.strictObject({ ...topShape, chart: z.unknown().optional(), layout: z.unknown().optional() }), raw, [], issues, path => (path.length === 1 ? TOP_HINTS[String(path[0])] : path[0] === "appearance" ? overrideHint(path) : undefined))
+  const top = check<JsonObject>(z.strictObject({ ...topShape, chart: z.unknown().optional(), layout: z.unknown().optional() }), raw, [], issues, path => (path.length === 1 ? hintFor(TOP_HINTS, String(path[0])) : path[0] === "appearance" ? overrideHint(path) : undefined))
   const chartRaw = raw.chart
   let chart: JsonObject | undefined
   let recipe: RecipeId | undefined
@@ -250,7 +253,7 @@ export function parseDocument(raw: unknown, options: ParseOptions = {}): ChartDo
     } else {
       recipe = chartRaw.recipe as RecipeId
       const def = recipeDefinition(recipe)
-      chart = check<JsonObject>(recipeChartSchema(recipe, captured), chartRaw, ["chart"], issues, path => def.refused[path.slice(1).join(".")] ?? dataHint(path, captured))
+      chart = check<JsonObject>(recipeChartSchema(recipe, captured), chartRaw, ["chart"], issues, path => hintFor(def.refused, path.slice(1).join(".")) ?? dataHint(path, captured))
       if (chart) recipeCrossChecks(recipe, chart, issues)
     }
   } else if (chartRaw.kind === "engine") {
@@ -292,8 +295,8 @@ const TOP_HINTS: Readonly<Record<string, string>> = {
 function overrideHint(path: Path): string | undefined {
   if (path[1] !== "overrides") return undefined
   const token = path.slice(2).join(".")
-  if (token === "extends") return EXCLUDED_TOKENS.name
-  return EXCLUDED_TOKENS[token]
+  if (token === "extends") return hintFor(EXCLUDED_TOKENS, "name")
+  return hintFor(EXCLUDED_TOKENS, token)
 }
 
 function dataHint(path: Path, captured: boolean): string | undefined {
