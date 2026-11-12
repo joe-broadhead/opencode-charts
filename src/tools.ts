@@ -1,4 +1,4 @@
-import { CATALOGUE, catalogueEntry } from "./catalogue.js"
+import { CATALOGUE, catalogueEntry, exampleCall } from "./catalogue.js"
 import { loadData } from "./data.js"
 import { ATLASES, type Json } from "./engines/common.js"
 import { ChartsError, SpecInvalid, formatIssues, suggest, type Issue } from "./errors.js"
@@ -50,6 +50,7 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
     const result = await renderChart({ ...request, preview: inspect !== false }, env, write)
     const show = inspect ?? (!write || result.issues.some(i => i.level === "warning"))
     const output: Json = {
+      ...(write ? {} : { valid: true }),
       engine: result.engine, theme: result.theme, title: result.title, description: result.description, width: result.width, height: result.height,
       files: result.files, ...(result.markdown ? { markdown: result.markdown } : {}), summary: result.summary,
       warnings: result.issues.filter(i => i.level === "warning"), notes: result.notes, layout: result.layout,
@@ -93,8 +94,7 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
       if (input.id) {
         const entry = catalogueEntry(String(input.id))
         if (!entry) throw new ChartsError("CHART_TYPE_UNKNOWN", `There is no chart type "${input.id}".${suggest(String(input.id), CATALOGUE.map(c => c.id)).map(s => ` Did you mean ${s}?`).join("")}`, "Call charts_catalogue without an id to list them.")
-        const ex = entry.example()
-        const call = { spec: ex.spec, ...(ex.rows ? { data: { rows: ex.rows } } : {}), title: ex.title, ...(ex.currency ? { currency: ex.currency } : {}) }
+        const call = exampleCall(entry)
         return { output: { ...entry, example: call } as unknown as Json, content: [{ type: "text", text: `${entry.name} (${entry.engine}, ${entry.family}). Use it for: ${entry.when}${entry.avoid ? ` Avoid when: ${entry.avoid}` : ""}\nA working charts_render call — swap in your data and fields:\n${JSON.stringify(call)}` }] }
       }
       const list = CATALOGUE.filter(c => !input.family || c.family === input.family)

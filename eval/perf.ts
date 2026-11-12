@@ -4,7 +4,7 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { CATALOGUE } from "../src/catalogue.ts"
+import { CATALOGUE, exampleCall } from "../src/catalogue.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { renderChart } from "../src/pipeline.ts"
 
@@ -17,11 +17,11 @@ await renderChart({ spec: { mark: "bar", encoding: {} }, data: { rows: [{ a: 1 }
 const first = performance.now() - cold
 const all: number[] = []
 for (const id of ids) {
-  const ex = CATALOGUE.find(c => c.id === id)!.example()
+  const call = exampleCall(CATALOGUE.find(c => c.id === id)!)
   const wall: number[] = [], cpu: number[] = []
   for (let i = 0; i < 7; i++) {
     const t = performance.now(), c = process.cpuUsage()
-    await renderChart({ spec: ex.spec, ...(ex.rows ? { data: { rows: ex.rows } } : {}), title: ex.title, name: id }, env)
+    await renderChart({ ...call, name: id }, env)
     const d = process.cpuUsage(c)
     wall.push(performance.now() - t); cpu.push((d.user + d.system) / 1000)
   }

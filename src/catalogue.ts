@@ -115,3 +115,32 @@ export const CATALOGUE: readonly ChartType[] = [
 ]
 
 export const catalogueEntry = (id: string) => CATALOGUE.find(entry => entry.id === id)
+
+/** A complete `charts_render` (or `charts_validate`) input: what an example draws, exactly as tested. */
+export interface ExampleCall {
+  readonly spec: Json
+  readonly data?: { readonly rows: Row[] }
+  readonly title: string
+  readonly currency?: string
+  readonly locale?: string
+  readonly width?: number
+  readonly height?: number
+}
+
+/**
+ * The one conversion from a catalogue example to the call that draws it, with its data, title, currency, locale and
+ * size. `charts_catalogue`, `charts_recommend`'s example drafts, the gallery, the golden suite and the evals all use
+ * it, so the call an agent is given is the call the tests render.
+ */
+export function exampleCall(source: ChartType | Example): ExampleCall {
+  const ex = "example" in source ? source.example() : source
+  return {
+    spec: ex.spec,
+    ...(ex.rows ? { data: { rows: ex.rows } } : {}),
+    title: ex.title,
+    ...(ex.currency ? { currency: ex.currency } : {}),
+    ...(ex.locale ? { locale: ex.locale } : {}),
+    ...(ex.width !== undefined ? { width: ex.width } : {}),
+    ...(ex.height !== undefined ? { height: ex.height } : {}),
+  }
+}

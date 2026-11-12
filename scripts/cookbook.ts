@@ -1,17 +1,19 @@
 // Writes skills/charts-cookbook/SKILL.md from the catalogue, so the cookbook the agent reads is exactly the set of
 // examples the tests render. Usage: bun scripts/cookbook.ts (the test fails when the file is stale).
 import { writeFileSync } from "node:fs"
-import { CATALOGUE } from "../src/catalogue.ts"
+import { CATALOGUE, exampleCall } from "../src/catalogue.ts"
 
 export function cookbook(): string {
   const families = [...new Set(CATALOGUE.map(c => c.family))]
   const body = families.map(f => {
     const entries = CATALOGUE.filter(c => c.family === f).map(c => {
-      const ex = c.example()
-      const spec = { ...ex.spec } as Record<string, unknown>
+      const call = exampleCall(c)
+      const spec = { ...call.spec } as Record<string, unknown>
       delete spec.$schema
-      const sample = ex.rows ? `Rows like: \`${JSON.stringify(ex.rows.slice(0, 2))}\`\n\n` : ""
-      return `### ${c.name} — \`${c.id}\` (${c.engine})\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\n${sample}\`\`\`json\n${JSON.stringify(spec)}\n\`\`\``
+      const rows = call.data?.rows
+      const sample = rows ? `Row shape (${Math.min(2, rows.length)} of ${rows.length} rows): \`${JSON.stringify(rows.slice(0, 2))}\`\n\n` : ""
+      const size = call.width !== undefined || call.height !== undefined ? `Tested at ${[call.width !== undefined ? `width ${call.width}` : "", call.height !== undefined ? `height ${call.height}` : ""].filter(Boolean).join(", ")}.\n\n` : ""
+      return `### ${c.name} — \`${c.id}\` (${c.engine})\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\n${sample}${size}\`\`\`json\n${JSON.stringify(spec)}\n\`\`\``
     })
     return `## ${f}\n\n${entries.join("\n\n")}`
   })
@@ -22,7 +24,7 @@ description: Idiomatic, tested specs for every chart type the charts_* tools dra
 
 # Charts cookbook
 
-Each spec below renders as-is with \`charts_render\` and the rows shown passed as \`data.rows\` (generated from the plugin's own catalogue; \`charts_catalogue {"id": "…"}\` returns any of them with full data). Colours written \`"theme:…"\` follow the active theme. Vega-Lite is the default engine; Vega is for layouts (treemap, sunburst, tree, force, word cloud); ECharts for flows and dashboard types (Sankey, chord, gauge, funnel, calendar, candlestick, radar, parallel).
+Each spec below is a tested catalogue example (generated from the plugin's own catalogue). The rows shown are a shape example, the first two of the tested dataset, not the whole of it, and an example tested at a size says so. \`charts_catalogue {"id": "…"}\` returns the exact tested call: the spec with every row, the title, the currency and the size, ready to pass to \`charts_render\`. Colours written \`"theme:…"\` follow the active theme. Vega-Lite is the default engine; Vega is for layouts (treemap, sunburst, tree, force, word cloud); ECharts for flows and dashboard types (Sankey, chord, gauge, funnel, calendar, candlestick, radar, parallel).
 
 ${body.join("\n\n")}
 `

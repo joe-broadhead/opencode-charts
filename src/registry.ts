@@ -231,12 +231,13 @@ export const DECLARED: readonly DeclaredTool[] = [
   },
   {
     name: "validate", class: "read", readOnly: true, stability: "stable", docsAnchor: "README.md#tools",
-    description: "Check a spec without writing files: the same validation, lint and layout checks as charts_render (unknown fields with did-you-mean, overlapping or clipped labels, too many slices…), the figure tree naming every label, and by default the rendered PNG to look at. Use it to fix a chart before rendering the final files.",
+    description: "Check a spec without writing files: the same validation, lint and layout checks as charts_render (unknown fields with did-you-mean, overlapping or clipped labels, too many slices…), the figure tree naming every label, and by default the rendered PNG to look at. Takes the same input as charts_render, so a render call can be checked unchanged; the formats it asks for are checked too (an HTML or PNG runtime that is missing is reported). Returns valid: true, or valid: false with the issues. Use it to fix a chart before rendering the final files.",
     input: z.strictObject({
       spec: SPEC,
       engine: z.enum(["vega-lite", "vega", "echarts"]).optional(),
       data: dataSchema.optional(),
-      theme: outputs.theme, locale: outputs.locale, currency: outputs.currency, width: outputs.width, height: outputs.height, marks: outputs.marks,
+      ...outputs,
+      formats: outputs.formats.describe("The files the render will ask for: each is checked (an unavailable HTML or PNG runtime is reported), and nothing is written."),
       inspect: z.boolean().optional().describe("Return the rendered PNG. Default true."),
     }),
   },
