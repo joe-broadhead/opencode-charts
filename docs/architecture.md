@@ -13,7 +13,7 @@ and its evidence are in [DESIGN.md](../DESIGN.md); options, limits and errors ar
 
 1. Reads the options, the package's version and the two skills (`SKILLS_INVALID` skips a malformed one).
 2. Inserts the default permission block after each agent's base allow (`src/permissions.ts`).
-3. Registers the eight tools of the registry (`src/registry.ts`) under the `charts` namespace, the `/charts-status`
+3. Registers the nine tools of the registry (`src/registry.ts`) under the `charts` namespace, the `/charts-status`
    command (`src/status.ts`), the skills, and the tools RPC `<plugin id>.tools` (`src/host/rpc.ts`), where every tool
    is a method with its class.
 
@@ -59,6 +59,47 @@ workspace, asked for with read permission, and size-checked before it is read.
 The result is text for the model (what it shows, the files, the warnings, a markdown image line) and, when there is
 something to look at, the PNG itself.
 
+## Chart documents
+
+A call takes one input arm (`src/document-tool.ts`, `selectArm`): the legacy fields (a spec, or quick's type and
+fields), an inline `document`, or a saved artifact's `documentPath`. All three converge on the same pipeline
+(`renderChart`); there is no second renderer. The layers, from the outside in:
+
+1. **Tool adapter** (`src/tools.ts`, `src/document-tool.ts`): the arm, permissions (read on the artifact, data, saved
+   themes and custom fonts; edit on the destination), workspace confinement, and the result's document fields.
+2. **Document core** (`src/document/`): the strict `ChartDocumentV1` schema, the canonical captured document (rows
+   captured before `data.transform`, the transform kept once), captured defaults kept apart from authored intent, the
+   colour domain, the revision hash, and the artifact envelope. It takes plain values: no host call, no file access.
+3. **Recipes** (`src/recipes/`): one registry of the 14 recipes. Each definition owns its input schemas, compiler,
+   examples, data requirements, interaction and layout support; `charts_catalogue`, `charts_capabilities`, the
+   cookbook and `docs/documents.md` are generated from it.
+4. **Layout and appearance** (`src/layout/`): the pure planner shared with the browser runtime (three fixed
+   candidates, one work budget), the profile table, typed token overrides and category colours by domain position.
+5. **Interactions** (`src/interactions/`): the presets compiled to Vega-Lite parameters with collision-safe names;
+   the browser side (`src/browser/present.ts`) adds the reset controls, the data table and responsive re-planning.
+6. **Publication** (`src/artifacts.ts`): a document call's bundle is staged whole and published as one immutable
+   generation folder named by its manifest digest; legacy calls keep flat names with a best-effort rollback.
+
+`charts_update` reads an artifact through the same resolver as a `documentPath` replay, recomputes and checks its
+revision, applies a typed presentation patch (`src/document/patch.ts`) and publishes a new generation.
+
+## The future UI boundary
+
+There is no general UI plugin here, and none is planned inside this package. If one is built, the boundary is:
+
+- Charts owns analytical semantics, chart compilation, layout, themes, chart-local interactions and exports.
+- A separate UI plugin may own component composition, cross-widget state, tables, cards, forms, navigation and
+  explicitly granted host actions.
+- The shared contract is a chart document, an available viewport, a resolved theme, and local selection and domain
+  events. A UI component calls the same chart core (the document core, recipes, planner and runtime); it does not
+  reimplement chart behaviour or run model-generated callback code.
+- Host view, payload and grant constraints have to be verified in that project. The standalone offline HTML page is
+  the interactive surface today; it is not a host-action bridge.
+
+A component framework such as `@json-render/core` is a candidate for that work, not a dependency here. Any prototype
+needs prop validation after binding resolution, state and event round-trip tests, bounded trees, visible errors and
+host-enforced action authorisation, and keeps this package's CSP and no-network rules.
+
 ## Determinism, two ways
 
 The promise has two forms, exact and within a tolerance, and they are not the same claim (after Rune's
@@ -92,7 +133,12 @@ browser runtime is compiled into `index.js`, so a stale or swapped file is refus
 
 ## Checks
 
-`npm run check` (`scripts/check.mjs`) runs, in order: `typecheck`, `build`, `unit` (the suites in `test/`, golden SVGs
+`npm run check` (`scripts/check.mjs`) runs, in order: `build`, `typecheck`, `unit` (the suites in `test/`, golden SVGs
 included), `browser` (interactive HTML in a pinned headless Chromium: it starts under its CSP with no request,
-and each advertised interaction changes the drawing), `copies` (the shared declaration kit), `icons` (the family icon contract), `whitelist` (the package shape)
-and `pack` (the packed tarball, installed with scripts off next to `@opencode/plugin` alone, loads and renders).
+and each advertised interaction changes the drawing), `copies` (the shared declaration kit), `forbidden`, `icons`
+(the family icon contract), `whitelist` (the package shape), `jelly`, `actionlint`, `pack` (the packed tarball,
+installed with scripts off next to `@opencode/plugin` alone, loads, renders and updates a saved chart), `evals` (the
+deterministic render and advice suites) and `host` (the tools RPC on each tested stock OpenCode release).
+
+Agent behaviour is measured separately from these checks: the task corpus for live agents lives with the evaluation
+harness, and `eval/README.md` says how to run it and what its results do and do not show.

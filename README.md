@@ -53,14 +53,24 @@ Ask for the chart you want, as a question or a spec:
 
 > Draw this table as a stacked area chart, and tell me if the axis is misleading.
 
-The agent picks `charts_quick` for a known type or `charts_render` for a full spec, and the PNG comes back for it to
-look at. Every tool is listed under [Tools](#tools).
+> Make that chart dark and presentation-sized.
+
+For the 14 standard types the agent writes a typed **chart document** for `charts_quick`: a recipe, its data, field
+bindings and an explicit aggregation, checked strictly. The files come with an editable `<name>.chart.json`, and
+`charts_update` then changes its theme, size or interactions without touching its data or meaning. Any other chart is
+a Vega-Lite, Vega or ECharts spec for `charts_render`. The PNG comes back for the agent to look at. Every tool is
+listed under [Tools](#tools); documents are described in [docs/documents.md](docs/documents.md).
 
 - **Any chart.** 53 tested chart types:
   - statistical charts, facets, layers, dual axes and selections (Vega-Lite);
   - treemap, sunburst, tree, force network and word cloud (Vega);
   - Sankey, chord, gauge, funnel, calendar heatmap, candlestick, radar and parallel coordinates (ECharts);
   - world and US maps from bundled atlases.
+- **Revisable.** A saved chart document keeps its data, theme base and defaults, so a theme, size or interaction
+  change is a new immutable generation with the same data, aggregation and colours. Recipe sizes are the outer canvas,
+  exact in SVG and PNG, with readable-label floors per target (inline, analysis, report, presentation, paper).
+- **Interactive HTML that works offline.** Tooltips, legend highlight, temporal x zoom and scatter brushing, each
+  tested in a real browser under the page's CSP; SVG and PNG show the initial view.
 - **Any theme.** `light`, `dark`, `high-contrast`, `print` and `presentation`, or your own tokens, saved by name. Palettes are colour-blind-safe and checked for contrast. Fonts are bundled (Inter, JetBrains Mono), so text measures and draws identically everywhere.
 - **Right first time.**
   - Validation that teaches: `Field "revenu" is not in the data. Did you mean "revenue"?`, with the JSON path.
@@ -160,19 +170,38 @@ next step.
 
 | Tool | What it does |
 |---|---|
-| `charts_render` | Any spec (Vega-Lite, Vega or ECharts, detected) plus `data` (`rows`, or a workspace `path` to CSV, TSV, JSON, JSONL or Parquet, with optional Vega-Lite `transform`s). Writes `<name>.svg`, `<name>.png` and `<name>.vl.json` (plus `.html` on request), and returns a markdown image line to show it inline. |
-| `charts_quick` | `bar`, `horizontal_bar`, `grouped_bar`, `stacked_bar`, `line`, `area`, `stacked_area`, `scatter`, `bubble`, `pie`, `donut`, `histogram`, `box_plot` and `heatmap`, from field names. |
+| `charts_render` | Any spec (Vega-Lite, Vega or ECharts, detected) plus `data` (`rows`, or a workspace `path` to CSV, TSV, JSON, JSONL or Parquet, with optional Vega-Lite `transform`s). Writes `<name>.svg`, `<name>.png` and `<name>.vl.json` (plus `.html` on request), and returns a markdown image line to show it inline. Also takes a `document` (recipe or engine), or a saved `documentPath` to draw again from what it captured. |
+| `charts_quick` | `bar`, `horizontal_bar`, `grouped_bar`, `stacked_bar`, `line`, `area`, `stacked_area`, `scatter`, `bubble`, `pie`, `donut`, `histogram`, `box_plot` and `heatmap`. Recommended: a typed recipe `document`, saved as `<name>.chart.json` in a generation folder `<outDir>/<name>-<digest>/`. The older form (type and field names) still works. |
 | `charts_validate` | The same checks as render, plus the PNG, with no files written. It takes the same input as `charts_render`, checks the requested formats can be made, and returns `valid: true` or `valid: false` with the issues. Also returns the figure tree: every label, its box, and which ones collide or run off the edge, with ids the preview numbers. |
 | `charts_update` | Change a saved chart's presentation (theme, token overrides, category colours, layout and size, title, alt text, interactions) from its `.chart.json` at a known revision; writes a new generation folder `<outDir>/<name>-<digest>/` with the new revision, and never overwrites the saved chart. Data, bindings, aggregation and sorting stay as saved. |
-| `charts_recommend` | Which chart fits a question, its data and its medium: a ranked shortlist with a reason each, the encoding to use, and a ready `charts_render` call on your own columns. Advises; it never renders. |
-| `charts_capabilities` | Exactly what this build can do: engines, working output formats, themes and palette sizes, bundled fonts and the scripts they cover, data formats, limits, and what is known not to work. |
-| `charts_catalogue` | Every chart type, and a working example of any: the exact tested call, with its data, title, currency and size. |
+| `charts_recommend` | Which chart fits a question, its data and its medium: a ranked shortlist with a reason each, the encoding to use, a ready `charts_render` call on your own columns and, for a recipe type, a `charts_quick` document draft whose layout target is your medium. Advises; it never renders. |
+| `charts_capabilities` | Exactly what this build can do: engines, working output formats, document versions, the recipes and their interactions, layout targets, themes and palette sizes, bundled fonts and the scripts they cover, data formats, limits, and what is known not to work. |
+| `charts_catalogue` | Every chart type, and a working example of any: the exact tested call, with its data, title, currency and size; for a recipe type, its contract and exact `charts_quick` document calls. |
 | `charts_themes` / `charts_theme_save` | List themes and their tokens; save a brand theme to `.charts/themes/<name>.json`. |
 
 There is one list behind all of these: `src/registry.ts` defines each tool once, and the plugin's tool registration,
 the Jelly declaration, the tools RPC and `docs/tool-parity.md` are projections of it. A test fails when they drift.
 
-Example:
+A document call (the recommended path for the standard types):
+
+```json
+{
+  "document": {
+    "version": 1,
+    "chart": { "kind": "recipe", "recipe": "bar", "data": { "path": "data/sales.csv" }, "bindings": { "category": "region", "value": "revenue_eur" }, "options": { "aggregate": "sum", "sort": "value-descending", "yTitle": "Revenue (€)" } },
+    "title": "Revenue by region, 2024",
+    "currency": "EUR",
+    "appearance": { "theme": "dark" },
+    "layout": { "target": "report" }
+  },
+  "name": "revenue-by-region"
+}
+```
+
+Then `charts_update` with the result's `.chart.json` path and revision changes its presentation:
+`{"documentPath": "…/revenue-by-region.chart.json", "expectedRevision": "sha256:…", "patch": {"layout": {"target": "presentation"}}}`.
+
+A raw spec (the advanced path, for any of the 53 types):
 
 ```json
 {
@@ -251,7 +280,7 @@ its next step is in [docs/configuration.md](docs/configuration.md#errors).
 
 ```bash
 npm ci
-npm run check              # typecheck, build, unit tests, shared copies, icons, package shape, pack, evals, host
+npm run check              # build, typecheck, unit, browser, copies, forbidden, icons, whitelist, jelly, actionlint, pack, evals, host
 bun scripts/gallery.ts /tmp/gallery     # 63 charts across all themes + contact sheets
 bun eval/run.ts /tmp/eval  # 28 natural-language requests, checked
 bun eval/recommend.ts /tmp/rec  # 21 advice cases against the committed baseline
@@ -263,7 +292,9 @@ A release is a `v<version>` tag on `master`: `.github/workflows/release.yml` che
 with provenance, after approval in the `release` environment.
 
 `node scripts/data.mjs` regenerates the locales and atlases, and `bun scripts/cookbook.ts` regenerates the cookbook
-skill. Both outputs are committed.
+skill and the recipe table in `docs/documents.md` (`test/generated.test.ts` fails when either is stale). The outputs
+are committed. The browser stage needs playwright-core's headless Chromium once:
+`npx playwright-core install --only-shell chromium` (on Linux add `--with-deps`).
 
 Bundled fonts cover Latin, Greek and Cyrillic; a label beyond them gets `FONT_GLYPH_MISSING` and the fix is a font
 file with `theme.font.files`. There is no PDF output and no Plotly or Mermaid input. `charts_capabilities` reports
@@ -280,6 +311,10 @@ it is built, [docs/jelly.md](docs/jelly.md) for Jelly, and
 - **Bundled fonts cover Latin, Greek and Cyrillic.** A label beyond them gets `FONT_GLYPH_MISSING`; the fix is a font file with `theme.font.files`.
 - **Built-in themes are neutral.** Brand themes are not in the plugin. Save one with `charts_theme_save`, or set it in the plugin's options, and use it by name.
 - **Nothing is loaded from the network.** A remote data file or image is not fetched.
+- **Recipes cover the 14 standard types.** The other 39 catalogue types are raw specs; an engine document keeps its
+  native layout (no outer-size fitting or responsive reflow) and its own interaction syntax.
+- **Four interaction presets.** Tooltip, legend highlight, temporal x zoom and scatter/bubble brush, in the documented
+  combinations; no series hiding, no ECharts zoom or brush, and SVG/PNG always show the initial view.
 - **PNG and HTML need the packaged runtime.** A missing runtime is reported as `PNG_UNAVAILABLE` or `HTML_UNAVAILABLE`; reinstalling the plugin restores it.
 - **Package size.** The package is about 8 MB unpacked, and `dist/index.js` is 2.3 MB: Vega, ECharts and the PNG rasteriser are bundled, so a render needs no network.
 - **Host range.** OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
@@ -287,7 +322,7 @@ it is built, [docs/jelly.md](docs/jelly.md) for Jelly, and
 
 ## Links
 
-- [docs/configuration.md](docs/configuration.md), [docs/status.md](docs/status.md), [docs/tool-parity.md](docs/tool-parity.md),
+- [docs/documents.md](docs/documents.md), [docs/configuration.md](docs/configuration.md), [docs/status.md](docs/status.md), [docs/tool-parity.md](docs/tool-parity.md),
   [docs/scripting.md](docs/scripting.md), [docs/jelly.md](docs/jelly.md), [docs/architecture.md](docs/architecture.md).
 - [DESIGN.md](DESIGN.md) for the design and its evidence.
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licences.

@@ -11,7 +11,19 @@ opencode api post /api/rpc/charts.tools/describe -H "x-opencode-directory:$PWD" 
 opencode api post /api/rpc/charts.tools/render -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","input":{
   "spec":{"mark":"bar","encoding":{"x":{"field":"region","type":"nominal"},"y":{"field":"revenue","type":"quantitative"}}},
   "data":{"path":"data/sales.csv"},"formats":["svg","png"]}}}'
+
+# Draw a typed chart document, saved as an editable .chart.json in a new generation folder.
+opencode api post /api/rpc/charts.tools/quick -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","input":{
+  "document":{"version":1,"chart":{"kind":"recipe","recipe":"bar","data":{"path":"data/sales.csv"},"bindings":{"category":"region","value":"revenue"},"options":{"aggregate":"sum"}},"title":"Revenue by region"},
+  "name":"revenue"}}}'
+
+# Change its presentation: the documentPath and revision come from the call that wrote it.
+opencode api post /api/rpc/charts.tools/update -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","input":{
+  "documentPath":"outputs/charts/revenue-<digest>/revenue.chart.json","expectedRevision":"sha256:<64 hex>","patch":{"appearance":{"theme":"dark"}}}}}'
 ```
+
+A document result carries the saved artifact's path, its `revision`, the render `fingerprint` and the `generation`
+folder, never the captured rows. [documents.md](documents.md) describes documents, recipes and updates.
 
 The envelope is `{"input":{"sessionID":"<id>","input":{…}}}`, with no other key. The session is created for the script
 with an agent and the project as its `location` (`opencode api post /api/session`, with `data.id` kept). A session made without a location belongs to the service's default location, where the project's agents may not exist, and each call then fails `Agent not found`.
@@ -101,6 +113,6 @@ A refusal is the RPC error `failed` with `data: { code, next }`:
 
 ## Failures
 
-A failure is `{ code, what, next }`, with the tool's own code: `SPEC_INVALID`, `FIELD_UNKNOWN`, `DATA_TOO_LARGE`,
-`RENDER_TIMEOUT`, `PNG_UNAVAILABLE`. `what` and `next` are the message the model would read, so a script's log says
+A failure is `{ code, what, next }`, with the tool's own code: `SPEC_INVALID`, `DOCUMENT_INVALID`,
+`AGGREGATION_REQUIRED`, `DOCUMENT_REVISION_MISMATCH`, `DATA_TOO_LARGE`, `SPEC_TOO_EXPENSIVE`, `PNG_UNAVAILABLE`. `what` and `next` are the message the model would read, so a script's log says
 what to fix in the same words.

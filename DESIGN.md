@@ -208,7 +208,7 @@ projections of it. `test/registry.test.ts` fails when any of them drifts.
 that carries `output` from a tool that declares none (0.0.3's fix). The schema is a real one — the fields the tool
 returns, with `additionalProperties` open so a later field cannot fail a call — and the tools RPC validates each
 script's result against the same object, which also enforces the shared module's rule that an owned output schema may
-carry no `pattern`. A host case calls all eight tools on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 and asserts each result is accepted.
+carry no `pattern`. A host case calls all nine tools on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 and asserts each result is accepted.
 
 **The tools RPC.** `charts.tools`, v2.1 of the family module, makes every tool a method with its class, so a script
 draws and checks charts with no model. The five reads need only an agent that allows them; the three that write need an

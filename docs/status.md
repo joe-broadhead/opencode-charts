@@ -12,7 +12,10 @@ would go stale, the tool is the source of truth.
 | Area | State |
 |---|---|
 | Engines | Vega-Lite 6.5 → Vega 6.4 in a worker; Vega 6.4; ECharts 6.1 server-side SVG. |
-| Outputs | SVG, PNG at 1–3×, interactive HTML, and the resolved spec. |
+| Outputs | SVG, PNG at 1–3×, interactive HTML, the resolved spec, and the editable chart document (`.chart.json`). |
+| Documents | `ChartDocumentV1` (version 1): 14 typed recipes and raw engine documents through `charts_quick`, `charts_render` and `charts_validate`; saved artifacts replayed by path; `charts_update` for presentation changes, published as immutable generation folders. |
+| Layout | Recipe sizes are the outer canvas, exact in SVG and PNG; five target profiles with readable-label floors; a three-candidate planner shared by the server and the HTML page, which re-plans responsive charts at its container's width. |
+| Interactions | In HTML: recipe tooltip, legend highlight, temporal x zoom and scatter/bubble interval brush (and the documented combinations); raw Vega-Lite and Vega selections and signals; ECharts tooltip and legend toggle. Each has a real-browser test under the page's CSP. |
 | Chart types | 53, each with a working example that renders in the golden suite. |
 | Themes | 5 built in (`light`, `dark`, `high-contrast`, `print`, `presentation`), plus saved and per-call themes; 5 `print`/`high-contrast` palettes, 20 for the rest. |
 | Data | Inline rows; CSV, TSV, JSON, JSONL and Parquet files inside the workspace; Vega-Lite transforms. |
@@ -34,6 +37,17 @@ would go stale, the tool is the source of truth.
 - **The word cloud places horizontal and vertical words only** (the deterministic replacement for Vega's canvas
   transform). In interactive HTML the browser lays it out with Vega's own transform, so word positions can differ
   from the SVG and PNG.
+- **Recipes cover the 14 quick-chart families only.** The other catalogue types are raw specs. An engine document
+  keeps its native layout (`LAYOUT_UNSUPPORTED` for fixed or responsive), refuses the interaction presets and
+  `categoryColors`, and keeps its own interaction syntax, which the plugin does not verify.
+- **No series hiding, no export of the current browser view.** Legend highlight changes emphasis only; SVG and PNG
+  always show the initial view. A responsive chart's height is fixed.
+- **Browser and server text metrics differ.** A responsive chart in HTML follows the same layout policy and bounds as
+  the server, not the same pixels.
+- **A cosmetic update never refreshes data.** A changed source file needs a new document; an update draws the rows the
+  artifact captured.
+- **Agent success with documents is unmeasured.** The task corpus and its grading run in the evaluation harness with
+  a scripted model; no live-model result exists yet (see `eval/README.md`).
 - **ECharts has no zoom, brush, toolbox or timeline.** Those components are not in either ECharts runtime, so an
   option that uses one is refused with `ECHARTS_COMPONENT_UNSUPPORTED` and a next step; `charts_capabilities` lists
   the interactions interactive HTML does provide.
