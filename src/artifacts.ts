@@ -143,8 +143,19 @@ export function publishGeneration(workspace: Workspace, outDir: string, name: st
       try { const path = join(target, e.file); return lstatSync(path).isFile() && digestOf(readFileSync(path)) === e.sha256 } catch { return false }
     })
   }
+  /**
+   * Whether the generation folder is there, looked at without following a link: a symbolic link where the folder goes
+   * (wherever it points, inside the workspace or out) is refused and never read through, so a reused generation's
+   * paths are always the real folder inside the output folder.
+   */
+  const present = (): boolean => {
+    let info: ReturnType<typeof lstatSync>
+    try { info = lstatSync(target) } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error }
+    if (info.isSymbolicLink()) throw new ChartsError("OUTPUT_WRITE_FAILED", `${shownFolder} is a symbolic link; a chart generation is never read or written through a link, so nothing was written.`, `Remove the link ${shownFolder}, or write to another outDir, then call again.`, "/outDir")
+    return true
+  }
   const collision = () => new ChartsError("OUTPUT_WRITE_FAILED", `${shownFolder} already exists and does not hold this chart's files (a different file set or different bytes); it was not overwritten, and nothing was written.`, `Move or remove ${shownFolder} if it is not a chart generation you need, or write to another outDir, then call again.`, "/outDir")
-  if (existsSync(target)) {
+  if (present()) {
     if (verify()) return result(true)
     throw collision()
   }
@@ -166,7 +177,7 @@ export function publishGeneration(workspace: Workspace, outDir: string, name: st
   } catch (error) {
     clean()
     // Another call may have published the same generation meanwhile: reuse it when it is identical.
-    if (existsSync(target)) {
+    if (present()) {
       if (verify()) return result(true)
       throw collision()
     }

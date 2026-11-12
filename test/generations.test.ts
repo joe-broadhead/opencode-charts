@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
-import { readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
@@ -90,5 +91,49 @@ describe("a new document's output is one generation folder", () => {
     expect(quick.files.document).toBe("outputs/charts/legacy-quick.chart.json")
     const plain = await t.call("render", { spec: BAR, data: { rows: ROWS }, name: "plain", formats: ["svg"] })
     expect(plain.files.svg).toBe("outputs/charts/plain.svg")
+  })
+})
+
+describe("links where a generation goes", () => {
+  /** A folder outside the workspace, removed with the test's workspaces. */
+  const outside = () => { const dir = mkdtempSync(join(tmpdir(), "charts-outside-")); spaces.push({ cleanup: () => rmSync(dir, { recursive: true, force: true }) }); return dir }
+  const listing = (dir: string) => readdirSync(dir, { recursive: true }).map(String).sort()
+
+  test("a symbolic link at the generation folder is refused, outside or inside the workspace, even to identical files", async () => {
+    const t = setup()
+    const first = await t.call("quick", { document: DOC, name: "bars", formats: ["svg", "document"] })
+    const folder = join(t.dir, first.generation.directory)
+    // The identical generation, moved outside the workspace and linked back where the folder goes.
+    const away = join(outside(), "copy")
+    cpSync(folder, away, { recursive: true })
+    rmSync(folder, { recursive: true })
+    symlinkSync(away, folder)
+    const before = listing(away)
+    const linked = await t.refusal("quick", { document: DOC, name: "bars", formats: ["svg", "document"] })
+    expect(linked.code).toBe("OUTPUT_WRITE_FAILED")
+    expect(linked.detail).toContain(`${first.generation.directory} is a symbolic link`)
+    expect(listing(away)).toEqual(before)
+    // A link to an identical folder inside the workspace is refused the same way: a generation is never followed.
+    rmSync(folder)
+    const inside = join(t.dir, "kept")
+    cpSync(away, inside, { recursive: true })
+    symlinkSync(inside, folder)
+    expect((await t.refusal("render", { document: DOC, name: "bars", formats: ["svg", "document"] })).detail).toContain("is a symbolic link")
+    expect(Object.keys(t.tree()).filter(p => p.includes(".tmp"))).toEqual([])
+  })
+
+  test("an outDir that links outside the workspace is refused before anything is written; one inside is followed to its real path", async () => {
+    const t = setup()
+    const away = outside()
+    symlinkSync(away, join(t.dir, "out-link"))
+    const refused = await t.refusal("quick", { document: DOC, name: "bars", outDir: "out-link" })
+    expect(refused.code).toBe("PATH_OUTSIDE_WORKSPACE")
+    expect(readdirSync(away)).toEqual([])
+    const real = join(t.dir, "real-out")
+    mkdirSync(real)
+    symlinkSync(real, join(t.dir, "in-link"))
+    const out = await t.call("quick", { document: DOC, name: "bars", outDir: "in-link", formats: ["svg", "document"] })
+    expect(out.generation.directory).toMatch(/^real-out\/bars-[0-9a-f]{16}$/)
+    expect(existsSync(join(t.dir, out.files.document))).toBe(true)
   })
 })
