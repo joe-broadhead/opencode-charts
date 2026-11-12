@@ -8,7 +8,7 @@ import { renderChart, type Environment, type RenderRequest, type RenderResult } 
 import { resolveAppearance } from "./appearance.js"
 import type { Conflict } from "./planner.js"
 import { presentRecipe, unsatisfiable, type RecipePresentation } from "./present.js"
-import type { PlotBounds } from "./vega.js"
+import { legendEntries, type PlotBounds } from "./vega.js"
 
 /**
  * The server side of recipe layout: the shared planner measures with the approved font tables, the chart is drawn with
@@ -99,6 +99,13 @@ export async function fitRecipe(prepared: Prepared, env: Environment): Promise<F
     if (check.width !== layout.width || check.height !== layout.height) conflicts.push({ what: `the drawing is ${check.width}×${check.height} px, not the requested ${layout.width}×${layout.height}`, path: "/layout", needed: Math.max(check.width, check.height), available: Math.max(layout.width, layout.height) })
     for (const pair of check.layout.overlaps) conflicts.push({ what: `labels "${pair[0]}" and "${pair[1]}" overlap`, path: "/encoding", needed: 0, available: 0 })
     for (const text of check.layout.clipped) conflicts.push({ what: `label "${text}" runs past the edge`, path: "/encoding", needed: 0, available: 0 })
+    const legend = presentation.runtime.planner.legend
+    if (legend?.kind === "symbol") {
+      const drawn = legendEntries(check.svg)
+      const shown = new Set(drawn.labels)
+      const missing = legend.labels.filter(label => !shown.has(label))
+      if (drawn.elided || missing.length) conflicts.push({ what: `the legend leaves out ${missing.length} of ${legend.labels.length} entries${missing.length ? ` (such as ${JSON.stringify(missing[0])})` : ""}${drawn.elided ? " behind an elided rest" : ""}`, path: "/encoding/color/legend", needed: legend.labels.length, available: legend.labels.length - missing.length })
+    }
     if (check.plot && (check.plot.width < 1 || check.plot.height < 1)) conflicts.push({ what: `the plot is ${check.plot.width}×${check.plot.height} px`, path: "/layout", needed: 1, available: Math.min(check.plot.width, check.plot.height) })
     if (!conflicts.length) {
       const report: LayoutReport = {
@@ -134,5 +141,6 @@ export async function renderRecipe(prepared: Prepared, env: Environment, deliver
   if (mismatch) throw new DocumentInvalid([mismatch])
   const fitted = await fitRecipe(prepared, env)
   const result = await renderChart({ ...fitted.request, ...delivery }, env, write)
-  return { fitted, result }
+  // The appearance findings (CATEGORY_COLOR_UNUSED) belong to the result too, not only to the fitting report.
+  return { fitted, result: { ...result, issues: [...fitted.presentation.issues, ...result.issues] } }
 }

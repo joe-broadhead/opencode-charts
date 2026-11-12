@@ -57,3 +57,18 @@ export function plotBounds(svg: string, width: number, height: number): PlotBoun
   const round = (n: number) => Math.round(n * 100) / 100
   return { x: round(Number(origin[1])), y: round(Number(origin[2])), width: round(width), height: round(height) }
 }
+
+/**
+ * The legend labels a drawing shows (every legend: colour, and size for a bubble chart), and whether Vega elided any
+ * entries ("…N entries"). The layout check requires every category of the colour domain among them, so a legend that
+ * cut entries never passes. An interactive legend's label group also has its mark name as a class.
+ */
+export function legendEntries(svg: string): { labels: string[]; elided: boolean } {
+  const labels: string[] = []
+  for (const group of svg.matchAll(/class="mark-text role-legend-label(?: [^"]*)?"[^>]*>([\s\S]*?)<\/g>/g)) {
+    for (const text of group[1]!.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g)) labels.push(unescapeXml(text[1]!.replace(/<[^>]+>/g, "")))
+  }
+  return { labels, elided: /<text\b[^>]*>…\d+ entr(?:y|ies)<\/text>/.test(svg) }
+}
+
+const unescapeXml = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/&amp;/g, "&")

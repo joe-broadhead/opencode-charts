@@ -100,6 +100,12 @@ export function attach(view: VegaView, p: RuntimePresentation, doc: Document): A
     const legend = c.legend
     let binding: string | undefined
     if (legend) binding = Object.keys(view.getState({ signals: name => LEGEND_BINDING.test(name), data: () => false, recurse: true }).signals ?? {})[0]
+    // A series button sets the legend binding's signal; without that signal it could do nothing, so it is not shown
+    // and the page says why (the legend itself and Clear highlight still work).
+    if (legend && !binding) {
+      for (const group of bar.querySelectorAll(".chart-group")) group.remove()
+      root.setAttribute("data-chart-controls", "series-buttons-unavailable")
+    }
     const buttons = [...bar.querySelectorAll<HTMLButtonElement>("button[data-series]")]
     const sync = (_: string, tuples: unknown[]) => {
       const picked = new Set(tuples.flatMap(t => ((t as { values?: unknown[] }).values ?? []).map(v => JSON.stringify(v))))

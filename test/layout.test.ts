@@ -14,6 +14,8 @@ import { bundledFonts } from "../src/fonts.ts"
 import { ROOT, workspace } from "./helpers.ts"
 import { draw, prepare } from "./support/documents.ts"
 import { renderRecipe } from "../src/layout/fit.ts"
+import { legendEntries } from "../src/layout/vega.ts"
+import { renderChart } from "../src/pipeline.ts"
 
 const ws = workspace()
 const env = { ...ws.env, assertFiles: async () => undefined }
@@ -62,6 +64,39 @@ describe("the layout profiles' outer-size contract (A09)", () => {
     for (const a of fitted.report.adjustments) { expect(a.path).toMatch(/^\//); expect(a.reason.length).toBeGreaterThan(10) }
     expect(fitted.request.data!.rows).toEqual(fitted.presentation.rows)
     expect(fitted.presentation.rows).toHaveLength(18)
+  }, 60_000)
+})
+
+describe("every legend entry is drawn, or the chart is refused", () => {
+  const series = (n: number) => ({ version: 1, title: "Many series", chart: { kind: "recipe", recipe: "line", data: { rows: Array.from({ length: n }, (_, s) => [1, 2, 3].map(d => ({ day: `2024-01-0${d}`, series: `Series ${s + 1}`, v: s + d }))).flat() }, bindings: { x: "day", y: "v", series: "series" }, options: { xType: "temporal" } } })
+
+  test("Vega's own default elides a symbol legend after 30 entries; the check sees it", async () => {
+    const rows = Array.from({ length: 40 }, (_, i) => ({ k: `K${i}`, v: i }))
+    const raw = await renderChart({ spec: { mark: "point", encoding: { x: { field: "v", type: "quantitative", title: "V (n)" }, color: { field: "k", type: "nominal" } } }, data: { rows }, formats: [] }, env, false)
+    const elided = legendEntries(raw.svg)
+    expect(elided.labels).toHaveLength(30)
+    expect(elided.elided).toBe(true)
+    // A legend bound to a selection names its label group too: still counted.
+    expect(legendEntries(`<g class="mark-text role-legend-label s_legend_labels"><text>A</text></g><g class="mark-text role-legend-label s_legend_labels"><text>B &amp; C</text></g>`)).toEqual({ labels: ["A", "B & C"], elided: false })
+  }, 30_000)
+
+  for (const n of [31, 40]) test(`${n} series: all ${n} entries are in the legend, with no "…N entries"`, async () => {
+    const { result, fitted } = await draw(env, series(n))
+    const drawn = legendEntries(result.svg)
+    expect(drawn.elided).toBe(false)
+    expect(drawn.labels.sort()).toEqual(Array.from({ length: n }, (_, i) => `Series ${i + 1}`).sort())
+    expect(result.svg).not.toContain("…")
+    expect(fitted.report.unresolved).toEqual([])
+    for (let i = 1; i <= n; i++) expect(result.svg).toContain(`>Series ${i}</text>`)
+  }, 60_000)
+
+  test("100 series: LAYOUT_UNSATISFIABLE naming the legend, with a fix, and no files", async () => {
+    const prepared = await prepare(series(100))
+    const error = await renderRecipe(prepared, env, { formats: ["svg", "html"], name: "hundred", outDir: "outputs/hundred" }, true).catch(e => e)
+    expect(error.code).toBe("LAYOUT_UNSATISFIABLE")
+    expect(error.issues[0].message).toContain("/encoding/color/legend")
+    expect(error.issues[0].fix).toContain("The legend cannot show every series")
+    expect(existsSync(join(ws.dir, "outputs", "hundred"))).toBe(false)
   }, 60_000)
 })
 
@@ -209,6 +244,8 @@ describe("appearance: profile typography, typed overrides, stable category colou
     expect(scale(byValue)).toEqual(scale(byInput))
     expect(scale(byValue)).toEqual({ domain: ["a", "b", "c"], range: ["#FF0000", BUILTIN_THEMES.light!.colors.categorical[1], BUILTIN_THEMES.light!.colors.categorical[2]] })
     expect(byValue.fitted.issues.map(i => i.code)).toContain("CATEGORY_COLOR_UNUSED")
+    // The render result carries it too, at its path.
+    expect(byValue.result.issues.filter(i => i.code === "CATEGORY_COLOR_UNUSED").map(i => i.path)).toEqual(["/appearance/categoryColors/1/value"])
     // The slice drawn red is "a" in both orders.
     for (const r of [byValue, byInput]) expect(r.result.svg).toMatch(/aria-label="K: a; V: 5"[^>]*fill="#FF0000"/)
   }, 60_000)

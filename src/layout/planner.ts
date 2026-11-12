@@ -223,11 +223,13 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
       const item = 16 + 4 + Math.max(0, ...legend.labels.map(label))
       if (legendOrient === "right" || legendOrient === "left") {
         legendW = Math.max(item, titleW) + 18
+        // Every entry is drawn (no "…N entries"), one per row beside the plot.
         const rows = legend.labels.length * (lbl + 6) + titleRow
         if (rows > availH - titleH) fail(`${legend.labels.length} legend entries need ${Math.ceil(rows)} px of height beside the plot`, "/encoding/color/legend", rows, availH - titleH)
       } else {
         legendColumns = Math.max(1, Math.min(legend.labels.length, Math.floor((availW + 10) / (item + 10))))
         if (item > availW) fail(`a legend entry needs ${Math.ceil(item)} px`, "/encoding/color/legend", item, availW)
+        if (titleW > availW) fail(`the legend title needs ${Math.ceil(titleW)} px`, "/encoding/color/legend/title", titleW, availW)
         const rows = Math.ceil(legend.labels.length / legendColumns)
         legendH = rows * (lbl + 6) + titleRow + 18
       }
@@ -312,6 +314,9 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
       xH += axisTitleH(x)
     }
     plotH = availH - titleH - xH - legendH
+    // Axis titles are drawn whole along their axis.
+    if (x?.title && m(x.title, input.axisTitleSize) > plotW) fail(`the x axis title needs ${Math.ceil(m(x.title, input.axisTitleSize))} px`, "/encoding/x/title", m(x.title, input.axisTitleSize), plotW)
+    if (y?.title && m(y.title, input.axisTitleSize) > plotH + xH) fail(`the y axis title needs ${Math.ceil(m(y.title, input.axisTitleSize))} px`, "/encoding/y/title", m(y.title, input.axisTitleSize), plotH + xH)
     const yRows = y?.kind === "discrete" ? Math.max(1, y.labels.length) : 0
     const tallest = (yWrap as { tallest?: number }).tallest ?? 1
     if (yRows && plotH / yRows < tallest * lbl * LINE) fail(`${yRows} y categories need ${Math.ceil(tallest * lbl * LINE)} px each and have ${Math.floor(plotH / yRows)} px`, "/encoding/y/axis", yRows * tallest * lbl * LINE, plotH)

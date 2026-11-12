@@ -98,6 +98,14 @@ function titleChannels(encoding: Json, options: Json) {
   }
 }
 
+/**
+ * Guides draw all of their text. Vega's defaults would otherwise elide it: axis labels past 180 px and legend labels
+ * past 200 px end in an ellipsis, a legend title past 180 px too, and a symbol legend shows 30 entries and then
+ * "…N entries". Nothing is cut here; the planner and the drawn check decide whether it fits, and refuse when not.
+ */
+const WHOLE_AXIS = { labelLimit: 0, titleLimit: 0 }
+const WHOLE_LEGEND = { labelLimit: 0, titleLimit: 0, symbolLimit: 0 }
+
 export class LayoutUnsatisfiable extends DocumentInvalid {}
 
 /** The LAYOUT_UNSATISFIABLE issue for a set of conflicts, with alternatives that keep the chart's meaning. */
@@ -108,7 +116,7 @@ export function unsatisfiable(settings: EffectiveSettings, conflicts: readonly C
     level: "error", code: "LAYOUT_UNSATISFIABLE",
     message: `The chart does not fit ${l.width}×${l.height} px with every label at ${l.minLabelSize} px or more, in any of the three layout candidates${measured ? " (measured on the drawn chart)" : ""}: ${list}.`,
     path: "/layout",
-    fix: `Give it more room (a larger layout.width or layout.height, or a layout.target such as report), shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter; for long category labels a horizontal_bar reads better. Labels are never shrunk below ${l.minLabelSize} px, and no category or series is dropped to fit.`,
+    fix: `${conflicts.some(c => c.path.startsWith("/encoding/color/legend")) ? "The legend cannot show every series: draw fewer series (combine the small ones into one with an explicit data.transform, or split the chart), or give it more room. " : ""}Give it more room (a larger layout.width or layout.height, or a layout.target such as report), shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter; for long category labels a horizontal_bar reads better. Labels are never shrunk below ${l.minLabelSize} px, and no category, series or legend entry is dropped to fit.`,
   }])
 }
 
@@ -168,20 +176,20 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
   if (isObject(encoding.x)) {
     const def = encoding.x as Json
     const axis = isObject(def.axis) ? def.axis as Json : {}
-    if (x?.kind === "discrete") def.axis = { ...axis, labelAngle: { expr: SIGNALS.xAngle }, labelAlign: { expr: `${SIGNALS.xAngle} === 0 ? 'center' : 'right'` }, labelBaseline: { expr: `${SIGNALS.xAngle} === -90 ? 'middle' : 'top'` }, labelExpr: wrapExpr(SIGNALS.xKeys, SIGNALS.xLines), labelLimit: 0, labelOverlap: false }
-    else if (x) def.axis = { ...axis, tickCount: { expr: `max(2, ceil(width / ${SIGNALS.xTickStep}))` } }
+    if (x?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelAngle: { expr: SIGNALS.xAngle }, labelAlign: { expr: `${SIGNALS.xAngle} === 0 ? 'center' : 'right'` }, labelBaseline: { expr: `${SIGNALS.xAngle} === -90 ? 'middle' : 'top'` }, labelExpr: wrapExpr(SIGNALS.xKeys, SIGNALS.xLines), labelOverlap: false }
+    else if (x) def.axis = { ...axis, ...WHOLE_AXIS, tickCount: { expr: `max(2, ceil(width / ${SIGNALS.xTickStep}))` } }
   }
   if (isObject(encoding.y)) {
     const def = encoding.y as Json
     const axis = isObject(def.axis) ? def.axis as Json : {}
-    if (y?.kind === "discrete") def.axis = { ...axis, labelExpr: wrapExpr(SIGNALS.yKeys, SIGNALS.yLines), labelLimit: 0, labelOverlap: false }
-    else if (y) def.axis = { ...axis, tickCount: { expr: `max(2, ceil(height / ${SIGNALS.yTickStep}))` } }
+    if (y?.kind === "discrete") def.axis = { ...axis, ...WHOLE_AXIS, labelExpr: wrapExpr(SIGNALS.yKeys, SIGNALS.yLines), labelOverlap: false }
+    else if (y) def.axis = { ...axis, ...WHOLE_AXIS, tickCount: { expr: `max(2, ceil(height / ${SIGNALS.yTickStep}))` } }
   }
   if (color && legend) {
     const own = isObject(color.legend) ? color.legend as Json : {}
     color.legend = legend.kind === "gradient"
-      ? { ...own, orient: plan.signals.charts_legend_orient, gradientLength: { expr: `${SIGNALS.legendOrient} === 'right' || ${SIGNALS.legendOrient} === 'left' ? clamp(height * 0.8, 40, 200) : clamp(width * 0.5, 60, 240)` } }
-      : { ...own, orient: plan.signals.charts_legend_orient, columns: { expr: SIGNALS.legendColumns }, labelLimit: 0 }
+      ? { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, gradientLength: { expr: `${SIGNALS.legendOrient} === 'right' || ${SIGNALS.legendOrient} === 'left' ? clamp(height * 0.8, 40, 200) : clamp(width * 0.5, 60, 240)` } }
+      : { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, columns: { expr: SIGNALS.legendColumns } }
   }
   spec.params = [...params, ...(Array.isArray(spec.params) ? spec.params as Json[] : [])]
 

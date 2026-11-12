@@ -113,6 +113,30 @@ describe("legend highlight", () => {
     clean(p)
     await p.close()
   }, T)
+
+  test("without the legend binding's signal the series buttons are not offered, and the page says why; Clear highlight still works", async () => {
+    const { result } = await draw(env, line({ legend: "highlight" }), { formats: ["html"], name: "no-binding" }, true)
+    const file = join(ws.dir, result.files.html!)
+    const { readFileSync, writeFileSync } = await import("node:fs")
+    const text = readFileSync(file, "utf8")
+    // The spec is a JSON data block (not a hashed script): renaming the signal needs no re-signing.
+    const renamed = text.replaceAll("charts_legend_region_legend", "renamed_region_binding")
+    expect(renamed).not.toBe(text)
+    writeFileSync(file, renamed)
+    const p = await open(file, { viewport: { width: 1000, height: 800 } })
+    expect(await p.status()).toBe("ready")
+    expect(await p.page.evaluate(() => ({ buttons: document.querySelectorAll("button[data-series]").length, why: document.documentElement.getAttribute("data-chart-controls"), clear: !!document.querySelector('button[data-action="clear-legend"]') }))).toEqual({ buttons: 0, why: "series-buttons-unavailable", clear: true })
+    // The legend still selects, and Clear highlight still clears.
+    const entry = await p.page.evaluate(() => { const t = [...document.querySelectorAll("#chart .role-legend-label text")].find(e => e.textContent === "North")!; const r = t.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+    await p.page.mouse.click(entry.x, entry.y)
+    await settle(p.page)
+    expect(dimmed(await marks(p.page, "*")).length).toBeGreaterThan(0)
+    await press(p.page, 'button[data-action="clear-legend"]')
+    await settle(p.page)
+    expect(dimmed(await marks(p.page, "*"))).toEqual([])
+    clean(p)
+    await p.close()
+  }, T)
 })
 
 describe("x zoom", () => {
