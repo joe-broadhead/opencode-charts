@@ -140,7 +140,7 @@ Summary: 34 met, 0 partial, 0 not met. Items whose tests cover one fixture or on
 | 6 | Permission, safety, determinism, bundle and host checks intact | Done. |
 | 7 | Gates and the browser gate pass; omissions identified | Done locally on Linux x64 with every stage run; CI has not run the WP5 branch yet. |
 | 8 | Representative gallery output and intentional golden changes reviewed | Partial: no golden SVG changed since the baseline. Five representative document charts (presentation dark bar, report grouped bar with legend highlight, inline line with x zoom, scatter with brush, a 360 × 480 long-label bar) were rendered at their target sizes and looked at; the full 53-type gallery was not re-reviewed in WP5. |
-| 9 | Agent corpus and grading runnable; live results reported with their evidence | Done for runnable; live behaviour is unmeasured (below). |
+| 9 | Agent corpus and grading runnable; live results reported with their evidence | Done: one live baseline (`claude-agent/haiku`, 39 runs), reported below. |
 | 10 | Docs, generated examples, capabilities, error tables and changelog describe the behaviour | Done. |
 
 ## Browser interaction evidence
@@ -162,13 +162,64 @@ fields, aggregation and values; tools, presets and formats; preserved semantics 
 and first-attempt efficiency. Runs record model, host, build digest and commit, the case-set lock, fixtures, tool
 trace, and tokens, cost and latency when the runner supplies them.
 
-Measured with the harness's scripted model only (no credential, nothing live, one container per trial): both probes
-pass (a saved chart graded at North 510 and West 192 from its own rows; a refused pie zoom that saves nothing); the 13
-corpus tasks run, trace and grade with every item testable, and all fail, as a model that makes no tool call should.
-`test/charts-corpus.test.mjs` grades hand-built good and bad runs and checks that a run that did nothing fails every
-task. **No live model has run the corpus: agent success, first-attempt rates, repairs and cost are unmeasured**, and
-no target is set before a baseline exists. Per-run browser confirmation of an interaction is not graded; the corpus
-grades the preset and format the agent chose, and the preset's behaviour is the browser suite's evidence.
+Scripted model (no credential, nothing live): both probes pass (a saved chart graded at North 510 and West 192 from
+its own rows; a refused pie zoom that saves nothing). `test/charts-corpus.test.mjs` grades hand-built good and bad
+runs and checks that a run that did nothing fails every task.
+
+### Live baseline (2026-11-12)
+
+One baseline, not a target: no success target is set from it. Setup: the runs used `opencode-evals` `8f64003`
+(case lock epoch 2); the grades below use that corpus plus one clause correction (lock epoch 3, see below), which
+is opencode-evals#6 (https://github.com/joe-broadhead/opencode-evals/pull/6), not yet merged; the build under test is this repository at `07ec509` (`dist` digest
+`sha256:0a17b6dd…cfe99d`, which also built the world); stock OpenCode 2.2.5; model `claude-agent/haiku`; one container
+per trial, egress to `api.anthropic.com` only (197 connections, none refused); 13 tasks × 3 trials = 39 runs, plus
+the 2 scripted probes. No run failed for infrastructure, and the credential appears nowhere in the recordings.
+
+| Task | Set | Strict | All 3 strict | First chart call accepted | Refused chart calls |
+| --- | --- | --- | --- | --- | --- |
+| explicit-aggregation | create | 3/3 | yes | 3/3 | 0 |
+| ambiguous-aggregation | create | 3/3 | yes | 1/3 | 3 |
+| count-vs-measure | create | 3/3 | yes | 3/3 | 0 |
+| malformed-field-names | create | 3/3 | yes | 0/3 | 3 |
+| brand-theme | create | 3/3 | yes | 3/3 | 1 (a retry after it) |
+| empty-data | create | 3/3 | yes | no chart call (correct) | 0 |
+| long-labels-narrow | create | **0/3** | no | 0/3 | 6 |
+| light-to-dark | revise | 3/3 | yes | 3/3 | 0 |
+| inline-presentation-inline | revise | 2/3 | no | 3/3 | 0 |
+| add-zoom | revise | 3/3 | yes | 3/3 | 0 |
+| add-scatter-brush | revise | 3/3 | yes | 3/3 | 0 |
+| unsupported-pie-zoom | revise | 3/3 | yes | no chart call (correct) | 0 |
+| changed-csv-cosmetic | revise | 3/3 | yes | 3/3 | 0 |
+
+- **Strict pass** (every blocker and major item): `create` 18/21, `revise` 17/18, all 35/39 (90%). **pass^3** (every
+  trial strict): `create` 6/7, `revise` 5/6, all 11/13.
+- **First attempt**: the first chart call was accepted in 25 of the 33 runs that made one (`create` 10/18, `revise`
+  15/15). 9 runs needed repairs; 13 chart calls were refused in all, and every run that repaired reached a valid call.
+- **Per run** (medians, with p90): 8 (11) model tool calls, 7 (9) turns, 19.2 s (27.1 s) wall time, 155k (259k)
+  tokens, most of them cached context. Cost is not reported: the harness has no price for this model.
+
+Failure modes, from the recordings:
+
+1. **A width the user did not ask for** (long-labels-narrow, 3 of 3). Each run chose `horizontal_bar` for the long
+   labels; 360 × 480 was refused (`LAYOUT_UNSATISFIABLE`, "fits from 380 px wide"); each run then drew at 380 × 480 and
+   said so plainly, and told the user 360 px could not work. That is not true: a vertical `bar` fits 360 × 480 with
+   the same labels. A refusal of one recipe names a larger size for it, never another recipe that fits the size
+   asked for, so the agent took the size.
+2. **Document shape errors on the first call** (9 runs, all `create`): `options.sort` given as `true` or
+   `"descending"` instead of `value-descending`; `layout` or `appearance` placed inside `chart` instead of at the
+   document's top level; once a legacy field mixed with `document` (`INPUT_CONFLICT`). Every one was refused with its
+   path and repaired on the next call.
+3. **A new document instead of an update** (inline-presentation-inline, 1 of 3): the run read the saved artifact,
+   then created a new chart by copying its 24 captured rows into a fresh `charts_quick` document, and only then used
+   `charts_update` for the second step. The rows and totals were right, but the presentation version was not a
+   revision of the saved chart.
+
+Grading note: the first grading of these recordings scored add-zoom, add-scatter-brush and long-labels-narrow lower
+because three clauses compared the adapter's joined facts (`rows.count`, `width`, `height`, which are strings) with
+numbers. The clauses were corrected to compare strings (lock epoch 3, opencode-evals#6, not yet merged) and the same recordings were regraded; no run
+was repeated. As first graded: strict 29/39, pass^3 9/13. Per-run browser confirmation of an interaction is not
+graded; the corpus grades the preset and format the agent chose, and the preset's behaviour is the browser suite's
+evidence.
 
 ## Supported and unsupported combinations
 
@@ -198,13 +249,12 @@ saved artifact's captured rows are measured as JSON against the data limit.
 - Browser and server text metrics differ; responsive HTML promises the same policy and bounds, not the same pixels.
 - Legacy multi-file publication is a best-effort rollback, not a crash-safe transaction.
 - Same-platform byte determinism; across platforms, 10 significant digits.
-- Agent behaviour is unmeasured (above).
+- Agent behaviour is measured once, on one model (above): one baseline is not a trend, and it sets no target.
 
 ## Deviations from the brief
 
 - The agent corpus, world and grading adapter are in `opencode-evals` rather than in this repository; this repository
   documents how to run them (`eval/README.md`).
-- No live evaluation was run; it was not authorised for this work.
 - `charts_recommend` gives a document draft only when the caller passes data and the medium is explicit enough to be
   carried; with an assumed medium the document keeps its own default target, and with repeated groups it withholds the
   draft rather than choose an aggregate.

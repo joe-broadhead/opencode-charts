@@ -46,8 +46,9 @@ would go stale, the tool is the source of truth.
   the server, not the same pixels.
 - **A cosmetic update never refreshes data.** A changed source file needs a new document; an update draws the rows the
   artifact captured.
-- **Agent success with documents is unmeasured.** The task corpus and its grading run in the evaluation harness with
-  a scripted model; no live-model result exists yet (see `eval/README.md`).
+- **Agent success with documents is measured once.** One live baseline (`claude-agent/haiku`, 13 tasks × 3 trials):
+  35 of 39 runs strict, 11 of 13 tasks strict in every trial. The misses are a narrow panel drawn wider than asked,
+  and a presentation version made as a new chart instead of an update (`docs/engineering/charts-report.md`).
 - **ECharts has no zoom, brush, toolbox or timeline.** Those components are not in either ECharts runtime, so an
   option that uses one is refused with `ECHARTS_COMPONENT_UNSUPPORTED` and a next step; `charts_capabilities` lists
   the interactions interactive HTML does provide.
