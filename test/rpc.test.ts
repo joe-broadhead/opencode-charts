@@ -88,6 +88,13 @@ describe("the tools RPC", () => {
     expect(JSON.stringify(result.output)).toContain("spec")
   })
 
+  test("a catalogue example keeps its size through the RPC, and that exact call renders at it", async () => {
+    const example = (await call("catalogue", { id: "calendar_heatmap" })).output?.example as Record<string, unknown>
+    expect({ width: example.width, height: example.height }).toEqual({ width: 820, height: 220 })
+    const rendered = await call("render", { ...example, name: "rpc-calendar", formats: ["svg"] })
+    expect({ width: rendered.output?.width, height: rendered.output?.height }).toEqual({ width: 820, height: 220 })
+  })
+
   test("recommend answers from the data's shape, and is the same call as the model's", async () => {
     const result = await call("recommend", { request: "which region has the most revenue?", data: { rows: [{ region: "North", revenue: 10 }, { region: "South", revenue: 20 }] } })
     expect(result.output?.recommendations?.[0]?.id).toBeDefined()

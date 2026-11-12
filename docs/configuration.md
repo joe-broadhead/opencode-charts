@@ -67,6 +67,21 @@ folder too:
 
 A refusal that names `external_directory` costs nothing: nothing was read and nothing was written.
 
+## Output files
+
+A render makes every requested file, and the preview, in memory before it writes anything, so a failure while
+preparing a format leaves the output folder as it was. The files are then staged beside their targets and moved into
+place one by one; if a move fails, the files already moved are put back, the staging files are removed, and
+`OUTPUT_WRITE_FAILED` names any file that could not be restored. Files the render does not name are never touched.
+
+- The rollback is best-effort, within one process. Several renames cannot be made atomic together.
+- Renders from different processes that write the same file names are not coordinated: there is no lock, so the last
+  move wins file by file. Give concurrent renders different `name`s or `outDir`s.
+- A crash or a killed process mid-write can leave hidden `.<file>.<token>.tmp` (staged bytes) or `.<file>.<token>.bak`
+  (the previous version of a replaced file) in the output folder, such as `.revenue.svg.1a2b-3c4d5e6f7a8b.tmp`. They are
+  never read back; delete them when no render is running.
+- `charts_validate` writes nothing and creates no folder.
+
 ## Limits
 
 | What | Limit |
@@ -90,6 +105,8 @@ metadata (`code`, `hint`, `path`).
 | `THEME_NOT_FOUND`, `THEME_INVALID`, `THEME_CYCLE`, `THEME_NAME_INVALID`, `THEME_NAME_TAKEN`, `FONT_INVALID`, `FONT_TOO_LARGE` | A theme, a theme name, or its fonts. |
 | `LOCALE_UNKNOWN`, `CURRENCY_UNKNOWN`, `ATLAS_UNKNOWN`, `CHART_TYPE_UNKNOWN`, `FIELD_MISSING`, `SIZE_INVALID`, `SCALE_INVALID` | A name or a value the call gives. |
 | `PNG_UNAVAILABLE`, `PNG_TOO_LARGE`, `HTML_UNAVAILABLE`, `RENDER_FAILED` | A renderer. |
+| `OUTPUT_WRITE_FAILED` | Writing the files failed; every file is made before any is written, and the error names any file that could not be put back as it was. |
 | `SKILLS_INVALID`, `STATUS_UNAVAILABLE` | Setup could not load a skill, or `/charts-status` could not be read (in the server log, or the session). |
 | `NO_MARK`, `NO_MARKS`, `NO_SERIES`, `DATA_TWICE`, `AXES_MISSING`, `SANKEY_CYCLE`, `SERIES_TYPE_MISSING`, `UNKNOWN_MARK`, `UNKNOWN_CHANNEL`, `UNKNOWN_PROPERTY`, `UNKNOWN_TYPE`, `UNKNOWN_DATASET`, `UNKNOWN_FIELD`, `TYPE_MISMATCH`, `PIE_NEGATIVE`, `DATA_MISSING` | A spec or data problem that stops the render, reported inside `SPEC_INVALID` with its JSON path and a fix. |
 | `EMPTY_DATA`, `NOT_A_DATE`, `DATE_AS_CATEGORY`, `MISSING_UNITS`, `TRUNCATED_AXIS`, `DUAL_AXIS`, `DUPLICATE_TICKS`, `UNSORTED_BARS`, `OVERPLOTTING`, `TOO_MANY_SERIES`, `PIE_TOO_MANY_SLICES`, `RAINBOW_SEQUENTIAL`, `LOW_CONTRAST`, `LABEL_COLLISION`, `LABEL_CLIPPED`, `LABEL_DENSITY`, `FONT_NOT_BUNDLED`, `FONT_GLYPH_MISSING`, `VEGA_LITE_WARNING`, `VEGA_WARNING` | A lint or drawing warning, returned with the result beside the chart. |
+| `SIZE_OVERRIDE_IGNORED` | The spec's own `width` or `height` beats the tool's (the spec keeps precedence), or an ECharts size is not a pixel count; the warning names both values and the path, such as `/spec/width`. |

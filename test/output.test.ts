@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { initWasm, Resvg } from "@resvg/resvg-wasm"
-import { CATALOGUE } from "../src/catalogue.ts"
+import { CATALOGUE, exampleCall } from "../src/catalogue.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { bundledFonts } from "../src/fonts.ts"
 import { renderChart } from "../src/pipeline.ts"
@@ -27,8 +27,7 @@ afterAll(async () => { ws.cleanup(); await closeVegaWorker() })
 const GOLDEN = join(ROOT, "test", "golden")
 mkdirSync(GOLDEN, { recursive: true })
 const render = (id: string, theme = "light") => {
-  const ex = CATALOGUE.find(c => c.id === id)!.example()
-  return renderChart({ spec: ex.spec, ...(ex.rows ? { data: { rows: ex.rows } } : {}), title: ex.title, theme, formats: ["svg"], ...(ex.currency ? { currency: ex.currency } : {}), ...(ex.width ? { width: ex.width } : {}), ...(ex.height ? { height: ex.height } : {}) }, ws.env, false)
+  return renderChart({ ...exampleCall(CATALOGUE.find(c => c.id === id)!), theme, formats: ["svg"] }, ws.env, false)
 }
 
 describe("golden SVGs", () => {
@@ -86,8 +85,7 @@ describe("files", () => {
   })
   test("interactive HTML is self-contained: no network reference, a strict CSP, the static chart first", async () => {
     for (const id of ["grouped_bar", "sankey"]) {
-      const ex = CATALOGUE.find(c => c.id === id)!.example()
-      const r = await renderChart({ spec: ex.spec, ...(ex.rows ? { data: { rows: ex.rows } } : {}), title: ex.title, formats: ["html"], name: id }, ws.env)
+      const r = await renderChart({ ...exampleCall(CATALOGUE.find(c => c.id === id)!), formats: ["html"], name: id }, ws.env)
       const html = readFileSync(join(ws.dir, r.files.html!), "utf8")
       expect(html).toContain(`content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:"`)
       expect(html).not.toMatch(/<script[^>]+src=|<link\b|@import|url\(\s*["']?https?:/i)

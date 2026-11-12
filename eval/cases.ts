@@ -1,4 +1,4 @@
-import { catalogueEntry } from "../src/catalogue.ts"
+import { catalogueEntry, exampleCall } from "../src/catalogue.ts"
 
 /**
  * Natural-language chart requests, each with a scripted tool call (what a good agent would send) and the
@@ -20,10 +20,7 @@ export interface Expect {
 }
 export interface Case { readonly id: string; readonly request: string; readonly tool: "render" | "quick"; readonly input: Record<string, unknown>; readonly expect: Expect }
 
-const fromCatalogue = (id: string, extra: Record<string, unknown> = {}) => {
-  const ex = catalogueEntry(id)!.example()
-  return { spec: ex.spec, ...(ex.rows ? { data: { rows: ex.rows } } : {}), title: ex.title, ...(ex.currency ? { currency: ex.currency } : {}), ...(ex.width ? { width: ex.width } : {}), ...(ex.height ? { height: ex.height } : {}), ...extra }
-}
+const fromCatalogue = (id: string, extra: Record<string, unknown> = {}) => ({ ...exampleCall(catalogueEntry(id)!), ...extra })
 
 export const CASES: readonly Case[] = [
   { id: "stacked-area-dark-eur", request: "Revenue by region as a stacked area, dark theme, euros.", tool: "render", input: fromCatalogue("stacked_area", { theme: "dark", currency: "EUR" }), expect: { marks: ["area"], theme: "dark", svgContains: ["€"], specHas: ["encoding.y.stack=zero"] } },

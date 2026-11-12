@@ -1,0 +1,173 @@
+{
+ "quick-bar": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 370,
+  "height": 426,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/quick-bar.svg",
+   "spec": "outputs/charts/quick-bar.vl.json"
+  },
+  "warnings": [],
+  "svg": "55a27d02a3b07f7c"
+ },
+ "quick-bar-sized": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 562,
+  "height": 406,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/quick-bar-sized.svg",
+   "spec": "outputs/charts/quick-bar-sized.vl.json"
+  },
+  "warnings": [],
+  "svg": "64b634bdf040c5e6"
+ },
+ "vl-unsized": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 370,
+  "height": 426,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/vl-unsized.svg",
+   "spec": "outputs/charts/vl-unsized.vl.json"
+  },
+  "warnings": [],
+  "svg": "d3ce7d9bc1fa1eca"
+ },
+ "vl-tool-sized": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 602,
+  "height": 426,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/vl-tool-sized.svg",
+   "spec": "outputs/charts/vl-tool-sized.vl.json"
+  },
+  "warnings": [],
+  "svg": "16c6ab59b5407c36"
+ },
+ "vl-spec-sized": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 582,
+  "height": 386,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/vl-spec-sized.svg",
+   "spec": "outputs/charts/vl-spec-sized.vl.json"
+  },
+  "warnings": [],
+  "svg": "eff37fdce9504ddb"
+ },
+ "vl-equal-sizes": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 582,
+  "height": 386,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/vl-equal-sizes.svg",
+   "spec": "outputs/charts/vl-equal-sizes.vl.json"
+  },
+  "warnings": [],
+  "svg": "193c37677465b4eb"
+ },
+ "vl-conflicting-sizes": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 582,
+  "height": 426,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/vl-conflicting-sizes.svg",
+   "spec": "outputs/charts/vl-conflicting-sizes.vl.json"
+  },
+  "warnings": [
+   "SIZE_OVERRIDE_IGNORED"
+  ],
+  "svg": "900da10b44f52bc2"
+ },
+ "vega-unsized": {
+  "engine": "vega",
+  "theme": "light",
+  "width": 642,
+  "height": 405,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/vega-unsized.svg",
+   "spec": "outputs/charts/vega-unsized.vg.json"
+  },
+  "warnings": [],
+  "svg": "ff0b4adb47818a85"
+ },
+ "vega-tool-sized": {
+  "engine": "vega",
+  "theme": "light",
+  "width": 502,
+  "height": 345,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/vega-tool-sized.svg",
+   "spec": "outputs/charts/vega-tool-sized.vg.json"
+  },
+  "warnings": [],
+  "svg": "ff3dea1bd4600d21"
+ },
+ "echarts-unsized": {
+  "engine": "echarts",
+  "theme": "light",
+  "width": 560,
+  "height": 320,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/echarts-unsized.svg",
+   "spec": "outputs/charts/echarts-unsized.echarts.json"
+  },
+  "warnings": [],
+  "svg": "3fd138bf71aeabd6"
+ },
+ "echarts-tool-sized": {
+  "engine": "echarts",
+  "theme": "light",
+  "width": 480,
+  "height": 300,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/echarts-tool-sized.svg",
+   "spec": "outputs/charts/echarts-tool-sized.echarts.json"
+  },
+  "warnings": [],
+  "svg": "400072baeba210cf"
+ },
+ "echarts-conflicting-sizes": {
+  "engine": "echarts",
+  "theme": "light",
+  "width": 400,
+  "height": 320,
+  "files": {
+   "png": [],
+   "svg": "outputs/charts/echarts-conflicting-sizes.svg",
+   "spec": "outputs/charts/echarts-conflicting-sizes.echarts.json"
+  },
+  "warnings": [
+   "SIZE_OVERRIDE_IGNORED"
+  ],
+  "svg": "ad66beb952c5c3b4"
+ },
+ "validate-vl": {
+  "engine": "vega-lite",
+  "theme": "light",
+  "width": 602,
+  "height": 396,
+  "files": {
+   "png": []
+  },
+  "warnings": [],
+  "svg": ""
+ }
+}

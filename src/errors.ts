@@ -54,6 +54,7 @@ export type ChartsCode =
   | "NO_MARKS"
   | "NO_SERIES"
   | "OPTIONS_INVALID"
+  | "OUTPUT_WRITE_FAILED"
   | "OVERPLOTTING"
   | "PATH_INVALID"
   | "PATH_IS_URL"
@@ -69,6 +70,7 @@ export type ChartsCode =
   | "SCALE_INVALID"
   | "SERIES_TYPE_MISSING"
   | "SIZE_INVALID"
+  | "SIZE_OVERRIDE_IGNORED"
   | "SKILLS_INVALID"
   | "SPEC_INVALID"
   | "SPEC_TOO_EXPENSIVE"
@@ -129,6 +131,7 @@ export const CHART_CODES: readonly ChartsCode[] = [
   "NO_MARKS",
   "NO_SERIES",
   "OPTIONS_INVALID",
+  "OUTPUT_WRITE_FAILED",
   "OVERPLOTTING",
   "PATH_INVALID",
   "PATH_IS_URL",
@@ -144,6 +147,7 @@ export const CHART_CODES: readonly ChartsCode[] = [
   "SCALE_INVALID",
   "SERIES_TYPE_MISSING",
   "SIZE_INVALID",
+  "SIZE_OVERRIDE_IGNORED",
   "SKILLS_INVALID",
   "SPEC_INVALID",
   "SPEC_TOO_EXPENSIVE",

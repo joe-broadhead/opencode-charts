@@ -1,4 +1,4 @@
-import { catalogueEntry } from "../catalogue.js"
+import { catalogueEntry, exampleCall } from "../catalogue.js"
 import type { Row } from "../data.js"
 import type { Json } from "../engines/common.js"
 import type { Shape } from "./traits.js"
@@ -173,9 +173,8 @@ export function buildDraft(id: string, shape: Shape, rows: readonly Row[], encod
 export function exampleDraft(id: string): Draft {
   const entry = catalogueEntry(id)
   if (!entry) return { warnings: [] }
-  const example = entry.example()
   return {
-    call: { tool: "render", input: { spec: example.spec, ...(example.rows ? { data: { rows: example.rows } } : {}), title: example.title, ...(example.currency ? { currency: example.currency } : {}), ...(example.width ? { width: example.width } : {}), ...(example.height ? { height: example.height } : {}) } },
+    call: { tool: "render", input: { ...exampleCall(entry) } },
     warnings: ["The draft uses this type's own example rows; its example fields are named above, so swap in yours."],
   }
 }

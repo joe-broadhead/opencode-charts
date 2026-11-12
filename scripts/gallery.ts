@@ -2,7 +2,7 @@
 // with an HTML contact sheet. Usage: bun scripts/gallery.ts <out-dir>
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
-import { CATALOGUE } from "../src/catalogue.ts"
+import { CATALOGUE, exampleCall } from "../src/catalogue.ts"
 import { renderChart } from "../src/pipeline.ts"
 import { builtinThemes } from "../src/themes/store.ts"
 
@@ -21,9 +21,9 @@ const jobs = [
   ...themes.map(theme => ({ id: `theme-sankey-${theme}`, entry: CATALOGUE.find(e => e.id === "sankey")!, theme })),
 ]
 for (const job of jobs) {
-  const ex = job.entry.example(); const t0 = performance.now(); if (process.env.TRACE) process.stdout.write(`${job.id} ${job.theme} ...`)
+  const call = exampleCall(job.entry); const t0 = performance.now(); if (process.env.TRACE) process.stdout.write(`${job.id} ${job.theme} ...`)
   try {
-    const r = await renderChart({ spec: ex.spec, ...(ex.rows ? { data: { rows: ex.rows } } : {}), title: ex.title, theme: job.theme, name: `${job.id}-${job.theme}`, formats: ["svg", "png", "spec"], ...(ex.currency ? { currency: ex.currency } : {}), ...(ex.width ? { width: ex.width } : {}), ...(ex.height ? { height: ex.height } : {}) }, env as never)
+    const r = await renderChart({ ...call, theme: job.theme, name: `${job.id}-${job.theme}`, formats: ["svg", "png", "spec"] }, env as never)
     if (process.env.TRACE) console.log(Math.round(performance.now() - t0)); report.push({ id: job.id, theme: job.theme, ms: r.ms, issues: r.issues.map(i => `${i.code}: ${i.message}`) })
     cards.push(`<figure><img src="${r.files.png[0]}" loading="lazy"><figcaption><b>${job.entry.name}</b> · ${job.entry.engine} · ${job.theme} · ${r.ms} ms${r.issues.length ? ` · <span class=w>${r.issues.map(i => i.code).join(", ")}</span>` : ""}</figcaption></figure>`)
   } catch (error) {

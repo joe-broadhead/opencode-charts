@@ -12,16 +12,18 @@ import type { ThemeTokens } from "./themes/tokens.js"
  */
 declare const BROWSER_RUNTIME_SHA256: Record<string, string> | undefined
 
+// Keyed by package and runtime, so a check of one install never answers for another.
 const runtimes = new Map<string, string>()
 function runtime(packageRoot: string, name: "vega" | "echarts"): string {
-  const cached = runtimes.get(name)
+  const key = `${packageRoot}\0${name}`
+  const cached = runtimes.get(key)
   if (cached) return cached
   const path = join(packageRoot, "dist", "browser", `${name}.js`)
   if (!existsSync(path)) throw new ChartsError("HTML_UNAVAILABLE", `The ${name} browser runtime is missing from the package.`, "Reinstall the plugin, or ask for svg and png only.")
   const source = readFileSync(path, "utf8")
   const expected = typeof BROWSER_RUNTIME_SHA256 === "object" ? BROWSER_RUNTIME_SHA256?.[name] : undefined
   if (expected && createHash("sha256").update(source).digest("hex") !== expected) throw new ChartsError("HTML_UNAVAILABLE", `The ${name} browser runtime does not match the plugin build.`, "Reinstall the plugin.")
-  runtimes.set(name, source)
+  runtimes.set(key, source)
   return source
 }
 

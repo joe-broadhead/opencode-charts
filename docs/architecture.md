@@ -27,7 +27,9 @@ folder, then runs `runTool` (`src/tools.ts`):
 1. **Input.** The tool's zod schema; a mismatch is `INPUT_INVALID`.
 2. **Data** (`src/data.ts`). Inline rows, or a workspace file (CSV, TSV, JSON, JSONL, Parquet) confined to the
    workspace (`src/paths.ts`), with optional Vega-Lite transforms run in the worker.
-3. **Safety** (`src/safety.ts`). Size, depth and expression caps, and every external reference refused.
+3. **Safety** (`src/safety.ts`). Size, depth and expression caps, and every external reference refused. Then the
+   preflight: the PNG scales, the output folder (confined, not created), and the runtimes the requested formats need;
+   `charts_validate` reports a problem here as an invalid result.
 4. **Engine** (`src/engines/`). Vega-Lite and Vega render in one warm worker thread with a time and memory limit
    (`vega-pool.ts`); ECharts renders server-side to SVG. Text is measured and drawn with the bundled fonts only
    (`src/fonts.ts`).
@@ -36,8 +38,13 @@ folder, then runs `runTool` (`src/tools.ts`):
 6. **The figure** (`src/figure.ts`). One measurement of the drawn SVG gives both the layout facts and the figure
    tree: every label with a stable id, its box and which labels collide or run past the edge. The preview PNG numbers
    the same ids, so a finding points at one label.
-7. **Files** (`src/pipeline.ts`). SVG, PNG through resvg compiled to WebAssembly (`src/png.ts`), the spec, and on
-   request a self-contained HTML page (`src/html.ts`) with its runtime inlined and a CSP that forbids every fetch.
+7. **Files** (`src/pipeline.ts`, `src/artifacts.ts`). SVG, PNG through resvg compiled to WebAssembly (`src/png.ts`),
+   the spec, and on request a self-contained HTML page (`src/html.ts`) with its runtime inlined and a CSP that forbids
+   every fetch. Every requested file, and the preview, is made in memory before anything is written; a PNG over the
+   pixel limit is refused from the drawing's size first. The files are then staged beside their targets and moved into
+   place one by one; if a move fails, the files already moved are put back and the staging files removed
+   (`OUTPUT_WRITE_FAILED` names any that could not be). That is a best-effort rollback, not a crash-safe transaction.
+   `charts_validate` writes nothing and creates no folder.
 
 The result is text for the model (what it shows, the files, the warnings, a markdown image line) and, when there is
 something to look at, the PNG itself.
