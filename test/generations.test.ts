@@ -2,10 +2,11 @@ import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { bundleManifest, GENERATION_DIGEST_CHARS } from "../src/artifacts.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
 import { runTool, type ToolName } from "../src/tools.ts"
-import { BAR, ROWS, workspace } from "./helpers.ts"
+import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
 
 /**
  * Complete-generation publication for every new document's output (brief §10.3, F9): charts_quick and charts_render
@@ -94,9 +95,11 @@ describe("a new document's output is one generation folder", () => {
   })
 })
 
+/** A folder outside the workspace, removed with the test's workspaces. */
+const outsideDir = () => { const dir = mkdtempSync(join(tmpdir(), "charts-outside-")); spaces.push({ cleanup: () => rmSync(dir, { recursive: true, force: true }) }); return dir }
+
 describe("links where a generation goes", () => {
-  /** A folder outside the workspace, removed with the test's workspaces. */
-  const outside = () => { const dir = mkdtempSync(join(tmpdir(), "charts-outside-")); spaces.push({ cleanup: () => rmSync(dir, { recursive: true, force: true }) }); return dir }
+  const outside = outsideDir
   const listing = (dir: string) => readdirSync(dir, { recursive: true }).map(String).sort()
 
   test("a symbolic link at the generation folder is refused, outside or inside the workspace, even to identical files", async () => {
@@ -135,5 +138,73 @@ describe("links where a generation goes", () => {
     const out = await t.call("quick", { document: DOC, name: "bars", outDir: "in-link", formats: ["svg", "document"] })
     expect(out.generation.directory).toMatch(/^real-out\/bars-[0-9a-f]{16}$/)
     expect(existsSync(join(t.dir, out.files.document))).toBe(true)
+  })
+})
+
+describe("two processes publishing the same generation", () => {
+  /**
+   * Each child stages the same bundle, then waits at the last step before the rename until the other has staged too,
+   * so both have seen no folder and both rename: one rename wins, and the other finds the folder in place.
+   */
+  const CHILD = `
+    import { publishGeneration } from ${JSON.stringify(join(ROOT, "src", "artifacts.ts"))}
+    import { existsSync, writeFileSync } from "node:fs"
+    import { join } from "node:path"
+    const [dir, barrier, id] = process.argv.slice(2)
+    const artifacts = [
+      { kind: "svg", file: "race.svg", bytes: "<svg>" + "x".repeat(200000) + "</svg>" },
+      { kind: "document", file: "race.chart.json", bytes: JSON.stringify({ rows: Array.from({ length: 2000 }, (_, i) => ({ i })) }) },
+      { kind: "png", file: "race.png", bytes: new Uint8Array(150000).fill(7) },
+    ]
+    const sleep = new Int32Array(new SharedArrayBuffer(4))
+    const probe = file => {
+      if (!/^race-[0-9a-f]+$/.test(file)) return
+      writeFileSync(join(barrier, id), "")
+      const other = join(barrier, id === "a" ? "b" : "a")
+      for (let waited = 0; !existsSync(other) && waited < 20000; waited += 5) Atomics.wait(sleep, 0, 0, 5)
+    }
+    try {
+      const out = publishGeneration({ directory: dir }, "outputs/charts", "race", artifacts, probe)
+      console.log(JSON.stringify({ ok: true, directory: out.directory, reused: out.reused }))
+    } catch (error) {
+      console.log(JSON.stringify({ ok: false, code: error.code, detail: error.detail }))
+    }
+  `
+  const BUNDLE = [
+    { kind: "svg" as const, file: "race.svg", bytes: "<svg>" + "x".repeat(200000) + "</svg>" },
+    { kind: "document" as const, file: "race.chart.json", bytes: JSON.stringify({ rows: Array.from({ length: 2000 }, (_, i) => ({ i })) }) },
+    { kind: "png" as const, file: "race.png", bytes: new Uint8Array(150000).fill(7) },
+  ]
+
+  test("one publishes, the other reuses the verified folder; never a mixed folder, never a staging folder left", async () => {
+    const scripts = outsideDir()
+    const script = join(scripts, "child.mjs")
+    writeFileSync(script, CHILD)
+    const { digest } = bundleManifest(BUNDLE)
+    const folder = `outputs/charts/race-${digest.slice(7, 7 + GENERATION_DIGEST_CHARS)}`
+    for (let round = 0; round < 3; round++) {
+      const t = setup()
+      const barrier = join(scripts, `barrier-${round}`)
+      mkdirSync(barrier)
+      const run = (id: string) => Bun.spawn([process.execPath, script, t.dir, barrier, id], { stdout: "pipe", stderr: "pipe" })
+      const children = [run("a"), run("b")]
+      const outcomes = await Promise.all(children.map(async child => {
+        const [text, err] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text()])
+        expect(await child.exited, err).toBe(0)
+        return JSON.parse(text.trim()) as { ok: boolean; directory?: string; reused?: boolean; code?: string }
+      }))
+      // Both reached the rename: the barrier saw both.
+      expect(readdirSync(barrier).sort()).toEqual(["a", "b"])
+      const published = outcomes.filter(o => o.ok && o.reused === false)
+      expect(published).toHaveLength(1)
+      // The bundles are identical, so the loser of the rename verifies the winner's folder and reuses it (a different
+      // bundle under that name would be the coded collision instead).
+      expect(outcomes.filter(o => o !== published[0])).toEqual([{ ok: true, directory: folder, reused: true }])
+      expect(published[0]!.directory).toBe(folder)
+      // Exactly the bundle, byte for byte, and no staging folder left by either process.
+      const files = t.tree()
+      expect(Object.keys(files).sort()).toEqual(["outputs/", "outputs/charts/", `${folder}/`, ...BUNDLE.map(b => `${folder}/${b.file}`)].sort())
+      for (const b of BUNDLE) expect(files[`${folder}/${b.file}`]).toBe(Buffer.from(b.bytes).toString("base64"))
+    }
   })
 })
