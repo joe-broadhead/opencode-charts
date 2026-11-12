@@ -31,6 +31,12 @@ export const LIMITS = {
   gridCells: 4_000_000,
 } as const
 
+/**
+ * Keys that name an object's prototype. JSON data never needs them, and in JavaScript `__proto__` changes an object's
+ * prototype instead of adding a property, so a copy would silently drop it. They are refused wherever JSON comes in.
+ */
+export const PROTOTYPE_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"])
+
 // Keys that name an external resource in Vega, Vega-Lite or ECharts. `url` also covers ECharts' title links.
 const RESOURCE_KEYS = new Set(["url", "href", "src", "link", "sublink", "loader", "backgroundImage"])
 const EXPRESSION_KEYS = new Set(["expr", "signal", "calculate", "update", "test", "filter", "as_expr"])
@@ -76,6 +82,7 @@ export function checkSpec(spec: unknown, engine: Engine) {
     if (engine === "echarts" && (path[path.length - 1] === "geo" || path[path.length - 1] === "bmap")) refuse("ECharts geo components are not available.", path, "For maps use Vega-Lite geoshape with data {\"atlas\": \"world-110m\"}.")
     for (const [key, child] of Object.entries(record)) {
       const childPath = [...path, key]
+      if (PROTOTYPE_KEYS.has(key)) refuse(`"${key}" is not allowed as a key: it names an object's prototype.`, childPath, "Rename that key; a spec never needs __proto__, constructor or prototype.")
       if (RESOURCE_KEYS.has(key) && child !== null && child !== undefined && child !== false && !(key === "url" && isAtlasData(record))) refuse(`"${key}" loads or links an external resource.`, childPath, key === "url" ? "Inline the rows with data.rows, read a workspace file with data.path, or use {\"atlas\": \"world-110m\"} for a map." : "Remove it; charts are static and self-contained.")
       if (EXPRESSION_KEYS.has(key) && typeof child === "string") {
         if (++expressions > LIMITS.expressions) refuse(`The spec has more than ${LIMITS.expressions} expressions.`, childPath, "Simplify the spec.")

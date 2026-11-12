@@ -3,6 +3,7 @@ import { compileRecipe } from "../recipes/compile.js"
 import { RECIPE_COMPILER_VERSION } from "../recipes/registry.js"
 import type { RecipeCompilation } from "../recipes/types.js"
 import { buildArtifact, canonicalRows, captureDefaults, captureDocument, type DefaultsEnvironment } from "./artifact.js"
+import { canonicalValue } from "./canonical.js"
 import { DEFAULT_LAYOUT_TARGET, INTERACTION_DEFAULTS, LAYOUT_PROFILES, type InteractionDefaults, type LayoutMode, type LayoutTarget } from "./defaults.js"
 import { parseDocument } from "./schema.js"
 import type { CapturedRecipeChartV1, CapturedThemeV1, ChartArtifactV1, DataSourceProvenanceV1, FontDependencyV1, GeneratorV1, JsonObject, RecipeLayoutV1 } from "./types.js"
@@ -84,7 +85,9 @@ export async function prepareDocument(raw: unknown, source: SourceData | undefin
 }
 
 /** Replay of a saved (already verified) artifact: captured rows, defaults, theme and colour domain; no new defaults. */
-export async function replayArtifact(artifact: ChartArtifactV1, transform: TransformRunner): Promise<Omit<Prepared, "artifact">> {
+export async function replayArtifact(given: ChartArtifactV1, transform: TransformRunner): Promise<Omit<Prepared, "artifact">> {
+  // Works on a canonical copy: a prototype key or a non-JSON value in the given object is refused, not carried on.
+  const artifact = canonicalValue(given) as unknown as ChartArtifactV1
   const chart = artifact.document.chart
   const transformed = await transformOnce(chart.data?.rows, chart.data?.transform, transform)
   const compilation = chart.kind === "recipe"

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
-import { ChartsError, pointer } from "../errors.js"
+import { ChartsError, pointer, type ChartsCode } from "../errors.js"
+import { PROTOTYPE_KEYS } from "../safety.js"
 
 /**
  * Canonical JSON: the one serialisation a saved chart is hashed and written in. Object keys are sorted by Unicode
@@ -33,8 +34,38 @@ function refuse(path: readonly (string | number)[], what: string): never {
   throw new ChartsError("DATA_INVALID", `The value at ${pointer(path)} is ${what}, which JSON cannot store exactly.`, "Use null, a boolean, a finite number, a string, an array or a plain object there.", pointer(path))
 }
 
-/** A JSON-safe deep copy with sorted keys. `base` prefixes error paths. */
+export interface ScanOptions {
+  /** Path of `root` inside the document, for error pointers. */
+  readonly base?: readonly (string | number)[]
+  readonly code: ChartsCode
+  /** What is being read, for the message: "The document", "The artifact", "Row 3". */
+  readonly what: string
+}
+
+/**
+ * Walks parsed JSON without recursion, before anything else touches it: refuses prototype keys (`__proto__`,
+ * `constructor`, `prototype`) with a coded error and the key's JSON pointer.
+ */
+export function scanJson(root: unknown, options: ScanOptions) {
+  const base = options.base ?? []
+  const stack: { node: unknown; path: (string | number)[] }[] = [{ node: root, path: [...base] }]
+  while (stack.length) {
+    const { node, path } = stack.pop()!
+    if (!node || typeof node !== "object") continue
+    if (Array.isArray(node)) { for (let i = node.length - 1; i >= 0; i--) stack.push({ node: node[i], path: [...path, i] }); continue }
+    for (const key of Object.keys(node)) {
+      if (PROTOTYPE_KEYS.has(key)) throw new ChartsError(options.code, `${options.what} has the key "${key}", which names an object's prototype and is not allowed.`, "Rename that key; chart data, specs and documents never need __proto__, constructor or prototype.", pointer([...path, key]))
+      stack.push({ node: (node as Record<string, unknown>)[key], path: [...path, key] })
+    }
+  }
+}
+
+/**
+ * A JSON-safe deep copy with sorted keys. `base` prefixes error paths. Prototype keys are refused, and every member
+ * is defined as an own property, never assigned.
+ */
 export function canonicalValue(value: unknown, base: readonly (string | number)[] = []): JsonValue {
+  scanJson(value, { base, code: "DATA_INVALID", what: "The value" })
   const visit = (node: unknown, path: (string | number)[]): JsonValue => {
     if (node === null || typeof node === "string" || typeof node === "boolean") return node
     if (typeof node === "number") {
@@ -51,7 +82,7 @@ export function canonicalValue(value: unknown, base: readonly (string | number)[
       for (const key of Object.keys(node).sort(compareCodePoints)) {
         const child = (node as Record<string, unknown>)[key]
         if (child === undefined) continue
-        out[key] = visit(child, [...path, key])
+        Object.defineProperty(out, key, { value: visit(child, [...path, key]), enumerable: true, writable: true, configurable: true })
       }
       return out
     }

@@ -4,7 +4,7 @@ import { recipeDefinition } from "../recipes/definitions.js"
 import type { RecipeId } from "../recipes/types.js"
 import { LIMITS } from "../safety.js"
 import { ThemeTokensSchema } from "../themes/tokens.js"
-import { byteLength, canonicalJson, canonicalValue, isDigest, REVISION_PATTERN, sha256 } from "./canonical.js"
+import { byteLength, canonicalJson, canonicalValue, isDigest, REVISION_PATTERN, scanJson, sha256 } from "./canonical.js"
 import { categoryKey } from "./category.js"
 import { ARTIFACT_FORMAT, ARTIFACT_VERSION, DEFAULT_LAYOUT_TARGET, INTERACTION_DEFAULTS, LAYOUT_MODES, LAYOUT_PROFILE_VERSION, LAYOUT_PROFILES, LAYOUT_TARGETS } from "./defaults.js"
 import { DocumentInvalid } from "./issues.js"
@@ -206,6 +206,7 @@ export function parseArtifact(input: string | Uint8Array, options: ParseArtifact
   catch { throw invalid("The artifact is not valid JSON.") }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw invalid("The artifact is not a JSON object.")
   const envelope = raw as JsonObject
+  scanJson(envelope, { code: "ARTIFACT_INVALID", what: "The artifact" })
   if (envelope.format !== ARTIFACT_FORMAT) throw invalid(`This is not a chart artifact (format ${JSON.stringify(envelope.format)}, expected "${ARTIFACT_FORMAT}").`, "/format", "Pass a .chart.json file. A .vl.json, .vg.json or .echarts.json file is a resolved engine spec, not an editable document: render it with charts_render's spec, or create a new document.")
   if (envelope.version !== ARTIFACT_VERSION) throw new ChartsError("DOCUMENT_VERSION_UNSUPPORTED", `Chart artifact version ${JSON.stringify(envelope.version)} is not supported; this plugin reads version ${ARTIFACT_VERSION} only.`, `Use a plugin release that reads version ${JSON.stringify(envelope.version)}, or create the chart again as a version ${ARTIFACT_VERSION} document. Nothing is converted automatically.`, "/version")
 
@@ -231,7 +232,8 @@ export function parseArtifact(input: string | Uint8Array, options: ParseArtifact
   const revision = computeRevision(document as unknown as CapturedDocumentV1, captured)
   if (revision !== envelope.revision) throw new ChartsError("DOCUMENT_REVISION_MISMATCH", `The artifact's content does not match its recorded revision ${envelope.revision}: it was edited or damaged after it was written.`, "Do not edit a saved artifact by hand. Create a new document (from the source data) for a new chart, or use the unedited artifact.", "/revision")
   if (options.expectedRevision !== undefined && options.expectedRevision !== revision) throw new ChartsError("DOCUMENT_REVISION_MISMATCH", `The artifact is at revision ${revision}, not the expected ${options.expectedRevision}.`, "Read the artifact again and decide from its current revision; it changed since the revision you hold.", "/expectedRevision")
-  return envelope as unknown as ChartArtifactV1
+  // The validated content, as a canonical copy: never the raw parsed object.
+  return canonicalValue(envelope) as unknown as ChartArtifactV1
 }
 
 function crossCheck(document: CapturedDocumentV1, captured: CapturedStateV1) {
