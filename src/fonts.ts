@@ -262,7 +262,7 @@ export function withCustomFonts(base: FontBook, custom: readonly (FontResource |
  * host for read permission on all of them, check each file's size and the total from the file system, and only then
  * read the bytes. A file that is too large or not a TrueType/OpenType font is refused before it is parsed.
  */
-export async function readCustomFonts(workspace: Workspace, files: readonly { family: string; weight?: number; path: string }[], assertRead?: (paths: readonly string[]) => Promise<void>): Promise<FontResource[]> {
+export async function readCustomFonts(workspace: Workspace, files: readonly { family: string; weight?: number; path: string }[], assertRead?: (paths: readonly string[]) => Promise<void>, readBytes: (absolute: string) => Uint8Array = absolute => new Uint8Array(readFileSync(absolute))): Promise<FontResource[]> {
   if (files.length === 0) return []
   const confined = files.map(file => ({ file, at: confine(workspace, file.path, "read") }))
   await assertRead?.(files.map(file => file.path))
@@ -273,7 +273,7 @@ export async function readCustomFonts(workspace: Workspace, files: readonly { fa
     total += size
     if (total > MAX_CUSTOM_FONTS_TOTAL_BYTES) throw new ChartsError("FONT_TOO_LARGE", `The theme's font files are over 24 MB together.`, "Subset the fonts, or use fewer weights.")
   }
-  return confined.map(({ file, at }) => customFontResource(new Uint8Array(readFileSync(at.absolute)), file.family, file.weight ?? 400, at.relative))
+  return confined.map(({ file, at }) => customFontResource(readBytes(at.absolute), file.family, file.weight ?? 400, at.relative))
 }
 
 export function fileSize(path: string) { return statSync(path).size }

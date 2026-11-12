@@ -2,7 +2,7 @@
 // capabilities say about it; ECharts components that are not bundled are refused (A20); the page's shell, CSP and
 // encoding; the approved font resources and how custom font files are read; and the rendered-SVG safety check.
 import { afterAll, describe, expect, test } from "bun:test"
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, truncateSync, writeFileSync } from "node:fs"
+import { copyFileSync, mkdirSync, readFileSync, truncateSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { capabilities } from "../src/capabilities.ts"
 import { echartsModules } from "../src/engines/echarts-install.ts"
@@ -161,23 +161,31 @@ describe("approved font resources (F8)", () => {
   })
   test("a custom file is confined, asked for, then size-checked, before a byte is read", async () => {
     mkdirSync(join(ws.dir, "fonts"), { recursive: true })
-    const locked = join(ws.dir, "fonts", "locked.ttf")
-    copyFileSync(join(ROOT, "assets", "fonts", "Inter-Regular.ttf"), locked)
-    chmodSync(locked, 0o000)
+    copyFileSync(join(ROOT, "assets", "fonts", "Inter-Regular.ttf"), join(ws.dir, "fonts", "brand.ttf"))
+    // Every step is recorded: the host's permission check, and each read of a file's bytes (the read seam).
     const order: string[] = []
-    // The host refuses: the refusal surfaces, not the unreadable file's EACCES, so nothing was read first.
-    await expect(readCustomFonts(ws.env.workspace, [{ family: "L", path: "fonts/locked.ttf" }], async paths => { order.push(`ask ${paths.join()}`); throw new Error("read denied") })).rejects.toThrow("read denied")
-    expect(order).toEqual(["ask fonts/locked.ttf"])
-    chmodSync(locked, 0o644)
-    await expect(readCustomFonts(ws.env.workspace, [{ family: "X", path: "../outside.ttf" }], async () => { order.push("asked outside") })).rejects.toThrow(/PATH_OUTSIDE_WORKSPACE/)
-    expect(order).not.toContain("asked outside")
-    // Too large, judged from the file system: a sparse file is never read.
+    const ask = (deny?: boolean) => async (paths: readonly string[]) => { order.push(`ask ${paths.join()}`); if (deny) throw new Error("read denied") }
+    const read = (absolute: string) => { order.push(`read ${absolute.split(/[\\/]/).pop()}`); return new Uint8Array(readFileSync(absolute)) }
+    // The host refuses: nothing is read.
+    await expect(readCustomFonts(ws.env.workspace, [{ family: "L", path: "fonts/brand.ttf" }], ask(true), read)).rejects.toThrow("read denied")
+    expect(order).toEqual(["ask fonts/brand.ttf"])
+    // Allowed: asked first, then read.
+    order.length = 0
+    expect((await readCustomFonts(ws.env.workspace, [{ family: "L", path: "fonts/brand.ttf" }], ask(), read)).map(r => r.source)).toEqual(["fonts/brand.ttf"])
+    expect(order).toEqual(["ask fonts/brand.ttf", "read brand.ttf"])
+    // Outside the workspace: refused before the host is asked.
+    order.length = 0
+    await expect(readCustomFonts(ws.env.workspace, [{ family: "X", path: "../outside.ttf" }], ask(), read)).rejects.toThrow(/PATH_OUTSIDE_WORKSPACE/)
+    expect(order).toEqual([])
+    // Too large, judged from the file system after asking: a sparse file is never read.
     const big = join(ws.dir, "fonts", "big.ttf")
-    writeFileSync(big, ""); truncateSync(big, MAX_CUSTOM_FONT_BYTES + 1); chmodSync(big, 0o000)
-    await expect(readCustomFonts(ws.env.workspace, [{ family: "B", path: "fonts/big.ttf" }], async () => undefined)).rejects.toThrow(/FONT_TOO_LARGE/)
-    chmodSync(big, 0o644)
+    writeFileSync(big, ""); truncateSync(big, MAX_CUSTOM_FONT_BYTES + 1)
+    await expect(readCustomFonts(ws.env.workspace, [{ family: "B", path: "fonts/big.ttf" }], ask(), read)).rejects.toThrow(/FONT_TOO_LARGE/)
+    expect(order).toEqual(["ask fonts/big.ttf"])
+    order.length = 0
     for (const i of [1, 2, 3, 4]) { const f = join(ws.dir, "fonts", `part${i}.ttf`); writeFileSync(f, ""); truncateSync(f, 7 * 1024 * 1024) }
-    await expect(readCustomFonts(ws.env.workspace, [1, 2, 3, 4].map(i => ({ family: `P${i}`, path: `fonts/part${i}.ttf` })), async () => undefined)).rejects.toThrow(/FONT_TOO_LARGE: The theme's font files are over 24 MB together/)
+    await expect(readCustomFonts(ws.env.workspace, [1, 2, 3, 4].map(i => ({ family: `P${i}`, path: `fonts/part${i}.ttf` })), ask(), read)).rejects.toThrow(/FONT_TOO_LARGE: The theme's font files are over 24 MB together/)
+    expect(order.filter(step => step.startsWith("read"))).toEqual([])
   })
   test("a render asks for read permission on the theme's font files and embeds them in SVG and HTML", async () => {
     mkdirSync(join(ws.dir, "brand"), { recursive: true })
