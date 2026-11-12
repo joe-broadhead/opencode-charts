@@ -106,6 +106,11 @@ export interface RecipeExample {
   readonly description: string
   /** A complete ChartDocumentV1 with inline rows: the full fixture, runnable as is. */
   readonly document: Record<string, unknown>
+  /**
+   * The catalogue entry whose exact tested call (`exampleCall`) the rows come from; `derived` when the rows are
+   * reshaped from it (split into two rows each, for instance) to show an option.
+   */
+  readonly source: { readonly catalogue: string; readonly derived: boolean }
 }
 
 /** What a recipe produces: a Vega-Lite spec for the existing renderer, and the rows its marks draw. */
