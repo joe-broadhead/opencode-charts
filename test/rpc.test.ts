@@ -129,7 +129,8 @@ describe("the tools RPC", () => {
     const document = { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows }, bindings: { category: "region", value: "revenue" } }, title: "RPC document" }
     const made = await call("quick", { document, name: "rpc-doc", formats: ["svg", "document"] })
     expect(made.output?.revision).toMatch(/^sha256:[0-9a-f]{64}$/)
-    expect(made.output?.files?.document).toBe("outputs/charts/rpc-doc.chart.json")
+    expect(made.output?.files?.document).toBe(`${made.output?.generation?.directory}/rpc-doc.chart.json`)
+    expect(made.output?.generation?.directory).toMatch(/^outputs\/charts\/rpc-doc-[0-9a-f]{16}$/)
     const checked = await call("validate", { document, inspect: false })
     expect(checked.output?.valid).toBe(true)
     expect(checked.output?.revision).toBe(made.output?.revision)
@@ -149,7 +150,7 @@ describe("the tools RPC", () => {
     const made = await call("quick", { document, name: "rpc-update", formats: ["svg", "document"] })
     const before = asserts.length
     const updated = await call("update", { documentPath: made.output?.files?.document, expectedRevision: made.output?.revision, patch: { appearance: { theme: "dark" } }, formats: ["svg", "document"] })
-    expect(updated.output?.update?.from).toEqual({ documentPath: "outputs/charts/rpc-update.chart.json", revision: made.output?.revision })
+    expect(updated.output?.update?.from).toEqual({ documentPath: made.output?.files?.document, revision: made.output?.revision })
     expect(updated.output?.files?.document).toMatch(/^outputs\/charts\/rpc-update-[0-9a-f]{16}\/rpc-update\.chart\.json$/)
     expect(existsSync(join(ws.dir, updated.output?.files?.document))).toBe(true)
     // Its own action, read on the artifact, then edit on the output folder: as on the model path.

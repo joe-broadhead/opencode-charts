@@ -67,7 +67,7 @@ describe("the registry", () => {
   test("the chart tools' output schemas declare the document fields, with no pattern anywhere", () => {
     for (const name of ["render", "quick", "validate"] as const) {
       const output = DESCRIPTORS.find(d => d.name === name)!.output as { properties: Record<string, unknown> }
-      for (const key of ["revision", "fingerprint", "source", "appearance", "categories", "size", "interactions", "adjustments", "diagnostics"]) expect(Object.keys(output.properties)).toContain(key)
+      for (const key of ["revision", "fingerprint", "source", "appearance", "categories", "size", "interactions", "adjustments", "diagnostics", "generation"]) expect(Object.keys(output.properties)).toContain(key)
       expect(JSON.stringify(output)).not.toContain('"pattern"')
     }
   })

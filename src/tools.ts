@@ -119,14 +119,19 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
     if (error instanceof DocumentInvalid && !write) return invalid([...preflight, ...error.issues])
     throw error
   }
-  const request = documentRequest(resolved, delivery, formats, write, fitted)
+  // A new document's output (an inline document, or a saved artifact drawn again) is published as one complete,
+  // immutable generation folder; a legacy call that asks for document output keeps the flat file names.
+  const request: RenderRequest = { ...documentRequest(resolved, delivery, formats, write, fitted), ...(write && arm !== "legacy" ? { generation: true } : {}) }
   const mapIssue = issueMapper(resolved)
   const kind = resolved.artifact.document.chart.kind
   return run(env, request, write, inspect, {}, {
     mapIssue,
     preflight,
     issues: fittedIssues(fitted),
-    decorate: (result, issues) => documentFields(env, resolved, result, issues, { formats: write ? formats : formats.filter(f => f !== "document"), delivery, write, inspect: inspect !== false, ...(fitted ? { fitted } : {}) }),
+    decorate: (result, issues) => ({
+      ...(documentFields(env, resolved, result, issues, { formats: write ? formats : formats.filter(f => f !== "document"), delivery, write, inspect: inspect !== false, ...(fitted ? { fitted } : {}) }) as Record<string, Json>),
+      ...(result.generation ? { generation: { ...result.generation } } : {}),
+    }),
     note: `Document: ${kind === "recipe" ? `recipe ${(resolved.artifact.document.chart as { recipe: string }).recipe}` : "engine chart"}, revision ${resolved.artifact.revision}${resolved.documentPath ? `, replayed from ${resolved.documentPath}` : ""}. SVG and PNG are static pictures of the initial view.${write && formats.includes("document") ? " Change its presentation from the saved .chart.json; change its data or meaning with a new document." : ""}`,
   })
 }

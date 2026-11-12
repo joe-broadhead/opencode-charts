@@ -191,11 +191,12 @@ describe("charts_update: a presentation change as a new revision", () => {
 
   test("a no-op patch keeps the revision and reuses its verified generation", async () => {
     const t = setup()
-    const { path, revision } = await create(t)
+    const { path, revision, made } = await create(t)
     const first = await t.call("update", { documentPath: path, expectedRevision: revision, patch: {} })
     expect(first.revision).toBe(revision)
     expect(first.update.changed).toEqual([])
-    expect(first.generation.reused).toBe(false)
+    // The same files as the generation that created it: that generation is verified and reused.
+    expect(first.generation).toEqual({ ...made.generation, reused: true })
     const listing = t.tree()
     const again = await t.call("update", { documentPath: path, expectedRevision: revision, patch: {} })
     expect(again.generation).toEqual({ ...first.generation, reused: true })

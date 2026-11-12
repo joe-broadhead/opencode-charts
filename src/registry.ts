@@ -63,7 +63,7 @@ const outputs = {
   locale: LOCALE_FIELD,
   currency: CURRENCY_FIELD,
   currencyFields: z.array(z.string()).max(50).optional().describe("Exactly which fields are money; default: fields whose names look like money."),
-  formats: z.array(z.enum(["svg", "png", "html", "spec", "document"])).max(5).optional().describe("Files to write. Default svg, png and spec; add html for an interactive, offline page, and document for the editable <name>.chart.json. With document or documentPath the default is svg, png, spec and document, plus html when an interaction needs it; a list you give is exact."),
+  formats: z.array(z.enum(["svg", "png", "html", "spec", "document"])).max(5).optional().describe("Files to write. Default svg, png and spec; add html for an interactive, offline page, and document for the editable <name>.chart.json. With document or documentPath the files go in a new generation folder <outDir>/<name>-<digest>/, and the default is svg, png, spec and document, plus html when an interaction needs it; a list you give is exact."),
   scales: z.array(z.union([z.literal(1), z.literal(2), z.literal(3)])).max(3).optional().describe("PNG pixel densities. Default [2]."),
   name: z.string().max(80).optional().describe("File name stem; default from the title."),
   title: z.string().max(200).optional(),
@@ -153,6 +153,7 @@ const RENDER_OUTPUT = {
     interactions: { type: "object", description: "Requested (authored), resolved, and what each format carries; SVG and PNG are the static initial view.", additionalProperties: true },
     adjustments: { type: "array", items: { type: "object", additionalProperties: true } },
     diagnostics: { type: "array", items: ISSUE },
+    generation: { type: "object", description: "Document and documentPath calls, and charts_update: the generation folder the files were published in (directory), the digest of its file manifest, and reused: true when an identical generation was already there and was verified instead of written.", additionalProperties: true },
   },
   required: ["engine", "theme", "title", "files", "ms"],
   additionalProperties: true,
@@ -174,7 +175,6 @@ const UPDATE_OUTPUT = {
   properties: {
     ...(RENDER_OUTPUT.properties as object),
     update: { type: "object", description: "from (the source artifact's documentPath and revision), to (the new revision and its saved .chart.json, if written), changed (the authored fields that changed) and theme (whether appearance.theme was resolved anew and changed the base).", additionalProperties: true },
-    generation: { type: "object", description: "The new generation folder (directory), the digest of its file manifest, and reused: true when an identical generation was already there and was verified instead of written.", additionalProperties: true },
   },
   required: [...RENDER_OUTPUT.required, "revision", "update"],
 } as const
