@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test"
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
@@ -294,6 +295,25 @@ describe("formats of a document call", () => {
       expect(t.files().filter(f => !f.startsWith("outputs/charts/.")).filter(f => f.startsWith("outputs/"))).toEqual([])
     }
   }, 60_000)
+})
+
+describe("A30: a failure while preparing any file of a document call writes nothing", () => {
+  /** Every path under a folder, hidden ones included, with a digest of its bytes. */
+  const snapshot = (dir: string) => Object.fromEntries(tree(dir).map(f => [f, createHash("sha256").update(readFileSync(join(dir, f))).digest("hex")]))
+  const second = { ...BAR_DOC, chart: { ...BAR_DOC.chart, data: { rows: ROWS.map(r => ({ ...r, revenue: r.revenue * 2 })) } }, title: "Second version" }
+  for (const step of ["svg", "png", "html", "spec", "document", "preview"]) {
+    test(`${step} fails: the first version's files are untouched, nothing is added and no staging is left`, async () => {
+      let armed = false
+      const t = setup({ probe: s => { if (armed && s === step) throw new Error(`injected ${step} failure`) } })
+      const call = { name: "chart", formats: ["svg", "png", "html", "spec", "document"], scales: [1, 2] }
+      await t.call("quick", { document: { ...BAR_DOC, title: "First version" }, ...call, inspect: false })
+      t.write("outputs/charts/notes.txt", "unrelated")
+      const before = snapshot(t.dir)
+      armed = true
+      expect((await t.failed("quick", { document: second, ...call, inspect: true })).message).toBe(`injected ${step} failure`)
+      expect(snapshot(t.dir)).toEqual(before)
+    }, 60_000)
+  }
 })
 
 describe("every file a document call reads is asked for first, by its real path", () => {
