@@ -10,7 +10,7 @@ import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { BUNDLED, bundledFonts, customFontResource, MAX_CUSTOM_FONT_BYTES, readCustomFonts, withCustomFonts } from "../src/fonts.ts"
 import { contentSecurityPolicy, scriptJson } from "../src/html.ts"
 import { ECHARTS_MODULES, ECHARTS_SERIES_TYPES, ECHARTS_UNBUNDLED, HTML_INTERACTIONS } from "../src/runtime-support.ts"
-import { checkRenderedSvg } from "../src/safety.ts"
+import { checkRenderedSvg, echartsMarkupIssues, tooltipMarkupProblem } from "../src/safety.ts"
 import { cssString, fontFaceCss } from "../src/svg.ts"
 import { runTool, type ToolEnvironment } from "../src/tools.ts"
 import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
@@ -56,6 +56,42 @@ describe("unsupported ECharts components are refused (A20)", () => {
     expect(view.interactions.html.filter(i => i.engine === "echarts").map(i => i.id)).toEqual(["echarts-tooltip", "echarts-legend-toggle"])
     expect(view.interactions.unsupported.map(u => u.option)).toEqual(Object.keys(ECHARTS_UNBUNDLED))
     expect(view.knownLimits.join(" ")).toContain("dataZoom, brush")
+  })
+})
+
+describe("ECharts tooltip text that would become HTML is refused", () => {
+  const PAYLOAD = `<img src=x onerror="window.__pwned=1">{b}`
+  const levels: [string, Record<string, unknown>][] = [
+    ["/tooltip/formatter", { ...BAR_OPTION, tooltip: { formatter: PAYLOAD } }],
+    ["/series/0/tooltip/formatter", { ...BAR_OPTION, series: [{ type: "bar", data: [1, 2], tooltip: { formatter: PAYLOAD } }] }],
+    ["/series/0/data/0/tooltip/formatter", { ...BAR_OPTION, series: [{ type: "bar", data: [{ value: 1, tooltip: { formatter: PAYLOAD } }, 2] }] }],
+    ["/series/0/markPoint/data/0/tooltip/formatter", { ...BAR_OPTION, series: [{ type: "bar", data: [1, 2], markPoint: { data: [{ type: "max", tooltip: { formatter: PAYLOAD } }] } }] }],
+    ["/legend/tooltip/formatter", { ...BAR_OPTION, legend: { tooltip: { show: true, formatter: PAYLOAD } } }],
+    ["/legend/data/0/tooltip", { ...BAR_OPTION, legend: { data: [{ name: "a", tooltip: PAYLOAD }] } }],
+    ["/xAxis/tooltip/formatter", { ...BAR_OPTION, xAxis: { type: "category", data: ["a", "b"], tooltip: { show: true, formatter: PAYLOAD } } }],
+    ["/graphic/0/tooltip/formatter", { ...BAR_OPTION, graphic: [{ type: "text", style: { text: "note" }, tooltip: { formatter: PAYLOAD } }] }],
+  ]
+  for (const [path, option] of levels) test(`at ${path}: validate refuses it with the path and a next step`, async () => {
+    const checked = await runTool(env, "validate", { spec: option })
+    expect(checked.output.valid).toBe(false)
+    expect(checked.output.issues as unknown as Record<string, unknown>[]).toContainEqual({ level: "error", code: "ECHARTS_MARKUP_REFUSED", message: expect.stringContaining(path), path, fix: expect.stringContaining("{b}<br/>{c}") })
+  })
+  test("attribute-free formatting tags and placeholders pass", () => {
+    for (const ok of ["{b}<br/>{c}", "{b}<br>{c}", "<b>{a}</b>: {c}", "<strong>{b}</strong><br />{c} €", "<table><tr><td>{b}</td><td>{c}</td></tr></table>", "<div><p><span><em>{b}</em></span></p></div>", "<I>{b}</I>", "a & b > c", "&amp;"]) expect(tooltipMarkupProblem(ok)).toBeUndefined()
+  })
+  test("any attribute, other tag, comment, CDATA or reference to < is refused", () => {
+    for (const bad of [`<span style="color:red">{b}</span>`, "<b class=x>{b}</b>", "<script>1</script>", "<svg/onload=x>", "<a>{b}</a>", "<img src=x>", "<!-- {b} -->", "<![CDATA[x]]>", "<br/ onclick=x>", "&lt;img src=x onerror=f()&gt;", "&LT;b", "&lt", "&#60;img", "&#0060;", "&#x3C;img", "&#x003c;", "{b}<"]) expect(tooltipMarkupProblem(bad)).toBeString()
+    expect(tooltipMarkupProblem("&#600;")).toBeUndefined()
+  })
+  test("extraCssText and className are refused when they are not inert", () => {
+    const issues = (tooltip: Record<string, unknown>) => echartsMarkupIssues({ tooltip }).map(i => i.path)
+    for (const css of ["background:url(x)", "width: expression(alert(1))", "@import 'x'", "content:'\\3c'"]) expect(issues({ extraCssText: css })).toEqual(["/tooltip/extraCssText"])
+    expect(issues({ extraCssText: "padding: 8px; box-shadow: none" })).toEqual([])
+    expect(issues({ className: "my-tip x_1" })).toEqual([])
+    expect(issues({ className: "x\" onmouseover=\"y" })).toEqual(["/tooltip/className"])
+  })
+  test("other formatters are drawn as SVG text, and a dataset column called tooltip is data", () => {
+    expect(echartsMarkupIssues({ xAxis: { axisLabel: { formatter: "{value} <b>" } }, series: [{ label: { formatter: "<{b}>" } }], dataset: { source: [{ tooltip: "<img>", v: 1 }] } })).toEqual([])
   })
 })
 

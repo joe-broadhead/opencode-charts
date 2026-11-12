@@ -175,10 +175,10 @@ describe("ECharts tooltip markup", () => {
   const BASE = { tooltip: { trigger: "item" }, legend: { data: ["2024"] }, xAxis: { type: "category", data: ["Q1", "Q2"] }, yAxis: { type: "value" }, series: [{ name: "2024", type: "bar", data: [120, 80] }] }
   type Option = { tooltip: Record<string, unknown>; legend: Record<string, unknown>; series: { tooltip?: unknown; data: unknown[] }[] }
   const LEVELS: [string, (o: Option) => void, "bar" | "legend"][] = [
-    ["tooltip.formatter", o => { o.tooltip.formatter = PAYLOAD }, "bar"],
-    ["series[0].tooltip.formatter", o => { o.series[0]!.tooltip = { formatter: PAYLOAD } }, "bar"],
-    ["series[0].data[0].tooltip.formatter", o => { o.series[0]!.data[0] = { value: 120, tooltip: { formatter: PAYLOAD } } }, "bar"],
-    ["legend.tooltip.formatter", o => { o.legend.tooltip = { show: true, formatter: PAYLOAD } }, "legend"],
+    ["/tooltip/formatter", o => { o.tooltip.formatter = PAYLOAD }, "bar"],
+    ["/series/0/tooltip/formatter", o => { o.series[0]!.tooltip = { formatter: PAYLOAD } }, "bar"],
+    ["/series/0/data/0/tooltip/formatter", o => { o.series[0]!.data[0] = { value: 120, tooltip: { formatter: PAYLOAD } } }, "bar"],
+    ["/legend/tooltip/formatter", o => { o.legend.tooltip = { show: true, formatter: PAYLOAD } }, "legend"],
   ]
   const hoverTarget = (page: import("playwright-core").Page, target: "bar" | "legend") => page.evaluate((t) => {
     const el = t === "legend" ? [...document.querySelectorAll("#chart text")].find(e => e.textContent === "2024")! : [...document.querySelectorAll("#chart path")].find(e => (e.getAttribute("fill") ?? "").toUpperCase() === "#4477AA" && e.getBoundingClientRect().height > 30)!
@@ -187,7 +187,13 @@ describe("ECharts tooltip markup", () => {
 
   // The spec check refuses these (test/runtime.test.ts); here it is bypassed by editing the page's option JSON, which
   // the CSP does not hash, so the policy is the only layer left. The markup reaches the tooltip and its handler is refused.
-  for (const [level, inject, target] of LEVELS) test(`the CSP refuses an inline handler in ${level} even when the markup reaches the DOM`, async () => {
+  for (const [level, inject, target] of LEVELS) test(`${level}: validation refuses the payload, and the CSP refuses its handler when the markup is forced into the page`, async () => {
+    const authored = structuredClone(BASE) as unknown as Option
+    inject(authored)
+    const checked = await plugin.call("validate", { spec: authored, inspect: false })
+    expect(checked.output.valid).toBe(false)
+    expect((checked.output.issues as { code: string; path: string }[]).map(i => `${i.code} ${i.path}`)).toContain(`ECHARTS_MARKUP_REFUSED ${level}`)
+    await expect(plugin.call("render", { spec: authored, formats: ["html"], name: "refused" })).rejects.toThrow(/ECHARTS_MARKUP_REFUSED/)
     const { html } = await renderHtml(plugin, { spec: BASE, title: "Tooltip markup", name: `markup-${level.replace(/\W+/g, "-")}` })
     const text = readFileSync(html, "utf8")
     const match = /<script type="application\/json" id="chart-spec">([\s\S]*?)<\/script>/.exec(text)!

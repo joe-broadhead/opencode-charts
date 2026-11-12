@@ -1,4 +1,4 @@
-import { ChartsError, pointer } from "./errors.js"
+import { ChartsError, pointer, type Issue } from "./errors.js"
 import { ECHARTS_SERIES_TYPES } from "./runtime-support.js"
 
 /**
@@ -94,6 +94,63 @@ const isDataValue = (path: (string | number)[]) => path.includes("values") || (p
 export function deniedLoader() {
   const deny = (uri?: unknown) => Promise.reject(new ChartsError("SPEC_UNSAFE", `Loading "${String(uri ?? "")}" is not allowed.`, "Inline the data, or read a workspace file with data.path."))
   return { options: {}, fileAccess: false, sanitize: deny, load: deny, file: deny, http: deny }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// ECharts text that the browser runtime inserts as HTML.
+//
+// ECharts' HTML tooltip (TooltipHTMLContent) sets innerHTML to the tooltip's formatter template, after replacing
+// {a}/{b}/{c}/{d} with HTML-encoded values; a component tooltip (legend, axis name, graphic element) does the same
+// with its formatter, and treats a string-valued `tooltip` as its formatter. `extraCssText` is appended to the
+// tooltip's style and `className` becomes its class. Every other formatter (axis, label, legend text, axisPointer
+// label) is drawn as SVG text, never parsed as HTML. So every `tooltip` object or string in an option is checked,
+// wherever it is (top level, series, data item, mark data, legend and its items, axes, graphic elements): its
+// formatter may use only attribute-free formatting tags, and its CSS and class name only inert text. The page's CSP
+// refuses inline handlers as well; this check refuses the option before anything is written.
+
+const TOOLTIP_TAGS = ["br", "b", "strong", "i", "em", "span", "p", "div", "table", "tr", "td"] as const
+const ALLOWED_TAG = new RegExp(`<\\/?(?:${TOOLTIP_TAGS.join("|")})\\s*\\/?>`, "gi")
+// Character references that decode to "<": &lt (with or without ;), &#60 and &#x3c, with any leading zeros.
+const LT_REFERENCE = /&(?:lt|#0*60(?![0-9])|#x0*3c(?![0-9a-f]))/i
+const UNSAFE_CSS = /url\s*\(|expression\s*\(|@import|\\/i
+const CLASS_NAME = /^[A-Za-z0-9_ -]*$/
+
+const markupFix = `Use plain text with the {a}, {b}, {c} and {d} placeholders; only ${TOOLTIP_TAGS.map(t => `<${t}>`).join(", ")} without attributes are allowed (such as "{b}<br/>{c}").`
+
+/** Why a tooltip formatter would put more than plain formatting into the page, or undefined when it would not. */
+export function tooltipMarkupProblem(text: string): string | undefined {
+  const rest = text.replace(ALLOWED_TAG, "")
+  const at = rest.indexOf("<")
+  if (at >= 0) return `markup other than attribute-free formatting tags (${JSON.stringify(rest.slice(at, at + 40))})`
+  const ref = LT_REFERENCE.exec(text)
+  if (ref) return `a character reference that decodes to "<" (${JSON.stringify(text.slice(ref.index, ref.index + 12))})`
+  return undefined
+}
+
+/** The tooltip text in an ECharts option that ECharts would insert as HTML and that is not inert, as spec errors. */
+export function echartsMarkupIssues(option: unknown): Issue[] {
+  const issues: Issue[] = []
+  const refuse = (path: (string | number)[], what: string, fix: string) => issues.push({ level: "error", code: "ECHARTS_MARKUP_REFUSED", message: `The ECharts tooltip text at ${pointer(path)} has ${what}, which ECharts would insert into the page as HTML.`, path: pointer(path), fix })
+  const checkTooltip = (tooltip: unknown, path: (string | number)[]) => {
+    if (typeof tooltip === "string") { const problem = tooltipMarkupProblem(tooltip); if (problem) refuse(path, problem, markupFix); return }
+    if (!tooltip || typeof tooltip !== "object" || Array.isArray(tooltip)) return
+    const t = tooltip as Record<string, unknown>
+    if (typeof t.formatter === "string") { const problem = tooltipMarkupProblem(t.formatter); if (problem) refuse([...path, "formatter"], problem, markupFix) }
+    if (typeof t.extraCssText === "string" && UNSAFE_CSS.test(t.extraCssText)) refuse([...path, "extraCssText"], "url(), expression(), @import or a backslash in its CSS", "Use plain declarations such as \"padding: 8px; box-shadow: none\", with no url(), expression(), @import or backslash.")
+    if (typeof t.className === "string" && !CLASS_NAME.test(t.className)) refuse([...path, "className"], "a class name with characters other than letters, digits, dashes, underscores and spaces", "Use a class name of letters, digits, dashes and underscores.")
+  }
+  const visit = (value: unknown, path: (string | number)[]) => {
+    if (Array.isArray(value)) { value.forEach((item, i) => visit(item, [...path, i])); return }
+    if (!value || typeof value !== "object") return
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      // A dataset holds rows of data, whose columns may be called anything; it carries no options.
+      if (key === "dataset" && path.length === 0) continue
+      if (key === "tooltip") checkTooltip(child, [...path, key])
+      visit(child, [...path, key])
+    }
+  }
+  visit(option, [])
+  return issues
 }
 
 /** Layer 3: the rendered SVG. */

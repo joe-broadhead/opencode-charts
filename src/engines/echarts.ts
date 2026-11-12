@@ -3,6 +3,7 @@ import { echartsModules } from "./echarts-install.js"
 import { formatLocale } from "d3-format"
 import { ChartsError, suggest, type Issue, pointer } from "../errors.js"
 import { ECHARTS_UNBUNDLED } from "../runtime-support.js"
+import { echartsMarkupIssues } from "../safety.js"
 import type { FontBook } from "../fonts.js"
 import { profile as profileRows, type Profile, type Row } from "../data.js"
 import type { ResolvedLocale } from "../locale.js"
@@ -43,6 +44,7 @@ export function prepareECharts(input: Json, ctx: EChartsContext): { option: Json
   // A component neither runtime bundles would be dropped without a word, on the server and in the browser alike.
   for (const key of Object.keys(input)) if (Object.hasOwn(ECHARTS_UNBUNDLED, key) && input[key] !== undefined && input[key] !== null && input[key] !== false)
     issues.push({ level: "error", code: "ECHARTS_COMPONENT_UNSUPPORTED", message: `The ECharts option uses ${key}, which this build's ECharts runtime does not include, so it would be ignored.`, path: pointer([key]), fix: ECHARTS_UNBUNDLED[key]! })
+  issues.push(...echartsMarkupIssues(input))
   if (series.length === 0) issues.push({ level: "error", code: "NO_SERIES", message: "The ECharts option has no series.", path: "/series", fix: "Add series: [{\"type\": \"sankey\", …}]; charts_catalogue has an example for each type." })
   option.series = series
 
