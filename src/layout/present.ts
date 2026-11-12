@@ -274,6 +274,13 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
     color.legend = legend.kind === "gradient"
       ? { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, gradientLength: { expr: `${SIGNALS.legendOrient} === 'right' || ${SIGNALS.legendOrient} === 'left' ? clamp(height * 0.8, 40, 200) : clamp(width * 0.5, 60, 240)` } }
       : { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, columns: { expr: SIGNALS.legendColumns } }
+    // A pie lists its slices in the order they are drawn (largest first when sorted by value); the colours stay keyed
+    // to the captured domain, so a category keeps its colour whatever the order.
+    if (radial && typeof color.field === "string") {
+      const field = color.field
+      const order = [...new Map(rows.map(r => [JSON.stringify(r[field] ?? null), r[field] ?? null])).values()]
+      ;(color.legend as Json).values = order
+    }
   }
   // A size key (bubble) has no colour scale: its symbols are drawn in the theme's muted text colour, fully opaque, so they
   // read on a dark canvas as well as a light one.

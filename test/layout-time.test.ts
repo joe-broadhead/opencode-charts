@@ -86,3 +86,19 @@ test("a box plot draws with no Vega-Lite warning, and the plan's signals still r
     expect(result.figure.nodes.some(n => n.kind === "title" && n.text === "Response times by region")).toBe(true)
   }
 }, 60_000)
+
+test("a pie or donut lists its legend in slice order, and each category keeps its colour", async () => {
+  const rows = [{ channel: "Search", visits: 120 }, { channel: "Direct", visits: 300 }, { channel: "Email", visits: 45 }, { channel: "Social", visits: 210 }]
+  const legendOrder = (svg: string) => [...svg.matchAll(/role-legend-label[^>]*><text[^>]*>([^<]+)<\/text>/g)].map(m => m[1])
+  const colourOf = (svg: string) => Object.fromEntries([...svg.matchAll(/aria-label="Channel: ([A-Za-z]+); [^"]*"[^>]*fill="(#[0-9A-F]+)"/g)].map(m => [m[1], m[2]]))
+  const drawn: Record<string, Record<string, string>> = {}
+  for (const sort of ["value-descending", "category-ascending", "input"]) for (const recipe of ["pie", "donut"]) {
+    const { result, fitted } = await draw(env, { version: 1, title: "Visits by channel", chart: { kind: "recipe", recipe, data: { rows }, bindings: { category: "channel", value: "visits" }, options: { sort } } })
+    const slices = fitted.presentation.rows.map(r => String(r.channel))
+    expect(legendOrder(result.svg)).toEqual(slices)
+    drawn[`${recipe} ${sort}`] = colourOf(result.svg)
+  }
+  // The same colour for each category in every order and in both recipes.
+  expect(new Set(Object.values(drawn).map(c => JSON.stringify(Object.entries(c).sort()))).size).toBe(1)
+  expect(Object.keys(drawn["pie value-descending"]!).sort()).toEqual(["Direct", "Email", "Search", "Social"])
+}, 60_000)
