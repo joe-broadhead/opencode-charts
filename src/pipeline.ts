@@ -1,16 +1,17 @@
-import { readFileSync, writeFileSync } from "node:fs"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { applyTransforms, describeProfile, loadData, type DataInput, type Profile, type Row } from "./data.js"
 import { compactSpec, isObject, substituteThemeColours, type Json } from "./engines/common.js"
 import { prepareECharts, renderECharts, serialisableOption } from "./engines/echarts.js"
 import { prepareVega, renderVega } from "./engines/vega.js"
 import { compileVegaLite, prepareVegaLite, units } from "./engines/vegalite.js"
+import { publish, type Artifact } from "./artifacts.js"
 import { ChartsError, SpecInvalid, type Issue } from "./errors.js"
 import { BUNDLED, bundledFonts, withCustomFonts, type FontBook } from "./fonts.js"
-import { buildHtml } from "./html.js"
+import { buildHtml, htmlProblem } from "./html.js"
 import { resolveLocale } from "./locale.js"
-import { confine, ensureDirectory, slug, type Workspace } from "./paths.js"
-import { svgTextToPaths, svgToPng } from "./png.js"
+import { confine, slug, type Workspace } from "./paths.js"
+import { pngProblem, svgTextToPaths, svgToPng } from "./png.js"
 import { checkRenderedSvg, checkSpec, LIMITS, type Engine } from "./safety.js"
 import { figureOf, markedSvg, type Figure } from "./figure.js"
 import { accessible, embedFonts, layoutFacts, normaliseIds, textBoxes, textProblems, type LayoutFacts } from "./svg.js"
@@ -50,6 +51,12 @@ export interface Environment {
   readonly packageRoot: string
   readonly configuredThemes: ThemeSources["configured"]
   readonly defaults: { readonly theme?: string; readonly locale?: string; readonly outDir: string }
+  /**
+   * A test seam for failure injection, never set by the plugin: called before each output is prepared (`svg`, `png`,
+   * `html`, `spec`, `preview`) and before each file is moved into place (`commit`, with its name). Throwing simulates
+   * that step failing.
+   */
+  readonly probe?: (step: "svg" | "png" | "html" | "spec" | "preview" | "commit", file?: string) => void
 }
 
 export interface RenderResult {
@@ -129,6 +136,19 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   checkSpec(request.spec, engine)
   for (const [k, v] of [["width", request.width], ["height", request.height]] as const) if (v !== undefined && (v < 20 || v > LIMITS.dimension)) throw new ChartsError("SIZE_INVALID", `${k} ${v} is outside 20–${LIMITS.dimension}.`, "Pick a size in pixels within that range.")
 
+  // Preflight, before any work: the formats and scales asked for, the runtimes they need, and the output folder. A
+  // render stops at the first problem; a check reports each one as an invalid result. Nothing here touches the disk.
+  const formats = new Set<Format>(request.formats ?? ["svg", "png", "spec"])
+  const checked = write ? formats : new Set<Format>(request.formats ?? [])
+  const scales = [...new Set(request.scales ?? [2])]
+  for (const scale of scales) if (![1, 2, 3].includes(scale)) throw new ChartsError("SCALE_INVALID", `PNG scale ${scale} is not 1, 2 or 3.`, "Use scales such as [1, 2, 3].", "/scales")
+  const outDir = request.outDir ?? env.defaults.outDir
+  const preflight: { problem: ChartsError; path: string }[] = []
+  try { confine(env.workspace, outDir, "write") } catch (error) { if (error instanceof ChartsError) preflight.push({ problem: error, path: "/outDir" }); else throw error }
+  if (checked.has("html")) { const problem = htmlProblem(env.packageRoot); if (problem) preflight.push({ problem, path: "/formats" }) }
+  if (checked.has("png") || request.preview || (write && request.svgText === "paths")) { const problem = pngProblem(env.packageRoot); if (problem) preflight.push({ problem, path: checked.has("png") ? "/formats" : "/inspect" }) }
+  if (write && preflight.length) throw preflight[0]!.problem
+
   // Data.
   let rows: Row[] | undefined, dataSource: string | undefined
   if (request.data && (request.data.rows || request.data.path)) {
@@ -142,7 +162,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   let fonts: FontBook = bundledFonts(env.packageRoot)
   if (theme.font.files.length) fonts = withCustomFonts(fonts, theme.font.files.map(f => ({ family: f.family, weight: f.weight, bytes: new Uint8Array(readFileSync(confine(env.workspace, f.path, "read").absolute)) })))
   const locale = resolveLocale(env.packageRoot, request.locale ?? env.defaults.locale ?? "en-US", request.currency)
-  const issues: Issue[] = [...themeContrastIssues(theme)]
+  const issues: Issue[] = [...preflight.map(({ problem, path }): Issue => ({ level: "error", code: problem.code, message: problem.detail, path, fix: problem.hint })), ...themeContrastIssues(theme), ...sizeOverrides(request, engine)]
   const notes: string[] = []
   if (!fonts.has(theme.font.family)) issues.push({ level: "warning", code: "FONT_NOT_BUNDLED", message: `The font "${theme.font.family}" is not available, so Inter is used.`, path: "/theme/font/family", fix: `Use Inter or JetBrains Mono, or add the font file with theme.font.files.` })
 
@@ -158,7 +178,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     if (issues.some(i => i.level === "error")) throw new SpecInvalid(issues)
     profile = prepared.profile
     const compiled = compileVegaLite(prepared.spec)
-    for (const w of compiled.warnings) issues.push({ level: "warning", code: "VEGA_LITE_WARNING", message: w })
+    for (const w of compiled.warnings) issues.push({ level: "warning", code: "VEGA_LITE_WARNING", message: w, ...(FIT_WARNING.test(w) ? { fix: FIT_FIX } : {}) })
     resolvedSpec = prepared.spec
     vegaSpec = compiled.vega
     const values = isObject(prepared.spec.data) && Array.isArray(prepared.spec.data.values) ? prepared.spec.data.values as Row[] : rows
@@ -212,35 +232,54 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
 
   const files: { svg?: string; png: string[]; html?: string; spec?: string } = { png: [] }
   let preview: Uint8Array | undefined
-  const formats = new Set(request.formats ?? ["svg", "png", "spec"])
   const name = slug(request.name ?? title)
   const defaultFamily = fonts.has(theme.font.family) ? theme.font.family : "Inter"
+  // A PNG over the pixel limit is known from the drawing's size: refuse it before any file is made.
+  if (checked.has("png")) for (const scale of scales) if (width! * height! * scale * scale > LIMITS.pngPixels) {
+    const problem = new ChartsError("PNG_TOO_LARGE", `A ${Math.round(width! * scale)}×${Math.round(height! * scale)} PNG is over the size limit.`, "Use a smaller scale or a smaller chart.")
+    if (write) throw problem
+    throw new SpecInvalid([...issues, { level: "error", code: problem.code, message: problem.detail, path: "/scales", fix: problem.hint }])
+  }
+
+  // Every requested file, and the preview, is made in memory first; only then is anything written.
+  const artifacts: Artifact[] = []
+  const step = (kind: "svg" | "png" | "html" | "spec" | "preview") => env.probe?.(kind)
   if (write) {
-    const dir = ensureDirectory(env.workspace, request.outDir ?? env.defaults.outDir)
-    const out = (file: string, bytes: string | Uint8Array) => { writeFileSync(join(dir.absolute, file), bytes); return `${dir.relative === "." ? "" : dir.relative + "/"}${file}` }
-    let svgOut = svg
-    if (request.svgText === "paths") svgOut = normaliseIds(accessible(await svgTextToPaths(env.packageRoot, svg, fonts, defaultFamily), title, description))
-    else if (request.svgText === "embed") svgOut = embedFonts(svg, fontFiles(env.packageRoot, theme))
-    if (formats.has("svg")) files.svg = out(`${name}.svg`, svgOut)
-    if (formats.has("png")) {
-      const scales = [...new Set(request.scales ?? [2])]
-      for (const [i, scale] of scales.entries()) {
-        if (![1, 2, 3].includes(scale)) throw new ChartsError("SCALE_INVALID", `PNG scale ${scale} is not 1, 2 or 3.`, "Use scales such as [1, 2, 3].")
-        const { png } = await svgToPng(env.packageRoot, svg, fonts, scale, defaultFamily)
-        files.png.push(out(i === 0 ? `${name}.png` : `${name}@${scale}x.png`, png))
-      }
+    if (formats.has("svg")) {
+      step("svg")
+      let svgOut = svg
+      if (request.svgText === "paths") svgOut = normaliseIds(accessible(await svgTextToPaths(env.packageRoot, svg, fonts, defaultFamily), title, description))
+      else if (request.svgText === "embed") svgOut = embedFonts(svg, fontFiles(env.packageRoot, theme))
+      artifacts.push({ kind: "svg", file: `${name}.svg`, bytes: svgOut })
+    }
+    if (formats.has("png")) for (const [i, scale] of scales.entries()) {
+      step("png")
+      const { png } = await svgToPng(env.packageRoot, svg, fonts, scale, defaultFamily)
+      artifacts.push({ kind: "png", file: i === 0 ? `${name}.png` : `${name}@${scale}x.png`, bytes: png })
     }
     if (formats.has("html")) {
-      files.html = out(`${name}.html`, buildHtml(env.packageRoot, engine === "echarts"
+      step("html")
+      artifacts.push({ kind: "html", file: `${name}.html`, bytes: buildHtml(env.packageRoot, engine === "echarts"
         ? { engine: "echarts", spec: serialisableOption(echartsOption!), svg, title, description, theme, echartsTheme: echartsTheme(theme), fonts: fontFiles(env.packageRoot, theme), compactSpec: compactSpec(locale.currency ? locale.number.currency : undefined, locale.number.decimal), localeId: locale.id }
-        : { engine: "vega", spec: vegaSpec!, svg, title, description, theme, fonts: fontFiles(env.packageRoot, theme), compactSpec: "", localeId: locale.id }))
+        : { engine: "vega", spec: vegaSpec!, svg, title, description, theme, fonts: fontFiles(env.packageRoot, theme), compactSpec: "", localeId: locale.id }) })
     }
-    if (formats.has("spec")) files.spec = out(`${name}.${engine === "vega-lite" ? "vl" : engine === "vega" ? "vg" : "echarts"}.json`, JSON.stringify(resolvedSpec, null, 1) + "\n")
+    if (formats.has("spec")) {
+      step("spec")
+      artifacts.push({ kind: "spec", file: `${name}.${engine === "vega-lite" ? "vl" : engine === "vega" ? "vg" : "echarts"}.json`, bytes: JSON.stringify(resolvedSpec, null, 1) + "\n" })
+    }
   }
   if (request.preview) {
+    step("preview")
     // The same ids the figure tree names, drawn on the picture, so "n7 runs past the edge" points at one label.
     const marked = request.marks === "none" ? svg : markedSvg(svg, figure, { which: request.marks ?? "problems", font: `${defaultFamily}, sans-serif` })
     preview = (await svgToPng(env.packageRoot, marked, fonts, 1, defaultFamily)).png
+  }
+  if (write && artifacts.length) {
+    const written = publish(env.workspace, outDir, artifacts, file => env.probe?.("commit", file))
+    artifacts.forEach((artifact, i) => {
+      if (artifact.kind === "png") files.png.push(written[i]!)
+      else files[artifact.kind] = written[i]!
+    })
   }
   const shown = files.png[0] ?? files.svg
   return {
@@ -249,6 +288,36 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     summary: [description, profile ? `Data: ${dataSource ?? "inline"}; ${describeProfile(profile)}` : ""].filter(Boolean).join(" "),
     issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg, resolvedSpec, figure,
   }
+}
+
+/** Vega-Lite's warnings about autosize "fit", which needs a single or layered view with continuous size. */
+const FIT_WARNING = /autosize|"fit|\bfit-[xy]\b/i
+const FIT_FIX = "Autosize \"fit\" works only for a single or layered view with a continuous width and height: give numeric width and height, or leave autosize out (the default pads)."
+
+/**
+ * Where the spec's own size beats the tool's. The precedence is unchanged (the spec's size wins in Vega-Lite and Vega,
+ * and a number in an ECharts option wins), but the caller hears about it, with both values and the path, instead of a
+ * silent miss. A size that is not a pixel count (a signal, a step, "container") is quoted as written, never turned
+ * into a number. Equal sizes say nothing.
+ */
+export function sizeOverrides(request: RenderRequest, engine: Engine): Issue[] {
+  const issues: Issue[] = []
+  for (const dim of ["width", "height"] as const) {
+    const own = request.spec[dim]
+    if (own === undefined) continue
+    const path = `/spec/${dim}`
+    const quoted = typeof own === "number" ? String(own) : JSON.stringify(own).slice(0, 120)
+    const tool = request[dim]
+    if (engine === "echarts" && typeof own !== "number") {
+      // ECharts reads only a number here; anything else is dropped, so say which size was drawn instead.
+      issues.push({ level: "warning", code: "SIZE_OVERRIDE_IGNORED", path, message: `The spec's ${dim} ${quoted} is not a pixel count, so it is ignored and the chart is drawn at the ${tool !== undefined ? `tool's ${dim} ${tool}` : `theme's default ${dim}`}.`, fix: `Pass ${dim} as a number of pixels, at ${path} or as the tool's ${dim}.` })
+      continue
+    }
+    if (tool === undefined || own === tool) continue
+    const what = typeof own === "number" ? `${dim} ${own}` : `${dim} ${quoted}, which is not a pixel count, so the engine sizes the chart from it`
+    issues.push({ level: "warning", code: "SIZE_OVERRIDE_IGNORED", path, message: `The tool's ${dim} ${tool} is ignored: the spec sets ${what} at ${path}, and the spec's own size takes precedence.`, fix: `To draw at ${tool}, remove ${dim} from the spec (or set ${path} to ${tool}); to keep the spec's size, drop the tool's ${dim}.` })
+  }
+  return issues
 }
 
 /** The distinct characters the SVG draws that no face in the book can: the ones that become blank boxes. */

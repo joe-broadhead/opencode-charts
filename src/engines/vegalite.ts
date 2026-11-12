@@ -285,7 +285,10 @@ function lintUnit(unit: Unit, prof: Profile | undefined, issues: Issue[], values
   if (unit.spec.resolve && isObject(unit.spec.resolve) && JSON.stringify(unit.spec.resolve).includes("independent") && Array.isArray(unit.spec.layer)) issues.push({ level: "warning", code: "DUAL_AXIS", message: "Two independent y scales: readers compare the lines' heights, which mean different things.", path: at("resolve"), fix: "Title both axes with their units and colour each axis like its line, or use two charts side by side." })
 }
 
-/** Compiles to Vega, collecting Vega-Lite's own warnings as issues. */
+/**
+ * Compiles to Vega, collecting Vega-Lite's own warnings as issues. Its warnings about autosize "fit" are kept: they say
+ * a size request had no effect. Only a dropped tooltip field is left out.
+ */
 export function compileVegaLite(spec: Json): { vega: Json; warnings: string[] } {
   const warnings: string[] = []
   const logger = {
@@ -297,7 +300,7 @@ export function compileVegaLite(spec: Json): { vega: Json; warnings: string[] } 
   }
   try {
     const out = compile(spec as never, { logger: logger as never })
-    return { vega: out.spec as unknown as Json, warnings: warnings.filter(w => !/autosize "fit" only works|Autosize "fit" only works|Dropping .* from channel "tooltip"|Dropping "fit|because spec has discrete (width|height)/i.test(w)) }
+    return { vega: out.spec as unknown as Json, warnings: warnings.filter(w => !/Dropping .* from channel "tooltip"/i.test(w)) }
   } catch (error) {
     throw new ChartsError("SPEC_INVALID", `Vega-Lite could not compile the spec: ${(error as Error).message}`, "Fix the spec; charts_catalogue has a working example for each chart type.")
   }

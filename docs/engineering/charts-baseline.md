@@ -47,3 +47,11 @@ The record changes only with `UPDATE_GOLDEN=1` and a reviewed diff.
 F1, F2, F3, F7, F9 and F10 were found by reading the source and are reproduced by the tests named above. F4, F5, F6
 and F8 concern the browser runtime: the expected browser symptom of F4 has not been reproduced end to end at the
 baseline, and only a real browser test can show it.
+
+## Observed while adding the tests
+
+Under `bun test`, a reply from the Vega worker thread (`src/engines/vega-pool.ts`, which `unref`s the worker) was seen
+to wait until the 10 s render timeout fired when nothing else was pending, so an ordinary render failed as
+`SPEC_TOO_EXPENSIVE`. It reproduced only inside the test runner, in one test order, and not in a plain `bun` script.
+`test/publication.test.ts` therefore renders in the calling thread (`CHARTS_IN_PROCESS=1`, restored afterwards). The
+worker pool itself is unchanged; whether the same delay can happen inside a host process is not established.

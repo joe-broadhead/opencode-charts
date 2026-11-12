@@ -3,13 +3,22 @@
 Two suites, both deterministic and both runnable with no model:
 
 ```
-bun eval/run.ts <dir>                      # 30 render cases: does the right call draw the right chart?
+bun eval/run.ts <dir>                      # 28 render cases: does the right call draw the right chart?
 bun eval/recommend.ts <dir>                # 21 advice cases: does the right chart win, and what must not?
 bun eval/recommend.ts <dir> --update-baseline
 bun eval/perf.ts                           # warm medians per chart
 ```
 
 Each exits non-zero on a failure, so CI can gate on it.
+
+## What these suites measure, and what they do not
+
+Both suites run **prepared calls**: the render suite sends each case's scripted call (written by hand, or built from a
+catalogue example by `exampleCall`), and the advice suite calls `charts_recommend` directly. No model chooses a tool,
+writes an input or repairs an error (`--answers` grades calls a model made elsewhere; it runs no model itself). So a pass shows that the renderer and the advice are correct for those calls;
+it is not evidence about how often an agent makes a correct call, or how many repairs it needs. That is measured
+separately, from an agent's recorded tool trace, and reported as its own result. `npm run check` runs only these
+deterministic suites.
 
 ## The render suite (`eval/run.ts`, `eval/cases.ts`)
 

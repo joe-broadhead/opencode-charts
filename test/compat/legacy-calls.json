@@ -87,7 +87,9 @@
    "svg": "outputs/charts/vl-conflicting-sizes.svg",
    "spec": "outputs/charts/vl-conflicting-sizes.vl.json"
   },
-  "warnings": [],
+  "warnings": [
+   "SIZE_OVERRIDE_IGNORED"
+  ],
   "svg": "900da10b44f52bc2"
  },
  "vega-unsized": {
@@ -152,7 +154,9 @@
    "svg": "outputs/charts/echarts-conflicting-sizes.svg",
    "spec": "outputs/charts/echarts-conflicting-sizes.echarts.json"
   },
-  "warnings": [],
+  "warnings": [
+   "SIZE_OVERRIDE_IGNORED"
+  ],
   "svg": "ad66beb952c5c3b4"
  },
  "validate-vl": {

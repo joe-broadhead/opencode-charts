@@ -159,10 +159,10 @@ next step.
 |---|---|
 | `charts_render` | Any spec (Vega-Lite, Vega or ECharts, detected) plus `data` (`rows`, or a workspace `path` to CSV, TSV, JSON, JSONL or Parquet, with optional Vega-Lite `transform`s). Writes `<name>.svg`, `<name>.png` and `<name>.vl.json` (plus `.html` on request), and returns a markdown image line to show it inline. |
 | `charts_quick` | `bar`, `horizontal_bar`, `grouped_bar`, `stacked_bar`, `line`, `area`, `stacked_area`, `scatter`, `bubble`, `pie`, `donut`, `histogram`, `box_plot` and `heatmap`, from field names. |
-| `charts_validate` | The same checks as render, plus the PNG, with no files written. Also returns the figure tree: every label, its box, and which ones collide or run off the edge, with ids the preview numbers. |
+| `charts_validate` | The same checks as render, plus the PNG, with no files written. It takes the same input as `charts_render`, checks the requested formats can be made, and returns `valid: true` or `valid: false` with the issues. Also returns the figure tree: every label, its box, and which ones collide or run off the edge, with ids the preview numbers. |
 | `charts_recommend` | Which chart fits a question, its data and its medium: a ranked shortlist with a reason each, the encoding to use, and a ready `charts_render` call on your own columns. Advises; it never renders. |
 | `charts_capabilities` | Exactly what this build can do: engines, working output formats, themes and palette sizes, bundled fonts and the scripts they cover, data formats, limits, and what is known not to work. |
-| `charts_catalogue` | Every chart type, and a working example of any. |
+| `charts_catalogue` | Every chart type, and a working example of any: the exact tested call, with its data, title, currency and size. |
 | `charts_themes` / `charts_theme_save` | List themes and their tokens; save a brand theme to `.charts/themes/<name>.json`. |
 
 There is one list behind all of these: `src/registry.ts` defines each tool once, and the plugin's tool registration,
@@ -198,9 +198,11 @@ metadata, and a test keeps this table and the code equal.
 | `THEME_NOT_FOUND`, `THEME_INVALID`, `THEME_CYCLE`, `THEME_NAME_INVALID`, `THEME_NAME_TAKEN`, `FONT_INVALID`, `FONT_TOO_LARGE` | A theme, a theme name, or its fonts. |
 | `LOCALE_UNKNOWN`, `CURRENCY_UNKNOWN`, `ATLAS_UNKNOWN`, `CHART_TYPE_UNKNOWN`, `FIELD_MISSING`, `SIZE_INVALID`, `SCALE_INVALID` | A name or a value the call gives. |
 | `PNG_UNAVAILABLE`, `PNG_TOO_LARGE`, `HTML_UNAVAILABLE`, `RENDER_FAILED` | A renderer. |
+| `OUTPUT_WRITE_FAILED` | Writing the files failed; every file is made before any is written, and the error names any file that could not be put back as it was. |
 | `SKILLS_INVALID`, `STATUS_UNAVAILABLE` | Setup could not load a skill, or `/charts-status` could not be read (in the server log, or the session). |
 | `NO_MARK`, `NO_MARKS`, `NO_SERIES`, `DATA_TWICE`, `AXES_MISSING`, `SANKEY_CYCLE`, `SERIES_TYPE_MISSING`, `UNKNOWN_MARK`, `UNKNOWN_CHANNEL`, `UNKNOWN_PROPERTY`, `UNKNOWN_TYPE`, `UNKNOWN_DATASET`, `UNKNOWN_FIELD`, `TYPE_MISMATCH`, `PIE_NEGATIVE`, `DATA_MISSING` | A spec or data problem that stops the render, reported inside `SPEC_INVALID` with its JSON path and a fix. |
 | `EMPTY_DATA`, `NOT_A_DATE`, `DATE_AS_CATEGORY`, `MISSING_UNITS`, `TRUNCATED_AXIS`, `DUAL_AXIS`, `DUPLICATE_TICKS`, `UNSORTED_BARS`, `OVERPLOTTING`, `TOO_MANY_SERIES`, `PIE_TOO_MANY_SLICES`, `RAINBOW_SEQUENTIAL`, `LOW_CONTRAST`, `LABEL_COLLISION`, `LABEL_CLIPPED`, `LABEL_DENSITY`, `FONT_NOT_BUNDLED`, `FONT_GLYPH_MISSING`, `VEGA_LITE_WARNING`, `VEGA_WARNING` | A lint or drawing warning, returned with the result beside the chart. |
+| `SIZE_OVERRIDE_IGNORED` | The spec's own `width` or `height` beats the tool's (the spec keeps precedence), or an ECharts size is not a pixel count; the warning names both values and the path, such as `/spec/width`. |
 
 ## Configure
 
