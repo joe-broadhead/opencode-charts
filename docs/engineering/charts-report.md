@@ -100,8 +100,8 @@ the stock binaries installed by the workflow. The WP5 branch itself has not run 
 | A07 | met | `test/recipes.test.ts:74`–`:131`; `test/document-tools.test.ts:248` | — |
 | A08 | met | null, zero, negative, temporal and three host time zones: `test/recipes.test.ts:139`–`:212`; empty data through the tools (`DATA_EMPTY`, nothing written, nothing invented): `test/empty-document.test.ts` | Before WP5 an empty recipe dataset was refused with a misleading `SPEC_INVALID`; fixed here. |
 | A09 | met | `test/layout.test.ts:32`–`:60` (exact outer SVG, PNG at 1×/2×/3×, adjustments with paths) | See the long-label findings under Known limits. |
-| A10 | met | `test/layout.test.ts:103`–`:124`; `test/document-tools.test.ts:588` | — |
-| A11 | met | `test/layout.test.ts:130` | Same-platform promise only. |
+| A10 | partial | Tiny outer sizes, a font override below the floor and an engine document asking for responsive layout are refused with the conflicts and no files: `test/layout.test.ts:103`–`:124`; `test/document-tools.test.ts:588`. Not covered and not met: with the agent corpus's eight 50–60-character labels, a vertical `bar` at height 480 is accepted at 360 and 480 px wide but refused (`LAYOUT_UNSATISFIABLE`) at 600 and 720 px, so a wider canvas is refused where a narrower one fits, which §7.1–§7.2 do not allow; the A10 tests use only tiny sizes. | Met once the planner fix for width monotonicity merges and the corpus labels are re-checked at 360–1024 px. |
+| A11 | met | `test/layout.test.ts:130` | One fixed-size document, repeated; same-platform promise only. |
 | A12 | met | `test/document-tools.test.ts:456`; `test/update.test.ts:148`, `:160` | — |
 | A13 | met | `test/layout.test.ts:222` | Exercised on the appearance resolver and compiled spec, not through a raw engine document. |
 | A14 | met | `test/document-tools.test.ts:444`; `test/update.test.ts:178` | — |
@@ -114,7 +114,7 @@ the stock binaries installed by the workflow. The WP5 branch itself has not run 
 | A21 | met | browser: `test/browser/presets.test.ts:72`, `:104`, `:219`–`:260` | — |
 | A22 | met | browser: `test/browser/presets.test.ts:143` | — |
 | A23 | met | browser: `test/browser/presets.test.ts:197` (scatter and bubble) | — |
-| A24 | met | browser: `test/browser/presets.test.ts:292` (320/480/720/1024), `:331` | Height stays fixed (as specified). |
+| A24 | met | browser: `test/browser/presets.test.ts:292` (320/480/720/1024), `:331` | One fixture with short labels; the long-label width finding (A10) applies to the browser re-planning too, since it uses the same planner. Height stays fixed (as specified). |
 | A25 | met | browser: `test/browser/presets.test.ts:354`, `:379` | — |
 | A26 | met | browser: `test/browser/presets.test.ts:403`; `test/browser/runtime.test.ts:273`–`:306` | — |
 | A27 | met | browser: `test/browser/fonts.test.ts:18`; `test/runtime.test.ts:136`–`:193` | — |
@@ -126,7 +126,7 @@ the stock binaries installed by the workflow. The WP5 branch itself has not run 
 | A33 | met | `test/pack/pack.test.ts:61` (tarball installed with scripts off, renders and updates); host suite on 2.2.3–2.2.6; the `whitelist` stage (no runtime dependencies) | — |
 | A34 | met | `test/registry.test.ts:23`–`:113`; host `test/host/tools-rpc.host.test.ts:85` (every result against its declared output schema); `test/jelly.test.ts`; `test/discovery.test.ts`; `test/generated.test.ts`; `test/codes.test.ts` | The prose pages (`docs/status.md` known limits, `docs/architecture.md`) are checked by hand; the generated tables and code lists are tested. |
 
-Summary: 34 met, 0 partial, 0 not met.
+Summary: 33 met, 1 partial (A10), 0 not met. Items whose tests cover one fixture or one path say so in their "Left" column (A11, A13, A24, A31, A34).
 
 ## Definition of done
 
@@ -136,7 +136,7 @@ Summary: 34 met, 0 partial, 0 not met.
 | 2 | New contracts strict, versioned, documented, projected through the registry | Done. |
 | 3 | Authoring, theme, data and revision invariants under the matrix | Done (A06–A17). |
 | 4 | Every advertised interaction has a real browser test under the packaged CSP | Done: `test/browser/runtime.test.ts:373` fails when an advertised interaction has no browser test of that title. |
-| 5 | Fixed sizing exact; responsive reflows; unsatisfied constraints visible | Done, with the quality findings below. |
+| 5 | Fixed sizing exact; responsive reflows; unsatisfied constraints visible | Partial: sizes are exact and refusals visible, but fitting is not monotonic in width (A10). |
 | 6 | Permission, safety, determinism, bundle and host checks intact | Done. |
 | 7 | Gates and the browser gate pass; omissions identified | Done locally on Linux x64 with every stage run; CI has not run the WP5 branch yet. |
 | 8 | Representative gallery output and intentional golden changes reviewed | Partial: no golden SVG changed since the baseline. Five representative document charts (presentation dark bar, report grouped bar with legend highlight, inline line with x zoom, scatter with brush, a 360 × 480 long-label bar) were rendered at their target sizes and looked at; the full 53-type gallery was not re-reviewed in WP5. |
@@ -192,7 +192,7 @@ saved artifact's captured rows are measured as JSON against the data limit.
 - **Long category labels in narrow layouts** (found while writing the corpus, with eight 50–60-character labels):
   a vertical `bar` fits 360 × 480 by turning the labels 45°, but leaves a 136 × 172 px plot; the same chart is
   refused (`LAYOUT_UNSATISFIABLE`, an overlap between the turned labels and the axis title) at 600 × 480 and
-  720 × 480, so fitting is not monotonic in width; and `horizontal_bar` needs at least 480 px for these labels while
+  720 × 480, so fitting is not monotonic in width (A10 is partial until a planner fix lands); and `horizontal_bar` needs at least 480 px for these labels while
   the refusal's next step suggests a horizontal bar. The planner keeps its promises (no shrinking, no dropped
   categories, an explicit refusal), but the candidate set should be revisited: wrapping long y labels for horizontal
   bars before refusing, and placing the axis title clear of turned labels.
