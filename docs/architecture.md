@@ -40,11 +40,20 @@ folder, then runs `runTool` (`src/tools.ts`):
    the same ids, so a finding points at one label.
 7. **Files** (`src/pipeline.ts`, `src/artifacts.ts`). SVG, PNG through resvg compiled to WebAssembly (`src/png.ts`),
    the spec, and on request a self-contained HTML page (`src/html.ts`) with its runtime inlined and a CSP that forbids
-   every fetch. Every requested file, and the preview, is made in memory before anything is written; a PNG over the
-   pixel limit is refused from the drawing's size first. The files are then staged beside their targets and moved into
-   place one by one; if a move fails, the files already moved are put back and the staging files removed
-   (`OUTPUT_WRITE_FAILED` names any that could not be). That is a best-effort rollback, not a crash-safe transaction.
-   `charts_validate` writes nothing and creates no folder.
+   every fetch and every string-to-code evaluation. Vega runs with vega-interpreter (the spec parsed with
+   `{ast: true}`). The static SVG is the first paint; the live chart starts off-screen once the embedded fonts have
+   loaded and replaces it only after it initialised. The page's status (`initializing`, `ready`, `failed`) is on
+   `<html data-chart-status>`, and a failure keeps the static chart with a visible notice and a short
+   `HTML_RUNTIME_FAILED` diagnostic. Every requested file, and the preview, is made in memory before anything is
+   written; a PNG over the pixel limit is refused from the drawing's size first. The files are then staged beside their
+   targets and moved into place one by one; if a move fails, the files already moved are put back and the staging
+   files removed (`OUTPUT_WRITE_FAILED` names any that could not be). That is a best-effort rollback, not a crash-safe
+   transaction. `charts_validate` writes nothing and creates no folder.
+
+Fonts are one list of approved resources (`FontResource` in `src/fonts.ts`): each bundled or custom face's bytes,
+hash, MIME type and CSS `format()`. Server metrics, the PNG, embedded-font SVG and the HTML page all take their faces
+from it, so a theme's own `.ttf` or `.otf` is embedded wherever it is drawn. A custom file is confined to the
+workspace, asked for with read permission, and size-checked before it is read.
 
 The result is text for the model (what it shows, the files, the warnings, a markdown image line) and, when there is
 something to look at, the PNG itself.
@@ -72,7 +81,9 @@ them drifts. A tool that exists on one surface and not another is a defect, not 
 
 ## The bundle
 
-`node scripts/build.mjs` makes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm` and `dist/browser/*`, and
+`node scripts/build.mjs` makes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm` and `dist/browser/*` (from
+`src/browser/vega.ts` and `src/browser/echarts.ts`; the ECharts modules both runtimes register come from one table,
+`src/runtime-support.ts`, which also lists the interactions interactive HTML provides), and
 regenerates `THIRD_PARTY_NOTICES.md` and `licenses/packages/`. The outputs import only `node:` builtins and
 `@opencode/plugin`, so the tarball stands alone with no runtime dependencies. The SHA-256 of the wasm and of each
 browser runtime is compiled into `index.js`, so a stale or swapped file is refused (`PNG_UNAVAILABLE`,
@@ -81,5 +92,6 @@ browser runtime is compiled into `index.js`, so a stale or swapped file is refus
 ## Checks
 
 `npm run check` (`scripts/check.mjs`) runs, in order: `typecheck`, `build`, `unit` (the suites in `test/`, golden SVGs
-included), `copies` (the shared declaration kit), `icons` (the family icon contract), `whitelist` (the package shape)
+included), `browser` (interactive HTML in a pinned headless Chromium: it starts under its CSP with no request,
+and each advertised interaction changes the drawing), `copies` (the shared declaration kit), `icons` (the family icon contract), `whitelist` (the package shape)
 and `pack` (the packed tarball, installed with scripts off next to `@opencode/plugin` alone, loads and renders).

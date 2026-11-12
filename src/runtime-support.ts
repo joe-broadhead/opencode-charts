@@ -1,11 +1,20 @@
 /**
- * What each chart runtime has, in one place: the ECharts modules registered on the server and in the browser, and the
- * option keys that name an ECharts component neither bundles.
+ * What each chart runtime has, in one place: the ECharts modules registered on the server and in the browser, the
+ * option keys that name an ECharts component neither bundles, and the interactions interactive HTML provides.
  *
  * Data only, with no ECharts import, so the safety checks (which the Vega worker also bundles) can read it. The
  * classes are attached in `engines/echarts-install.ts`, whose table must name exactly these modules (the type
  * checker holds it), and both the server renderer and the browser runtime register from that one table.
  */
+
+export type RuntimeEngine = "vega-lite" | "vega" | "echarts"
+
+/** One interaction interactive HTML provides. `id` is also the title of the browser test that exercises it. */
+export interface RuntimeInteraction {
+  readonly engine: RuntimeEngine
+  readonly id: string
+  readonly what: string
+}
 
 export interface EChartsModule {
   readonly name: string
@@ -80,3 +89,19 @@ export const ECHARTS_UNBUNDLED: Readonly<Record<string, string>> = {
   matrix: "Remove matrix: the matrix coordinate system is not in this build's ECharts runtime. Use a heatmap on xAxis and yAxis instead.",
   thumbnail: "Remove thumbnail: the overview thumbnail is not in this build's ECharts runtime.",
 }
+
+/** The interactions the ECharts runtime provides in interactive HTML. */
+export const ECHARTS_INTERACTIONS: readonly RuntimeInteraction[] = [
+  { engine: "echarts", id: "echarts-tooltip", what: "Tooltips on hover (an axis tooltip for line and bar series, an item tooltip otherwise), added when the option has none." },
+  { engine: "echarts", id: "echarts-legend-toggle", what: "Clicking a legend entry shows or hides that series (ECharts' own legend behaviour, when the option has a legend)." },
+]
+
+/** The interactions the Vega runtime provides in interactive HTML. */
+export const VEGA_INTERACTIONS: readonly RuntimeInteraction[] = [
+  { engine: "vega-lite", id: "vega-lite-tooltip", what: "Tooltips from a tooltip encoding or mark.tooltip, via vega-tooltip." },
+  { engine: "vega-lite", id: "vega-lite-interval-selection", what: "Interval selections (params with select: interval) authored in the spec: drag to select, as in interactive_brush." },
+  { engine: "vega", id: "vega-signals", what: "Signals and event streams authored in a Vega spec, evaluated without code generation." },
+]
+
+/** Every interaction interactive HTML provides. Nothing is listed here without a browser test of the same title. */
+export const HTML_INTERACTIONS: readonly RuntimeInteraction[] = [...VEGA_INTERACTIONS, ...ECHARTS_INTERACTIONS]

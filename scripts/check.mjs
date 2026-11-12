@@ -25,6 +25,10 @@ const stages = {
   typecheck: () => run("tsc", ["-p", "tsconfig.json"]),
   // The unit suites are the files directly in test/; test/pack packs and installs the package, so it is its own stage.
   unit: () => run("bun", ["test", ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`)]),
+  // Interactive HTML in a real browser: playwright-core's headless Chromium, pinned by the exact playwright-core
+  // version in package-lock.json. A missing browser fails this stage, never skips it; install it once with
+  // `npx playwright-core install --only-shell chromium` (on Linux add --with-deps for the system libraries).
+  browser,
   copies: () => run("node", ["scripts/check-copies.mjs"]),
   forbidden: () => run("node", ["scripts/check-forbidden.mjs"]),
   icons: () => run("node", ["scripts/check-icons.mjs"]),
@@ -65,6 +69,16 @@ function run(command, args, options = {}) {
   }
   if (result.error) throw result.error
   return result.status ?? 1
+}
+
+function browser() {
+  const probe = spawnSync("node", ["-e", "const {chromium}=require('playwright-core');chromium.launch().then(b=>b.close(),e=>{console.error(e.message.split('\\n')[0]);process.exit(1)})"], { cwd: root, env, encoding: "utf8" })
+  if (probe.status !== 0) {
+    console.error(`[check] browser: playwright-core's headless Chromium did not start: ${(probe.stderr || probe.stdout || "").trim()}`)
+    console.error("[check] browser: install it with: npx playwright-core install --only-shell chromium (on Linux add --with-deps). This stage does not skip.")
+    return 1
+  }
+  return run("bun", ["test", "./test/browser"])
 }
 
 /** R13: the workflows are linted as workflows, by actionlint when it is installed; a notice when it is not. */

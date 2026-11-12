@@ -16,7 +16,7 @@ This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode 
 - **Bundles.** `npm run build` writes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm` and `dist/browser/*`,
   and regenerates THIRD_PARTY_NOTICES.md and `licenses/packages/`. Outputs import only `node:` builtins and
   `@opencode/plugin`.
-- **Checks.** `npm run check` is the one command (see CONTRIBUTING.md): `build`, `typecheck`, `unit`, `copies`,
+- **Checks.** `npm run check` is the one command (see CONTRIBUTING.md): `build`, `typecheck`, `unit`, `browser`, `copies`,
   `forbidden`, `icons`, `whitelist`, `jelly`, `actionlint`, `pack`, `evals` and `host`. Do not skip or weaken a stage to
   get green.
 - **Permissions.** Every tool is allowed by default; `src/permissions.ts` generates the block from the tool table and

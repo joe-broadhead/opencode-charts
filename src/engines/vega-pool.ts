@@ -53,7 +53,8 @@ function spawn(): Worker | undefined {
   return w
 }
 
-const fontsKey = (fonts: FontBook) => createHash("sha256").update(fonts.list().map(f => `${f.family}:${f.weight}:${f.bytes.byteLength}`).join("|")).digest("hex")
+/** The worker keeps the faces it was sent until this changes: the approved resources' families, weights and content hashes. */
+const fontsKey = (fonts: FontBook) => createHash("sha256").update(fonts.list().map(f => `${f.family}:${f.weight}:${f.resource.sha256}`).join("|")).digest("hex")
 
 export async function renderVega(spec: Json, fonts: FontBook, seed: number): Promise<VegaRender> {
   if (process.env.CHARTS_IN_PROCESS === "1") return renderVegaInProcess(spec, fonts, seed)

@@ -25,7 +25,8 @@ rmSync(`${ROOT}dist`, { recursive: true, force: true })
 mkdirSync(`${ROOT}dist/browser`, { recursive: true })
 
 // 1. Browser runtimes for interactive HTML, from their entry files in src/browser/. The ECharts one registers the
-//    browser half of src/runtime-support.ts's module table.
+//    browser half of src/runtime-support.ts's module table; the Vega one carries vega-interpreter (released from the
+//    same Vega commit as vega 6.4.0), so the page evaluates expressions without generating code.
 const browserHashes = {}
 const bundledInputs = new Set()
 for (const name of ["vega", "echarts"]) {

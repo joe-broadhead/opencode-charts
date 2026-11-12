@@ -99,9 +99,21 @@ export function deniedLoader() {
 /** Layer 3: the rendered SVG. */
 export function checkRenderedSvg(svg: string) {
   if (/<(?:image|foreignObject|script|iframe|object|embed)\b/i.test(svg)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains an image, script or embedded object.", "Remove image marks, href channels and embedded content from the spec.")
-  if (/\b(?:href|xlink:href)\s*=\s*["']\s*(?!#)/i.test(svg)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart links to an external resource.", "Remove the href channel from the spec.")
-  if (/\son[a-z]+\s*=/i.test(svg)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains an event handler attribute.", "Remove it from the spec.")
+  // Attributes are read from the tags themselves, quoted values included, so text that merely reads like markup (a
+  // label "<img onerror=…>", escaped in the SVG as &lt;img …) is data, not an attribute. Anything left over that still
+  // looks like a tag means the markup could not be read, and is refused rather than passed.
+  const rest = svg.replace(SVG_TAG, (_tag, attributes: string) => {
+    for (const attribute of attributes.matchAll(SVG_ATTRIBUTE)) {
+      const name = attribute[1]!.toLowerCase(), value = (attribute[2] ?? "").replace(/^["']|["']$/g, "").trim()
+      if (/^on[a-z]+$/.test(name)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains an event handler attribute.", "Remove it from the spec.")
+      if ((name === "href" || name === "xlink:href") && !value.startsWith("#")) throw new ChartsError("SPEC_UNSAFE", "The rendered chart links to an external resource.", "Remove the href channel from the spec.")
+    }
+    return ""
+  })
+  if (rest.replace(/<\/[A-Za-z][^\s>]*\s*>|<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?xml[^>]*\?>/g, "").includes("<")) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains markup that could not be checked.", "Simplify the labels and titles, then render again.")
 }
+const SVG_TAG = /<[A-Za-z][^\s/<>]*((?:\s+[^\s=/<>"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'<>]+))?)*)\s*\/?>/g
+const SVG_ATTRIBUTE = /([^\s=/<>"']+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'<>]+))?/g
 
 // ---------------------------------------------------------------------------------------------------------------
 // Layer 2: static cardinality bounds on a compiled Vega spec (from open-cowork apps/desktop/src/main/chart-spec-safety.ts).
