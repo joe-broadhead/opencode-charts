@@ -75,3 +75,16 @@ test("turned labels deeper than 200 px keep the axis title below them (Vega's de
     expect(title.box[1]).toBeGreaterThanOrEqual(deepest)
   }
 }, 60_000)
+
+test("the planner and the drawing agree on turned labels: no candidate the planner accepts is rejected by the drawn check", async () => {
+  const disagreements: string[] = []
+  for (const [width, height] of [[300, 480], [310, 480], [320, 390], [330, 480], [360, 480], [420, 480], [600, 480]]) {
+    const outcome = await draw(env, { ...categorical("bar", LONG), layout: { width, height } }).then(r => r.fitted.report.rejected, (e: { code?: string; message: string }) => {
+      if (e.code !== "LAYOUT_UNSATISFIABLE") throw e
+      // A refusal by the planner itself is agreement; one the drawing made after the planner accepted is not.
+      return e.message.includes("measured on the drawn chart") ? [{ candidate: "all", conflicts: [{ what: e.message }] }] : []
+    })
+    if (outcome.length) disagreements.push(`${width}×${height}: ${outcome.map(r => `${r.candidate}: ${r.conflicts.map(c => c.what).join("; ").slice(0, 120)}`).join(" | ")}`)
+  }
+  expect(disagreements).toEqual([])
+}, 120_000)
