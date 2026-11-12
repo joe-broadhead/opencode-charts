@@ -127,3 +127,13 @@ test("the planner and the drawing agree on turned labels: no candidate the plann
   }
   expect(disagreements).toEqual([])
 }, 120_000)
+
+test("a plot left small by its guides is reported as an adjustment, with its size and share of the canvas", async () => {
+  const narrow = await draw(env, { ...categorical("bar", LONG), layout: { width: 360, height: 480 } })
+  const plot = narrow.fitted.report.plot!
+  expect((plot.width * plot.height) / (360 * 480)).toBeLessThan(0.25)
+  const note = narrow.fitted.report.adjustments.find(a => a.path === "/layout")
+  expect(note?.reason).toContain(`the plot is ${Math.round(plot.width)}×${Math.round(plot.height)} px`)
+  const roomy = await draw(env, { ...categorical("bar", SHORT), layout: { width: 720, height: 480 } })
+  expect(roomy.fitted.report.adjustments.filter(a => a.path === "/layout")).toEqual([])
+}, 60_000)
