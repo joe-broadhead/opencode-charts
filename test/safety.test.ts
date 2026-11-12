@@ -5,6 +5,9 @@ import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { renderChart } from "../src/pipeline.ts"
 import { BAR, ROWS, workspace } from "./helpers.ts"
 
+/** The render time limit the suite was started with, which the timeout test sets back. */
+const AMBIENT_TIMEOUT = process.env.CHARTS_RENDER_TIMEOUT_MS
+
 const ws = workspace()
 afterAll(async () => { ws.cleanup(); await closeVegaWorker() })
 const refused = async (request: Parameters<typeof renderChart>[0], code: RegExp) => {
@@ -58,17 +61,30 @@ describe("spec safety refuses", () => {
     await refused({ spec: { marks: [{ type: "symbol", from: { data: "a" } }], data: [{ name: "a", values: [{ x: 1 }], transform: [{ type: "cross" }] }] } }, /^SPEC_TOO_EXPENSIVE: Cross/)
   })
   test("a render that runs away is stopped by the worker's time limit, and the next render still works", async () => {
+    // The short limit is this test's alone. Every unit file runs in one bun process, in name order, so a limit left in
+    // the environment would also bind the files after this one (sizing.test.ts first): there, a cold worker start on a
+    // slow runner took longer than 1.5 s and an ordinary render failed as SPEC_TOO_EXPENSIVE.
+    const previous = process.env.CHARTS_RENDER_TIMEOUT_MS
     process.env.CHARTS_RENDER_TIMEOUT_MS = "1500"
-    // impute fills a key × group grid: 2,500 keys × 2,500 groups is 6.25 million rows.
-    const rows = Array.from({ length: 5000 }, (_, i) => ({ k: i % 2500, g: `g${(i * 7) % 2500}`, v: i }))
-    const spec = { mark: "line", transform: [{ impute: "v", key: "k", groupby: ["g"], value: 0 }], encoding: { x: { field: "k", type: "quantitative" }, y: { field: "v", type: "quantitative" }, color: { field: "g", type: "nominal", legend: null } } }
-    const { renderChart: render } = await import("../src/pipeline.ts")
-    let message = ""
-    try { await render({ spec, data: { rows }, formats: ["svg"] }, ws.env) } catch (error) { message = (error as Error).message }
-    expect(message).toMatch(/^SPEC_TOO_EXPENSIVE/)
-    const ok = await render({ spec: BAR, data: { rows: ROWS }, formats: ["svg"] }, ws.env)
-    expect(ok.svg).toContain("<svg")
+    try {
+      // impute fills a key × group grid: 2,500 keys × 2,500 groups is 6.25 million rows.
+      const rows = Array.from({ length: 5000 }, (_, i) => ({ k: i % 2500, g: `g${(i * 7) % 2500}`, v: i }))
+      const spec = { mark: "line", transform: [{ impute: "v", key: "k", groupby: ["g"], value: 0 }], encoding: { x: { field: "k", type: "quantitative" }, y: { field: "v", type: "quantitative" }, color: { field: "g", type: "nominal", legend: null } } }
+      const { renderChart: render } = await import("../src/pipeline.ts")
+      let message = ""
+      try { await render({ spec, data: { rows }, formats: ["svg"] }, ws.env) } catch (error) { message = (error as Error).message }
+      expect(message).toMatch(/^SPEC_TOO_EXPENSIVE/)
+      const ok = await render({ spec: BAR, data: { rows: ROWS }, formats: ["svg"] }, ws.env)
+      expect(ok.svg).toContain("<svg")
+    } finally {
+      if (previous === undefined) delete process.env.CHARTS_RENDER_TIMEOUT_MS
+      else process.env.CHARTS_RENDER_TIMEOUT_MS = previous
+    }
   }, 30_000)
+
+  test("the short time limit does not outlive its test", () => {
+    expect(process.env.CHARTS_RENDER_TIMEOUT_MS).toBe(AMBIENT_TIMEOUT)
+  })
 })
 
 describe("rendered output", () => {
