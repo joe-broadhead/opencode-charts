@@ -55,13 +55,13 @@ function withoutDefaults(schema: z.ZodType): z.ZodType {
   return schema
 }
 
-function partialTokens(schema: z.ZodType, path: readonly string[]): z.ZodType {
+function partialTokens(schema: z.ZodType, path: readonly string[], excluded: Readonly<Record<string, string>> = EXCLUDED_TOKENS): z.ZodType {
   const inner = unwrap(schema)
   if (inner instanceof z.ZodObject) {
     const shape: Record<string, z.ZodType> = {}
     for (const [key, child] of Object.entries(inner.shape as Record<string, z.ZodType>)) {
-      if (hintFor(EXCLUDED_TOKENS, [...path, key].join("."))) continue
-      shape[key] = partialTokens(child, [...path, key]).optional()
+      if (hintFor(excluded, [...path, key].join("."))) continue
+      shape[key] = partialTokens(child, [...path, key], excluded).optional()
     }
     return z.strictObject(shape)
   }
@@ -71,6 +71,16 @@ function partialTokens(schema: z.ZodType, path: readonly string[]): z.ZodType {
 
 /** Strict deep-partial theme tokens for appearance.overrides. Derived from ThemeTokensSchema; never a loose record. */
 export const PresentationTokenOverridesSchema = partialTokens(ThemeTokensSchema, []).describe("Theme tokens to change on top of the named theme: colors, font, layout (padding, step), axis, marks, legend. Arrays replace whole.")
+
+/**
+ * The other projection of the same tokens: a standalone theme definition, as charts_theme_save saves it and the legacy
+ * tools' `theme` object passes it. Every token is optional and strict, arrays replace whole, and it keeps its identity
+ * keys: `extends` names the base theme, `name` and `description` are the saved theme's own. Layout width and height
+ * stay, because a legacy chart is still sized by its theme.
+ */
+export const ThemeDefinitionOverridesSchema = (partialTokens(ThemeTokensSchema, [], {}) as z.ZodObject)
+  .extend({ extends: z.string().trim().min(1).max(64).optional().describe("The theme these tokens change: a built-in or a saved one. Default light.") })
+  .describe("Theme tokens over a base theme: extends, name, description, colors, font, layout, axis, marks, legend. Every token optional; arrays replace whole; unknown keys are refused.")
 
 // ---------------------------------------------------------------------------------------------------------------
 // Pieces.

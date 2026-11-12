@@ -3,6 +3,7 @@ import { CURRENCY_FIELD, LOCALE_FIELD } from "./locale-fields.js"
 import { QUICK_TYPES } from "./quick.js"
 import { DEFINITIONS } from "./recipes/definitions.js"
 import { THEME_DIR } from "./themes/store.js"
+import { ThemeDefinitionOverridesSchema } from "./document/schema.js"
 
 /**
  * The registry: every tool of this plugin, defined once.
@@ -310,7 +311,8 @@ export const DECLARED: readonly DeclaredTool[] = [
     description: `Save a custom theme (a brand) by name in the workspace (${THEME_DIR}/<name>.json), so every chart can use it with theme: "<name>". Checks the tokens and their contrast first.`,
     input: z.strictObject({
       name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/).describe("Lowercase name, such as acme-brand."),
-      theme: row.describe("Tokens to override, with \"extends\" naming the base theme (default light): colors (background, text, muted, grid, axis, categorical[], sequential[], diverging[], positive, negative, neutral, highlight), font (family, mono, size, titleSize, labelSize, titleWeight, files[{family, weight, path}]), layout, axis, marks, legend."),
+      // The typed projection of the canonical tokens: every token optional, strict at every depth, arrays whole.
+      theme: ThemeDefinitionOverridesSchema,
     }),
   },
 ]

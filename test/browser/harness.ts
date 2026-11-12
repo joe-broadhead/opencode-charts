@@ -107,7 +107,7 @@ export interface Opened {
 }
 
 /** Opens a page from disk in a fresh context, records what it does, and waits for the shell to leave `initializing`. */
-export async function open(file: string, options: { wait?: boolean; viewport?: { width: number; height: number } } = {}): Promise<Opened> {
+export async function open(file: string, options: { wait?: boolean; viewport?: { width: number; height: number }; init?: string } = {}): Promise<Opened> {
   const b = await launch()
   const context = await b.newContext({ viewport: options.viewport ?? { width: 1280, height: 900 } })
   const page = await context.newPage()
@@ -133,6 +133,8 @@ export async function open(file: string, options: { wait?: boolean; viewport?: {
       }
     }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-chart-status", "data-chart-fonts"] })
   })
+  // A test's own instrumentation, installed before any of the page's scripts run.
+  if (options.init) await page.addInitScript(options.init)
   await page.goto(url)
   const status = () => page.evaluate(() => document.documentElement.getAttribute("data-chart-status"))
   if (options.wait !== false) await page.waitForFunction(() => document.documentElement.getAttribute("data-chart-status") !== "initializing", undefined, { timeout: 15_000 })

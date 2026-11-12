@@ -13,7 +13,9 @@ import type { Json } from "./engines/common.js"
 import { ChartsError, SpecInvalid, type Issue } from "./errors.js"
 import { readCustomFonts, type FontResource } from "./fonts.js"
 import { confine, slug } from "./paths.js"
-import type { Format, RenderRequest, RenderResult } from "./pipeline.js"
+import type { Environment, Format, RenderRequest, RenderResult } from "./pipeline.js"
+import { fitRecipe, type FittedRecipe } from "./layout/fit.js"
+import { htmlPresets } from "./layout/present.js"
 import { quickSpec } from "./quick.js"
 import { RECIPE_COMPILER_VERSION } from "./recipes/registry.js"
 import type { RecipeCompilation } from "./recipes/types.js"
@@ -307,14 +309,19 @@ export function documentFormats(explicit: readonly DocumentFormat[] | undefined,
 // The render request and the result fields.
 
 /**
- * The outer viewport of a recipe chart: width and height are the whole canvas (title, axes, legend and padding), which
- * Vega-Lite's autosize "fit" with "padding" gives for the single views every recipe compiles to. The layout planner
- * (readability floors, bounded candidates) takes this place when it lands; until then the actual size is measured and
- * reported beside the requested one.
+ * A recipe document's drawn chart: the layout planner fits it to its outer size (title, axes, legend and padding
+ * included) with its profile's readability floor, resolves its appearance (profile typography, overrides, category
+ * colours by captured domain position) and compiles its interaction presets. The custom fonts are the ones the
+ * adapter already read and checked. A size that cannot be met is LAYOUT_UNSATISFIABLE, pointed into the document.
+ * Engine documents keep their native layout: undefined.
  */
-export function withViewport(spec: Readonly<Record<string, unknown>>, layout: NonNullable<EffectiveSettings["layout"]>): Json {
-  return { ...spec, width: layout.width, height: layout.height, autosize: { type: "fit", contains: "padding" } } as Json
+export async function fitDocument(env: Environment, resolved: ResolvedDocument): Promise<FittedRecipe | undefined> {
+  if (resolved.artifact.document.chart.kind !== "recipe" || !resolved.compilation) return undefined
+  try { return await fitRecipe(resolved, env, { fonts: resolved.fonts }) } catch (error) { underDocument(error) }
 }
+
+/** Findings of the fitting that the final render does not repeat (CATEGORY_COLOR_UNUSED), pointed into the call. */
+export const fittedIssues = (fitted: FittedRecipe | undefined): Issue[] => (fitted?.presentation.issues ?? []).map(i => ({ ...i, path: docPath(i.path) }))
 
 export interface Delivery {
   readonly formats?: readonly DocumentFormat[]
@@ -328,17 +335,16 @@ export interface Delivery {
 
 export const pickDelivery = (input: Readonly<Record<string, unknown>>): Delivery => Object.fromEntries(DELIVERY_FIELDS.filter(k => input[k] !== undefined).map(k => [k, input[k]])) as Delivery
 
-export function documentRequest(resolved: ResolvedDocument, delivery: Delivery, formats: readonly DocumentFormat[], write: boolean): RenderRequest {
-  const { artifact, settings, compilation } = resolved
+export function documentRequest(resolved: ResolvedDocument, delivery: Delivery, formats: readonly DocumentFormat[], write: boolean, fitted?: FittedRecipe): RenderRequest {
+  const { artifact, settings } = resolved
   const doc = artifact.document
   const chart = doc.chart
-  const recipe = chart.kind === "recipe"
-  const rows = recipe ? compilation!.values : resolved.rows
+  // A recipe draws what the fitting checked: its spec, mark rows (internal fields out), tokens and runtime plan.
+  const drawn = fitted
+    ? { spec: fitted.request.spec, engine: "vega-lite" as const, data: fitted.request.data!, themeTokens: fitted.request.themeTokens!, presentation: fitted.request.presentation! }
+    : { spec: chart.kind === "engine" ? chart.spec as Json : {}, ...(chart.kind === "engine" && chart.engine ? { engine: chart.engine } : {}), ...(resolved.rows ? { data: { rows: resolved.rows as Row[], name: chart.kind === "engine" ? (chart.data?.name ?? "table") : "table" } } : {}), themeTokens: effectiveTheme(settings.theme.tokens, doc.appearance?.overrides) }
   return {
-    spec: (recipe ? withViewport(compilation!.spec, settings.layout!) : chart.spec) as Json,
-    ...(recipe ? { engine: "vega-lite" as const } : chart.engine ? { engine: chart.engine } : {}),
-    ...(rows ? { data: { rows: rows as Row[], name: recipe ? compilation!.dataName : (chart.data?.name ?? "table") } } : {}),
-    themeTokens: effectiveTheme(settings.theme.tokens, doc.appearance?.overrides),
+    ...drawn,
     fontResources: resolved.fonts,
     ...(doc.title !== undefined ? { title: doc.title } : {}),
     ...(doc.description !== undefined ? { description: doc.description } : {}),
@@ -388,18 +394,21 @@ function runtimeAssets(packageRoot: string) {
 }
 
 /** The document fields of a result: revision, source, theme, colour domain, sizes, interactions and diagnostics. */
-export function documentFields(env: { readonly packageRoot: string }, resolved: ResolvedDocument, result: RenderResult, issues: readonly Issue[], context: { readonly formats: readonly DocumentFormat[]; readonly delivery: Delivery; readonly write: boolean; /** Whether a preview PNG was made. */ readonly inspect: boolean }): Json {
+export function documentFields(env: { readonly packageRoot: string }, resolved: ResolvedDocument, result: RenderResult, issues: readonly Issue[], context: { readonly formats: readonly DocumentFormat[]; readonly delivery: Delivery; readonly write: boolean; /** Whether a preview PNG was made. */ readonly inspect: boolean; /** A recipe's layout fitting. */ readonly fitted?: FittedRecipe }): Json {
   const { artifact, settings, compilation } = resolved
   const doc = artifact.document
   const chart = doc.chart
   const recipe = chart.kind === "recipe"
-  const tokens = effectiveTheme(settings.theme.tokens, doc.appearance?.overrides)
+  const fitted = context.fitted
+  // The tokens the chart was drawn with: for a recipe, its profile's typography is part of them.
+  const tokens = fitted?.presentation.tokens ?? effectiveTheme(settings.theme.tokens, doc.appearance?.overrides)
   const categories = artifact.captured.categories
   const byFormat: Record<string, unknown> = {}
   for (const format of context.formats) {
     if (format === "svg" || format === "png") byFormat[format] = { interactive: false, view: "initial" }
     // The live page is never executed here: nothing in a result claims an interaction was seen to work.
-    if (format === "html") byFormat.html = { interactive: true, view: "initial", presets: [], verified: false }
+    // A recipe's HTML carries its compiled presets; an engine document's carries what its own spec declares.
+    if (format === "html") byFormat.html = { interactive: true, view: "initial", presets: fitted ? htmlPresets(fitted.presentation) : [], verified: false }
   }
   const compiled = (compilation?.diagnostics ?? []).map(i => ({ ...i, path: docPath(i.path) }))
   const diagnostics = [...compiled, ...issues].slice(0, DIAGNOSTICS_MAX)
@@ -430,18 +439,20 @@ export function documentFields(env: { readonly packageRoot: string }, resolved: 
       engine: result.engine,
       ...(resolved.documentPath ? { documentPath: resolved.documentPath } : {}),
     },
-    appearance: { theme: tokens.name, base: settings.theme.name, hash: sha256(canonicalJson(tokens)), overridden: tokens !== settings.theme.tokens },
+    appearance: { theme: tokens.name, base: settings.theme.name, hash: sha256(canonicalJson(tokens)), overridden: !!doc.appearance?.overrides && Object.keys(doc.appearance.overrides).length > 0 },
     ...(categories ? { categories: { role: categories.role, field: categories.field, count: categories.domain.length, values: categories.domain.slice(0, 50), truncated: categories.domain.length > 50 } } : {}),
     size: {
       requested: recipe ? { target: settings.layout!.target, mode: settings.layout!.mode, width: settings.layout!.width, height: settings.layout!.height } : { mode: "native" },
       actual: { width: result.width, height: result.height },
+      ...(result.plot ? { plot: result.plot } : {}),
+      ...(fitted ? { floor: fitted.report.floor, fontSizes: fitted.report.fontSizes, candidate: fitted.report.candidate, ...(fitted.report.rejected.length ? { rejected: fitted.report.rejected } : {}) } : {}),
     },
     interactions: {
       requested: (doc.interactions ?? {}) as Json,
       ...(settings.interactions ? { resolved: settings.interactions as unknown as Json } : {}),
       formats: byFormat as Json,
     },
-    adjustments: [],
+    adjustments: (fitted?.report.adjustments ?? []) as unknown as Json[],
     diagnostics: diagnostics as unknown as Json[],
   } as Json
 }

@@ -9,7 +9,7 @@ import { echartsModules } from "../src/engines/echarts-install.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { BUNDLED, bundledFonts, customFontResource, MAX_CUSTOM_FONT_BYTES, readCustomFonts, withCustomFonts } from "../src/fonts.ts"
 import { contentSecurityPolicy, scriptJson } from "../src/html.ts"
-import { ECHARTS_MODULES, ECHARTS_SERIES_TYPES, ECHARTS_UNBUNDLED, HTML_INTERACTIONS } from "../src/runtime-support.ts"
+import { ECHARTS_MODULES, ECHARTS_SERIES_TYPES, ECHARTS_UNBUNDLED, HTML_INTERACTIONS, RECIPE_INTERACTIONS } from "../src/runtime-support.ts"
 import { checkRenderedSvg, echartsMarkupIssues, tooltipMarkupProblem } from "../src/safety.ts"
 import { cssString, fontFaceCss } from "../src/svg.ts"
 import { runTool, type ToolEnvironment } from "../src/tools.ts"
@@ -53,6 +53,9 @@ describe("unsupported ECharts components are refused (A20)", () => {
   test("the capabilities report only the tested interactions, and the refused components", () => {
     const view = capabilities(env)
     expect(view.interactions.html).toEqual(HTML_INTERACTIONS)
+    // Recipe presets are reported apart, each with a browser test of its id (test/browser/runtime.test.ts holds that).
+    expect(view.interactions.presets).toEqual(RECIPE_INTERACTIONS)
+    expect(view.interactions.presets.map(i => i.id)).toEqual(["recipe-tooltip", "recipe-legend-highlight", "recipe-x-zoom", "recipe-interval-brush", "recipe-responsive"])
     expect(view.interactions.html.filter(i => i.engine === "echarts").map(i => i.id)).toEqual(["echarts-tooltip", "echarts-legend-toggle"])
     expect(view.interactions.unsupported.map(u => u.option)).toEqual(Object.keys(ECHARTS_UNBUNDLED))
     expect(view.knownLimits.join(" ")).toContain("dataZoom, brush")

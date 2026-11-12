@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test"
 import * as z from "zod"
 import { ChartsError } from "../src/errors.ts"
-import { ChartDocumentV1Schema, DocumentInvalid, documentJsonSchema, parseDocument, PresentationTokenOverridesSchema } from "../src/document/index.ts"
+import { ChartDocumentV1Schema, DocumentInvalid, documentJsonSchema, parseDocument, PresentationTokenOverridesSchema, ThemeDefinitionOverridesSchema } from "../src/document/index.ts"
 import { RECIPES, RECIPE_IDS, recipeDefinition, type RecipeId } from "../src/recipes/index.ts"
 import { ThemeTokensSchema } from "../src/themes/tokens.ts"
 
@@ -304,5 +304,29 @@ describe("the JSON Schema projection", () => {
     expect(text).toContain('"const":"engine"')
     // The union schema and the validator agree on the examples and on a strict failure.
     expect(ChartDocumentV1Schema.safeParse({ ...example("bar"), extra: 1 }).success).toBe(false)
+  })
+})
+
+describe("the theme definition projection (charts_theme_save and legacy theme objects)", () => {
+  const leaves = (schema: z.ZodType, path: string[] = []): string[] => {
+    let s: any = schema
+    while (s instanceof z.ZodOptional || s instanceof z.ZodDefault) s = s.unwrap()
+    return s instanceof z.ZodObject ? Object.entries(s.shape).flatMap(([k, v]) => leaves(v as z.ZodType, [...path, k])) : [path.join(".")]
+  }
+
+  test("every canonical token, plus extends; nothing else", () => {
+    const tokens = leaves(ThemeTokensSchema)
+    const definition = leaves(ThemeDefinitionOverridesSchema)
+    expect(definition.filter(t => !tokens.includes(t))).toEqual(["extends"])
+    expect(tokens.filter(t => !definition.includes(t))).toEqual([])
+  })
+
+  test("strict at every depth, arrays whole, no default materialised", () => {
+    const brand = { extends: "dark", name: "acme-dark", colors: { categorical: ["#111111", "#222222"] }, font: { files: [{ family: "Acme", path: "fonts/acme.ttf" }] }, layout: { width: 800 } }
+    expect(ThemeDefinitionOverridesSchema.parse(brand)).toEqual(brand)
+    const bad = ThemeDefinitionOverridesSchema.safeParse({ colors: { bogus: "#fff" }, marks: { glow: 1 }, palette: [] })
+    expect(bad.success).toBe(false)
+    expect(bad.error!.issues.map(i => [i.code, i.path.join("/"), (i as { keys?: string[] }).keys?.join()])).toEqual([["unrecognized_keys", "colors", "bogus"], ["unrecognized_keys", "marks", "glow"], ["unrecognized_keys", "", "palette"]])
+    expect(ThemeDefinitionOverridesSchema.safeParse({ colors: { categorical: ["#111111"] } }).success).toBe(false)
   })
 })

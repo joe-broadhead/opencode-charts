@@ -95,10 +95,18 @@ describe("the recommended document call (brief §5.4), with real data", () => {
     expect(out.source).toEqual({ input: "document", kind: "recipe", recipe: "line", engine: "vega-lite" })
     expect(out.theme).toBe("dark")
     expect(out.categories).toMatchObject({ role: "series", field: "region", count: 2, values: ["North", "South"] })
-    expect(out.size).toEqual({ requested: { target: "inline", mode: "responsive", width: 720, height: 420 }, actual: { width: 720, height: 420 } })
+    expect(out.size).toMatchObject({ requested: { target: "inline", mode: "responsive", width: 720, height: 420 }, actual: { width: 720, height: 420 }, floor: 11, fontSizes: { label: 11 }, candidate: { index: 0, name: "as-designed" } })
+    expect(out.size.plot.width).toBeGreaterThan(0)
     // SVG and PNG are static; the live page is never claimed as verified by a render.
     expect(out.interactions.formats.svg).toEqual({ interactive: false, view: "initial" })
     expect(out.interactions.formats.html.verified).toBe(false)
+    // The HTML carries the presets as compiled, each the browser-tested interaction it is.
+    expect(out.interactions.formats.html.presets.map((p: { preset: string; id: string; param?: string }) => [p.preset, p.id, p.param ?? null])).toEqual([
+      ["tooltip", "recipe-tooltip", null], ["legend", "recipe-legend-highlight", "charts_legend"], ["zoom", "recipe-x-zoom", "charts_zoom"], ["layout", "recipe-responsive", null],
+    ])
+    const page = t.read(out.files.html)
+    expect(page).toContain('"name":"charts_legend"')
+    expect(page).toContain('data-action="reset-all"')
     // The encoded values are the independently computed sums.
     const spec = JSON.parse(t.read(out.files.spec))
     const drawn = Object.fromEntries((spec.data.values as { month: string; region: string; revenue_eur: number }[]).map(v => [`${v.month.slice(0, 10)}|${v.region}`, v.revenue_eur]))
@@ -558,4 +566,68 @@ describe("results stay bounded", () => {
     for (const d of out.diagnostics) if (d.path) expect(d.path).toMatch(/^\/(document|compiled|formats|scales|outDir|inspect)/)
     expect(await t.text("validate", { document: BAR_DOC, inspect: false })).toContain("revision sha256:")
   }, 60_000)
+})
+
+describe("recipe documents are fitted by the layout planner", () => {
+  const LONG = ["Northern Europe and the Baltic states", "Southern Europe", "Middle East and North Africa", "Sub-Saharan Africa", "Latin America and the Caribbean", "East Asia and Pacific"]
+  const doc = (layout: Record<string, unknown>, over: Record<string, unknown> = {}) => ({ version: 1, title: "Revenue by region and sales channel, first half of 2024", chart: { kind: "recipe", recipe: "grouped_bar", data: { rows: LONG.flatMap((region, i) => ["Online", "Stores"].map((channel, j) => ({ region, channel, revenue_eur: 100 + i * 10 + j }))) }, bindings: { category: "region", series: "channel", value: "revenue_eur" } }, layout, ...over })
+
+  test("the planner's adjustments and candidate come back with the exact outer size", async () => {
+    const { call } = setup()
+    const out = await call("render", { document: doc({ width: 520, height: 420 }), formats: ["svg"], inspect: false })
+    expect(out.size.actual).toEqual({ width: 520, height: 420 })
+    expect(out.size.candidate.index).toBeGreaterThan(0)
+    expect(out.adjustments.length).toBeGreaterThan(0)
+    for (const a of out.adjustments) expect(a).toMatchObject({ path: expect.stringMatching(/^\//), reason: expect.any(String) })
+  }, 60_000)
+
+  test("a size the planner cannot meet: render refuses before any file, validate says where", async () => {
+    const { refusal, call, files } = setup()
+    const error = await refusal("render", { document: doc({ width: 220, height: 160 }), formats: ["svg", "png"] })
+    expect(error.code).toBe("LAYOUT_UNSATISFIABLE")
+    expect(files().filter(f => f.startsWith("outputs/"))).toEqual([])
+    const checked = await call("validate", { document: doc({ width: 220, height: 160 }) })
+    expect(checked.valid).toBe(false)
+    expect(checked.issues.map((i: { code: string; path: string }) => `${i.code} ${i.path}`)).toEqual(["LAYOUT_UNSATISFIABLE /document/layout"])
+  }, 60_000)
+
+  test("a category colour for a category the chart lacks is a warning of the tool result, at its document path", async () => {
+    const { call } = setup()
+    const out = await call("render", { document: doc({}, { appearance: { categoryColors: [{ value: "Stores", color: "#112233" }, { value: "Kiosk", color: "#445566" }] } }), formats: ["svg"], inspect: false })
+    expect(out.warnings.filter((w: { code: string }) => w.code === "CATEGORY_COLOR_UNUSED").map((w: { path: string }) => w.path)).toEqual(["/document/appearance/categoryColors/1/value"])
+    expect(out.diagnostics.map((d: { code: string }) => d.code)).toContain("CATEGORY_COLOR_UNUSED")
+  }, 60_000)
+})
+
+describe("typed theme tokens through the one theme reader", () => {
+  test("charts_theme_save's input is the typed definition of the canonical tokens, strict at every depth", async () => {
+    const { inputSchema } = await import("../src/registry.ts")
+    const theme = (inputSchema("theme_save").properties as Record<string, any>).theme
+    expect(theme.additionalProperties).toBe(false)
+    expect(Object.keys(theme.properties).sort()).toEqual(["axis", "colors", "description", "extends", "font", "layout", "legend", "marks", "mode", "name"])
+    expect(theme.properties.colors.additionalProperties).toBe(false)
+    expect(theme.properties.colors.properties.categorical.type).toBe("array")
+  })
+
+  test("theme_save keeps saving a brand theme, and refuses an unknown token before anything is written", async () => {
+    const t = setup()
+    const saved = await t.call("theme_save", { name: "acme-dark", theme: { extends: "dark", colors: { categorical: ["#FF6600", "#3366FF"] }, font: { titleSize: 20 } } })
+    expect(saved.theme).toMatchObject({ name: "acme-dark", mode: "dark", font: { titleSize: 20 } })
+    expect(t.files()).toContain(".charts/themes/acme-dark.json")
+    const error = await t.failed("theme_save", { name: "acme-bad", theme: { extends: "dark", colors: { bakground: "#000000" } } })
+    expect(error.message).toMatch(/bakground/)
+    expect(t.files()).not.toContain(".charts/themes/acme-bad.json")
+  }, 30_000)
+
+  test("a legacy inline theme object: valid ones draw as before; an unknown token is THEME_INVALID at its path, with the near name", async () => {
+    const t = setup()
+    const out = await t.call("render", { spec: BAR, data: { rows: ROWS }, theme: { extends: "dark", colors: { background: "#101010" } }, formats: ["svg"], inspect: false })
+    expect(out.theme).toBe("dark-custom")
+    const error = await t.refusal("render", { spec: BAR, data: { rows: ROWS }, theme: { extends: "dark", colors: { bakground: "#101010" } }, formats: ["svg"] })
+    expect(error.code).toBe("THEME_INVALID")
+    expect(error.path).toBe("/theme/colors/bakground")
+    expect(error.hint).toContain('"background"')
+    const nested = await t.refusal("validate", { spec: BAR, data: { rows: ROWS }, theme: { font: { size: 2 } } })
+    expect([nested.code, nested.path]).toEqual(["THEME_INVALID", "/theme/font/size"])
+  }, 30_000)
 })

@@ -105,3 +105,15 @@ export const VEGA_INTERACTIONS: readonly RuntimeInteraction[] = [
 
 /** Every interaction interactive HTML provides. Nothing is listed here without a browser test of the same title. */
 export const HTML_INTERACTIONS: readonly RuntimeInteraction[] = [...VEGA_INTERACTIONS, ...ECHARTS_INTERACTIONS]
+
+/**
+ * The interaction presets of recipe documents in interactive HTML (compiled by interactions/vegalite.ts, run by the
+ * Vega runtime with browser/present.ts). Each `id` is the title of the browser test that exercises it.
+ */
+export const RECIPE_INTERACTIONS: readonly RuntimeInteraction[] = [
+  { engine: "vega-lite", id: "recipe-tooltip", what: "tooltip auto: hovering a mark shows the values it draws, titled and formatted like the axes; the same values are in a keyboard-reachable data table." },
+  { engine: "vega-lite", id: "recipe-legend-highlight", what: "legend highlight: choosing a series in the legend, or with its button, emphasises it; every mark, scale and stacked total stays; Clear highlight restores." },
+  { engine: "vega-lite", id: "recipe-x-zoom", what: "x zoom (temporal line and area): wheel to zoom and drag to pan the x domain; y keeps its domain; Reset zoom or double-click restores." },
+  { engine: "vega-lite", id: "recipe-interval-brush", what: "interval brush (scatter and bubble): drag a rectangle to emphasise the marks inside; Clear selection or double-click clears." },
+  { engine: "vega-lite", id: "recipe-responsive", what: "responsive layout: the live chart re-plans at its container's width with the same planner, keeping its selections; a width no layout fits keeps the last valid view and says so." },
+]

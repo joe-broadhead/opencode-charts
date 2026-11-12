@@ -3,9 +3,9 @@
 // Interactive HTML in a real browser, under its own CSP and with the network refused: the runtime starts, nothing
 // is evaluated from a string, nothing is fetched, and each advertised interaction changes what is drawn.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { readFileSync, writeFileSync } from "node:fs"
+import { readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { HTML_INTERACTIONS } from "../../src/runtime-support.ts"
+import { HTML_INTERACTIONS, RECIPE_INTERACTIONS } from "../../src/runtime-support.ts"
 import { contentSecurityPolicy } from "../../src/html.ts"
 import { catalogueCall, closeBrowser, launch, open, renderHtml, resign, startPlugin, workDir, type Plugin } from "./harness.ts"
 
@@ -371,6 +371,6 @@ describe("every catalogue example", () => {
 })
 
 test("every advertised HTML interaction has a browser test of that title", () => {
-  const titles = [...readFileSync(join(import.meta.dir, "runtime.test.ts"), "utf8").matchAll(/test\(`?"?([a-z-]+):/g)].map(m => m[1])
-  for (const interaction of HTML_INTERACTIONS) expect(titles).toContain(interaction.id)
+  const titles = readdirSync(import.meta.dir).filter(f => f.endsWith(".test.ts")).flatMap(f => [...readFileSync(join(import.meta.dir, f), "utf8").matchAll(/test\(`?"?([a-z-]+):/g)].map(m => m[1]))
+  for (const interaction of [...HTML_INTERACTIONS, ...RECIPE_INTERACTIONS]) expect(titles).toContain(interaction.id)
 })

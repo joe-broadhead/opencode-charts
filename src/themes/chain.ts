@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs"
-import { ChartsError } from "../errors.js"
+import { ChartsError, suggest } from "../errors.js"
+import { ThemeDefinitionOverridesSchema } from "../document/schema.js"
 import { confine } from "../paths.js"
 import { builtinThemes, MAX_THEME_CHAIN, resolveTheme, THEME_NAME, themePath, type ThemeSources } from "./store.js"
 import type { ThemeOverrides, ThemeTokens } from "./tokens.js"
@@ -14,8 +15,41 @@ import type { ThemeOverrides, ThemeTokens } from "./tokens.js"
  */
 export type AssertRead = (paths: readonly string[]) => Promise<void>
 
+/**
+ * Checks a theme object the caller passes (a legacy tool's inline `theme`, or charts_theme_save's tokens) against the
+ * typed definition projection of the canonical tokens: an unknown or invalid token is THEME_INVALID at its path, before
+ * any saved theme is read. Every object the tools accepted before still passes; only its error comes earlier and
+ * names the token.
+ */
+export function checkThemeDefinition(theme: unknown, at = "/theme"): void {
+  const parsed = ThemeDefinitionOverridesSchema.safeParse(theme)
+  if (parsed.success) return
+  const issue = parsed.error.issues[0]!
+  const path = `${at}${issue.path.map(p => `/${String(p)}`).join("")}`
+  if (issue.code === "unrecognized_keys") {
+    const key = issue.keys[0]!
+    const allowed = Object.keys(tokensAt(issue.path))
+    const close = suggest(key, allowed)
+    throw new ChartsError("THEME_INVALID", `"${key}" is not a theme token here.`, close.length ? `Did you mean "${close[0]}"? charts_themes shows a complete theme.` : `Use one of: ${allowed.join(", ")}.`, `${path}/${key}`)
+  }
+  throw new ChartsError("THEME_INVALID", `Theme token ${path} is invalid: ${issue.message}.`, "Fix that token; charts_themes shows a complete theme to copy from.", path)
+}
+
+/** The token names an object level of the definition schema allows. */
+function tokensAt(path: readonly PropertyKey[]): Record<string, unknown> {
+  let schema: unknown = ThemeDefinitionOverridesSchema
+  for (const key of path) {
+    while (schema && typeof (schema as { unwrap?: unknown }).unwrap === "function") schema = (schema as { unwrap: () => unknown }).unwrap()
+    const shape = (schema as { shape?: Record<string, unknown> }).shape
+    schema = typeof key === "string" && shape ? shape[key] : (schema as { element?: unknown }).element
+  }
+  while (schema && typeof (schema as { unwrap?: unknown }).unwrap === "function") schema = (schema as { unwrap: () => unknown }).unwrap()
+  return (schema as { shape?: Record<string, unknown> }).shape ?? {}
+}
+
 /** Reads, with permission, every saved theme the theme (a name, or tokens with `extends`) passes through. */
 export async function approveThemeChain(sources: ThemeSources, theme: string | ThemeOverrides | undefined, assertRead?: AssertRead): Promise<Map<string, ThemeOverrides | null>> {
+  if (theme !== undefined && typeof theme !== "string") checkThemeDefinition(theme)
   const approved = new Map<string, ThemeOverrides | null>()
   const chain: string[] = []
   const nameOf = (value: unknown) => (typeof value === "string" ? value.trim().toLowerCase() : "light")
