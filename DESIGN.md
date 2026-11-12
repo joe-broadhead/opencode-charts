@@ -60,7 +60,8 @@ Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities
   - File effects assert the host's own `read` and `edit` actions (utilities `src/runtime/permissions.ts`).
   - Errors read `CODE: what happened. Next step: what to do.` (Jelly's plugin authors' standard, item 8).
 - **Build.** esbuild bundles each output to one self-contained file that imports only `node:` modules and `@opencode/plugin`; the build fails otherwise (tavily `tools/build.mjs`).
-- **Branches.** One branch: releases are cut from a `v<version>` tag on the default branch, `master`. (The `jelly` branches read above were merged into each default branch and retired on 6 November 2026; tag `jelly-retired` keeps each old head.)
+- **Branches.** One branch: releases are made from the default branch, `master`, by the release workflow, which tags
+  `v<version>` after approval. (The `jelly` branches read above were merged into each default branch and retired on 6 November 2026; tag `jelly-retired` keeps each old head.)
 
 **This repo follows all of it**, with two deliberate differences:
 

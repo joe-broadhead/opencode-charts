@@ -288,8 +288,9 @@ bun eval/perf.ts           # timings
 UPDATE_GOLDEN=1 bun test test/output.test.ts   # accept a reviewed change in output
 ```
 
-A release is a `v<version>` tag on `master`: `.github/workflows/release.yml` checks, packs and publishes it to npm
-with provenance, after approval in the `release` environment.
+A release is the tag `v<version>` and its GitHub Release, both made by `.github/workflows/release.yml` from a `master`
+commit CI passed, after the owner approves the `release` environment ("Releasing" in CONTRIBUTING.md). Nothing is
+published to npm.
 
 `node scripts/data.mjs` regenerates the locales and atlases, and `bun scripts/cookbook.ts` regenerates the cookbook
 skill and the recipe table in `docs/documents.md` (`test/generated.test.ts` fails when either is stale). The outputs
