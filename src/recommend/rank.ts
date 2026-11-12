@@ -3,7 +3,7 @@ import { loadData, type Row } from "../data.js"
 import type { Json } from "../engines/common.js"
 import { ChartsError } from "../errors.js"
 import type { Environment } from "../pipeline.js"
-import { buildDraft, exampleDraft } from "./draft.js"
+import { buildDraft, documentDraft, exampleDraft } from "./draft.js"
 import { rolesOf, shapeOf } from "./shape.js"
 import { MEDIUM_BUDGET, SCORING, TASK_WORDS, TRAITS_BY_ID, type Medium, type Shape, type Task } from "./traits.js"
 
@@ -40,6 +40,8 @@ export interface Suggestion {
   readonly why: readonly string[]
   readonly encoding: Readonly<Record<string, string>>
   readonly call?: Json
+  /** For a type that is also a typed recipe: a charts_quick document call on the caller's own columns. */
+  readonly document?: Json
   readonly blocked_by?: string
   readonly warnings?: readonly string[]
 }
@@ -176,10 +178,13 @@ function encodingFor(id: string, shape: Shape | undefined, request: string): Rec
 }
 
 /** A ready `charts_render` call: on the caller's columns when a builder covers the type, else the catalogue's example. */
-function draftFor(id: string, shape: Shape | undefined, rows: readonly Row[] | undefined, encoding: Record<string, string>): { call?: Json; warnings: string[] } {
+function draftFor(id: string, shape: Shape | undefined, rows: readonly Row[] | undefined, encoding: Record<string, string>, data: Readonly<Record<string, unknown>> | undefined, medium: string | undefined): { call?: Json; document?: Json; warnings: string[] } {
   if (!shape || !rows) return { call: undefined, warnings: [] }
   const built = buildDraft(id, shape, rows, encoding)
-  if (built) return { call: built.call, warnings: [...built.warnings] }
+  if (built) {
+    const doc = data ? documentDraft(id, shape, rows, encoding, data, medium) : { warnings: [] }
+    return { call: built.call, ...(doc.document ? { document: doc.document } : {}), warnings: [...built.warnings, ...doc.warnings] }
+  }
   return { call: exampleDraft(id).call, warnings: [...exampleDraft(id).warnings] }
 }
 
@@ -261,11 +266,12 @@ export async function recommend(input: RecommendInput, env: Pick<Environment, "w
     if (!why.length && blockedReason) why.push(`Not a fit: it ${blockedReason}.`)
     if (!why.length) why.push(`${entry.when}`)
 
-    const draft = blockedReason || intent === 0 ? { warnings: [] } : draftFor(entry.id, shape, rows, encoding)
+    const draft: { call?: Json; document?: Json; warnings: readonly string[] } = blockedReason || intent === 0 ? { warnings: [] } : draftFor(entry.id, shape, rows, encoding, input.data, mediumAssumed ? undefined : medium)
     const suggestion: Suggestion = {
       rank: 0, id: entry.id, name: entry.name, family: entry.family, engine: entry.engine,
       score: total, confidence: confidenceOf(total), why: why.slice(0, 3), encoding,
       ...(draft.call && !blockedReason ? { call: draft.call } : {}),
+      ...(draft.document && !blockedReason ? { document: draft.document } : {}),
       ...(blockedReason ? { blocked_by: blockedReason } : {}),
       ...(draft.warnings.length && !blockedReason ? { warnings: draft.warnings } : {}),
     }
@@ -327,7 +333,7 @@ export function describe(r: RecommendResult, compact = false): string {
   if (r.abstain) return [...head, `No recommendation: ${r.abstain.reason.replaceAll("_", " ")}. ${r.abstain.suggestion}`].join("\n")
   const lines = r.recommendations.map(s => {
     const status = s.blocked_by ? ` — not in this build: ${s.blocked_by}` : ` [${s.confidence}]`
-    return `${s.rank}. ${s.name} (${s.id}, ${s.engine})${status}\n   ${s.why.join(" ")}${s.call ? `\n   Draw it: ${JSON.stringify(s.call)}` : ""}`
+    return `${s.rank}. ${s.name} (${s.id}, ${s.engine})${status}\n   ${s.why.join(" ")}${s.document ? `\n   Typed document (recommended): ${JSON.stringify(s.document)}` : ""}${s.call ? `\n   ${s.document ? "Or the raw spec" : "Draw it"}: ${JSON.stringify(s.call)}` : ""}`
   })
   const tail = [
     ...(compact || !r.profile ? [] : [`Data: ${r.profile.rows} rows. ${r.profile.shape.join("; ")}.`]),

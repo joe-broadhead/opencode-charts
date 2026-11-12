@@ -33,7 +33,7 @@ and effect against them.
 ## Skills
 
 Declared: `charts` (when and how to chart, and when to use code on the machine instead) and `charts-cookbook` (a
-tested spec for every chart type). `charts_recommend` advises on the choice and `charts_capabilities` reports what
+tested example for every chart type: a typed recipe document for the 14 standard types, a spec for the rest). `charts_recommend` advises on the choice and `charts_capabilities` reports what
 this build can draw, so the agent asks rather than guesses. Jelly refuses an install whose skill ids collide with another plugin's or the
 agent's own.
 
@@ -41,7 +41,9 @@ agent's own.
 
 - A plugin cannot call `jelly_file_save` itself: that tool reaches the host through Jelly's own RPC. Every file under
   `outputs/` is kept when the turn settles, and each result also tells the agent how to save a file now.
-- Each result carries a markdown line, `![title](outputs/charts/<name>.png)`, which Jelly draws inline.
+- Each result carries a markdown line, `![title](outputs/charts/<name>.png)`, which Jelly draws inline. A chart
+  document's files (and every `charts_update`) go into their own generation folder,
+  `outputs/charts/<name>-<digest>/`, and the line points there.
 - `formats: ["html"]` writes a self-contained page with no network access (CSP `default-src 'none'`), for Jelly's
   sandboxed HTML preview.
 
@@ -57,7 +59,8 @@ None. The plugin needs no account and calls no service.
 
 ## Views
 
-None.
+None. The standalone offline HTML page is the interactive surface; a host view for charts is not part of this
+plugin.
 
 ## Versions
 

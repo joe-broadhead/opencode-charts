@@ -12,6 +12,7 @@ import { localeIds } from "./locale.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "./pipeline.js"
 import { quickSpec } from "./quick.js"
 import { recommend } from "./recommend/rank.js"
+import { isRecipeId, recipeCatalogue } from "./recipes/registry.js"
 import { figureJson, figureText } from "./figure.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, type ToolName } from "./registry.js"
 import { builtinThemes, saveTheme, savedThemeNames, THEME_DIR } from "./themes/store.js"
@@ -106,6 +107,12 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
     if (error instanceof DocumentInvalid && !write) return invalid(error.issues)
     throw error
   }
+  // A recipe with no rows after data.transform has nothing to draw, and nothing is invented to fill it.
+  if (resolved.artifact.document.chart.kind === "recipe" && resolved.rows?.length === 0) {
+    const empty = { detail: "The chart's data has no rows after data.transform, so there is nothing to draw; no values are invented.", path: "/document/chart/data", hint: "Check data.rows or the file, and any data.transform filter; if the data is really empty, say so instead of drawing a chart." }
+    if (!write) return invalid([{ level: "error", code: "DATA_EMPTY", message: empty.detail, path: empty.path, fix: empty.hint }])
+    throw new ChartsError("DATA_EMPTY", empty.detail, empty.hint, empty.path)
+  }
   const { formats, mismatch } = documentFormats(delivery.formats, resolved.settings)
   const preflight: Issue[] = []
   if (mismatch) {
@@ -117,6 +124,7 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
   let fitted: FittedRecipe | undefined
   try { fitted = await fitDocument(env, resolved) } catch (error) {
     if (error instanceof DocumentInvalid && !write) return invalid([...preflight, ...error.issues])
+    if (error instanceof SpecInvalid && !write) return invalid([...preflight, ...error.issues.map(issueMapper(resolved))])
     throw error
   }
   // A new document's output (an inline document, or a saved artifact drawn again) is published as one complete,
@@ -214,11 +222,15 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
         const entry = catalogueEntry(String(input.id))
         if (!entry) throw new ChartsError("CHART_TYPE_UNKNOWN", `There is no chart type "${input.id}".${suggest(String(input.id), CATALOGUE.map(c => c.id)).map(s => ` Did you mean ${s}?`).join("")}`, "Call charts_catalogue without an id to list them.")
         const call = exampleCall(entry)
-        return { output: { ...entry, example: call } as unknown as Json, content: [{ type: "text", text: `${entry.name} (${entry.engine}, ${entry.family}). Use it for: ${entry.when}${entry.avoid ? ` Avoid when: ${entry.avoid}` : ""}\nA working charts_render call — swap in your data and fields:\n${JSON.stringify(call)}` }] }
+        const recipe = isRecipeId(entry.id) ? recipeCatalogue(entry.id) : undefined
+        const recipeText = recipe
+          ? `\n\nAlso a typed recipe (recommended): charts_quick with document.chart.recipe "${recipe.id}". Bindings: ${recipe.bindings.map(b => `${b.role} (${b.required === "always" ? "required" : b.required === "optional" ? "optional" : "required unless aggregate is count"})`).join(", ")}. Options: ${Object.keys(recipe.options).join(", ") || "none"}. Interactions: ${Object.entries(recipe.interactions).map(([k, v]) => `${k} ${v.join("/")}`).join("; ")}. ${recipe.dataRequirements}\nA working charts_quick call (the full tested rows):\n${JSON.stringify(recipe.examples[0]!.call.input)}`
+          : ""
+        return { output: { ...entry, example: call, ...(recipe ? { recipe } : {}) } as unknown as Json, content: [{ type: "text", text: `${entry.name} (${entry.engine}, ${entry.family}). Use it for: ${entry.when}${entry.avoid ? ` Avoid when: ${entry.avoid}` : ""}\nA working charts_render call — swap in your data and fields:\n${JSON.stringify(call)}${recipeText}` }] }
       }
       const list = CATALOGUE.filter(c => !input.family || c.family === input.family)
-      const text = [`${list.length} chart types. Call charts_catalogue with an id for a full working example.`, ...[...new Set(list.map(c => c.family))].map(f => `\n${f}:\n${list.filter(c => c.family === f).map(c => `- ${c.id} — ${c.name} [${c.engine}]: ${c.when}${c.avoid ? ` Avoid: ${c.avoid}` : ""}`).join("\n")}`), `\nMaps use bundled atlases, never the network: ${Object.entries(ATLASES).map(([k, a]) => `${k} (${a.about} Join keys: ${a.keys})`).join("; ")}.`]
-      return { output: { types: list.map(c => ({ id: c.id, name: c.name, engine: c.engine, family: c.family, when: c.when, ...(c.avoid ? { avoid: c.avoid } : {}) })) }, content: [{ type: "text", text: text.join("\n") }] }
+      const text = [`${list.length} chart types. Call charts_catalogue with an id for a full working example. Types marked (recipe) are also typed recipes: draw them with charts_quick and a document.`, ...[...new Set(list.map(c => c.family))].map(f => `\n${f}:\n${list.filter(c => c.family === f).map(c => `- ${c.id} — ${c.name} [${c.engine}]${isRecipeId(c.id) ? " (recipe)" : ""}: ${c.when}${c.avoid ? ` Avoid: ${c.avoid}` : ""}`).join("\n")}`), `\nMaps use bundled atlases, never the network: ${Object.entries(ATLASES).map(([k, a]) => `${k} (${a.about} Join keys: ${a.keys})`).join("; ")}.`]
+      return { output: { types: list.map(c => ({ id: c.id, name: c.name, engine: c.engine, family: c.family, when: c.when, ...(c.avoid ? { avoid: c.avoid } : {}), ...(isRecipeId(c.id) ? { recipe: true } : {}) })) }, content: [{ type: "text", text: text.join("\n") }] }
     }
     case "themes": {
       const sources = { workspace: env.workspace, configured: env.configuredThemes }

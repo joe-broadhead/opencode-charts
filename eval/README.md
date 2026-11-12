@@ -48,3 +48,25 @@ change to either is a visible event: regenerate it only with `--update-baseline`
 
 The datasets are generated in `eval/recommend.cases.ts` from fixed arithmetic — no network, no random seed, no
 third-party data — so the public repository carries no dataset licence.
+
+## The agent task corpus (opencode-evals)
+
+What an agent does with the tools is measured in the family's evaluation harness, `opencode-evals`, not here: its
+`cases/charts` corpus (version 1, 13 tasks in the sets `corpus`, `create` and `revise`) covers long labels in a
+narrow panel, explicit and ambiguous aggregation, count versus measure, misspelt field names, a brand theme, empty
+data, light → dark, inline → presentation → inline, adding x zoom, adding scatter brushing, an unsupported pie zoom,
+and a cosmetic change after the source CSV changed. Its world saves the revision tasks' charts with the build under
+test, and its Charts grading adapter recomputes each saved chart's values from the rows the chart captured. Each run
+records the model, the host, the build's digest and commit, the case set's lock, the fixtures, the tool trace, and
+tokens, cost and latency when the runner supplies them. The harness's `docs/charts.md` has the commands; in short,
+from an `opencode-evals` checkout, with this repository built (`npm run build`):
+
+```
+evals run --plugin charts --iteration <name> --model <provider>/<model> --auth <profile> \
+  --set corpus --trials 3 --arm <this checkout> --world worlds/charts --host 2.2.5
+evals trace --iteration <name> --plugin charts && evals grade --iteration <name> --plugin charts
+```
+
+`--model mock/m1 --scripted --auth none --set scripted` runs the harness's scripted model instead: no credential and
+nothing live, which exercises the world, the runs, the traces and the grading. No live model has run the corpus yet,
+so agent success rates are unmeasured.
