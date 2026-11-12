@@ -11,8 +11,8 @@ introduced here is version 1.
 
 ### Security
 
-- **Interactive HTML could run script from an ECharts tooltip.** In 0.0.0 the page's CSP allowed `'unsafe-inline'`
-  scripts, and ECharts writes a tooltip formatter string into the page as HTML, so a formatter such as
+- **Interactive HTML could run script from an ECharts tooltip.** In 0.0.0, and in the npm releases 0.0.2 and 0.0.3
+  before it, the page's CSP allowed `'unsafe-inline'` scripts, and ECharts writes a tooltip formatter string into the page as HTML, so a formatter such as
   `<img src=x onerror=…>` in an option (the option can come from data or a model) ran its handler when the tooltip
   opened. Three layers now stop it: the page's `script-src` is the SHA-256 hashes of exactly its own two scripts
   (with `base-uri`, `form-action` and `object-src` `'none'`), so no inline handler, `javascript:` URL or injected
@@ -20,7 +20,7 @@ introduced here is version 1.
   `<b>`, `<span>`, `<table>`…), and anything else, an attribute, a comment or an encoded `<` is refused with
   `ECHARTS_MARKUP_REFUSED` at its JSON path; and the same check runs inside the page before ECharts starts, so an
   edited page fails to its static chart rather than inserting markup. `{b}<br/>{c}` still draws two lines. Regenerate
-  any interactive HTML made with 0.0.0 from untrusted options.
+  any interactive HTML made with 0.0.0, 0.0.2 or 0.0.3 from untrusted options.
 
 ### Added
 
