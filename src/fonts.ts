@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto"
 import { readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { ChartsError } from "./errors.js"
+import { confine, type Workspace } from "./paths.js"
 
 /**
  * Fonts and text metrics. Both renderers (Vega and ECharts) measure text with these tables, and resvg draws the
@@ -10,7 +12,30 @@ import { ChartsError } from "./errors.js"
  * exactly the sum of its glyphs' advance widths, which is what resvg then draws.
  */
 
+/**
+ * One approved font resource: the single record every consumer of a face uses. Server metrics and rasterisation read
+ * `bytes` (the sfnt the tables are parsed from); SVG and HTML embedding write `web`. A bundled face's web form is the
+ * WOFF2 build of the same subset, pinned by hash beside its TTF; a custom face's web form is its own TTF or OTF bytes,
+ * with that file's MIME type and CSS `format()`.
+ */
+export interface FontResource {
+  readonly family: string
+  readonly weight: number
+  readonly origin: "bundled" | "custom"
+  /** Workspace-relative path of a custom face; the package file name of a bundled one. */
+  readonly source: string
+  readonly bytes: Uint8Array
+  /** SHA-256 of `bytes`, hex. */
+  readonly sha256: string
+  readonly mime: FontMime
+  readonly format: FontFormat
+  readonly web: { readonly bytes: Uint8Array; readonly sha256: string; readonly mime: FontMime; readonly format: FontFormat }
+}
+export type FontMime = "font/ttf" | "font/otf" | "font/woff2"
+export type FontFormat = "truetype" | "opentype" | "woff2"
+
 export interface FontFace {
+  readonly resource: FontResource
   readonly family: string
   readonly weight: number
   readonly style: "normal" | "italic"
@@ -27,15 +52,37 @@ export const SANS = "Inter"
 export const MONO = "JetBrains Mono"
 export const BUNDLED_FAMILIES = [SANS, MONO] as const
 
-export const BUNDLED: readonly { file: string; family: string; weight: number }[] = [
-  { file: "Inter-Regular.ttf", family: SANS, weight: 400 },
-  { file: "Inter-SemiBold.ttf", family: SANS, weight: 600 },
-  { file: "JetBrainsMono-Regular.ttf", family: MONO, weight: 400 },
+/** The bundled faces, each pinned by the SHA-256 of its TTF and of its WOFF2 web form: a swapped file is refused. */
+export const BUNDLED: readonly { file: string; family: string; weight: number; sha256: string; woff2Sha256: string }[] = [
+  { file: "Inter-Regular.ttf", family: SANS, weight: 400, sha256: "7bd772628fd218df0cc9e93246bfbbab8b270bb20912e2b821e893425f6df77f", woff2Sha256: "d08fc1998c480094a10261722b05fe2e1bc9c0109be7d00c2bfa4e57f3a40cff" },
+  { file: "Inter-SemiBold.ttf", family: SANS, weight: 600, sha256: "5bbcca9955dcceacaa700f9b5f07695a3b9be20e38229a9cd52be5220094437a", woff2Sha256: "ef1edb4e69ad9125c4f6c8beae0fbd8c35492bf80196e94fc69ff8423c61b2a9" },
+  { file: "JetBrainsMono-Regular.ttf", family: MONO, weight: 400, sha256: "db93548a24e5c965304d01a1398b6a8c77c4388401b44ff611190ccfa7a5543c", woff2Sha256: "aab1457c2816ef6f0be1956417e660ec014d3890e55c815ce5f620b2f92abb15" },
 ]
-const MAX_CUSTOM_FONT_BYTES = 8 * 1024 * 1024
+/** Per custom file, and for all of a theme's custom files together: each is embedded in HTML and embedded SVG. */
+export const MAX_CUSTOM_FONT_BYTES = 8 * 1024 * 1024
+export const MAX_CUSTOM_FONTS_TOTAL_BYTES = 24 * 1024 * 1024
+
+const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex")
+
+/** The sfnt flavour from the first four bytes: TrueType outlines (`0x00010000`, `true`) or CFF (`OTTO`). */
+export function sfntKind(bytes: Uint8Array): { mime: "font/ttf" | "font/otf"; format: "truetype" | "opentype" } | undefined {
+  if (bytes.byteLength < 12) return undefined
+  const tag = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0)
+  if (tag === 0x00010000 || tag === 0x74727565) return { mime: "font/ttf", format: "truetype" }
+  if (tag === 0x4f54544f) return { mime: "font/otf", format: "opentype" }
+  return undefined
+}
+
+/** A custom face's resource: its own bytes for metrics, rasterisation and embedding alike. */
+export function customFontResource(bytes: Uint8Array, family: string, weight: number, source: string): FontResource {
+  const kind = sfntKind(bytes)
+  if (!kind) throw new ChartsError("FONT_INVALID", `The font for "${family}" (${source}) is not a TrueType or OpenType file.`, "Use a .ttf or .otf file (not .woff or .woff2).")
+  const hash = sha256(bytes)
+  return { family, weight, origin: "custom", source, bytes, sha256: hash, ...kind, web: { bytes, sha256: hash, ...kind } }
+}
 
 /** Parses the tables a width needs from a TrueType or CFF OpenType font: head, hhea, hmtx, cmap (4 and 12). */
-export function parseFont(bytes: Uint8Array, family: string, weight: number): FontFace {
+export function parseFont(bytes: Uint8Array, family: string, weight: number, resource?: FontResource): FontFace {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const tag = view.getUint32(0)
   if (tag !== 0x00010000 && tag !== 0x4f54544f && tag !== 0x74727565) throw new ChartsError("FONT_INVALID", `The font for "${family}" is not a TrueType or OpenType file.`, "Use a .ttf or .otf file (not .woff or .woff2).")
@@ -96,7 +143,9 @@ export function parseFont(bytes: Uint8Array, family: string, weight: number): Fo
     }
   }
   const fallbackAdvance = advances.get(0x6f /* o */) ?? unitsPerEm * 0.55
-  return { family, weight, style: "normal", bytes, unitsPerEm, ascender, descender, advances, fallbackAdvance }
+  const kind = sfntKind(bytes) ?? { mime: "font/ttf" as const, format: "truetype" as const }
+  const own = resource ?? (() => { const hash = sha256(bytes); return { family, weight, origin: "custom" as const, source: family, bytes, sha256: hash, ...kind, web: { bytes, sha256: hash, ...kind } } })()
+  return { resource: own, family, weight, style: "normal", bytes, unitsPerEm, ascender, descender, advances, fallbackAdvance }
 }
 
 export class FontBook {
@@ -105,13 +154,26 @@ export class FontBook {
   list(): readonly FontFace[] { return this.faces }
   families() { return [...new Set(this.faces.map(face => face.family))] }
   buffers() { return this.faces.map(face => face.bytes) }
+  /** Every approved resource in the book, bundled first, in the order the faces were added. */
+  resources(): readonly FontResource[] { return this.faces.map(face => face.resource) }
+  /**
+   * The resources an SVG needs: the faces of the families its text names, and of `families` (the theme's text and
+   * mono families), with one face per family and weight, the one `face()` would pick. The PNG rasteriser and SVG and
+   * HTML embedding all take this one list, so what is drawn, measured and embedded is the same set of bytes.
+   */
+  resourcesFor(svg: string, families: readonly string[]): readonly FontResource[] {
+    const named = new Set(families.map(name => name.toLowerCase()))
+    for (const m of svg.matchAll(/font-family(?:="|:\s*)([^";>]+)/g)) for (const name of m[1]!.split(",")) named.add(name.trim().replace(/^['"]|['"]$/g, "").replace(/&quot;/g, "").toLowerCase())
+    const picked = new Map<string, FontResource>()
+    for (const face of this.faces) {
+      const key = `${face.family.toLowerCase()}\u0000${face.weight}`
+      if (named.has(face.family.toLowerCase()) && !picked.has(key)) picked.set(key, face.resource)
+    }
+    return [...picked.values()]
+  }
   /** The font files an SVG needs: the families its text names, else the default. resvg parses every buffer it is given, so fewer is faster. */
   buffersFor(svg: string, fallbackFamily: string) {
-    const named = new Set<string>()
-    for (const m of svg.matchAll(/font-family(?:="|:\s*)([^";>]+)/g)) for (const name of m[1]!.split(",")) named.add(name.trim().replace(/^['"]|['"]$/g, "").replace(/&quot;/g, "").toLowerCase())
-    const wanted = this.faces.filter(face => named.has(face.family.toLowerCase()))
-    const fallback = this.faces.filter(face => face.family.toLowerCase() === fallbackFamily.toLowerCase())
-    return [...new Set([...wanted, ...fallback])].map(face => face.bytes)
+    return this.resourcesFor(svg, [fallbackFamily]).map(resource => resource.bytes)
   }
   has(family: string) { return this.faces.some(face => face.family.toLowerCase() === family.toLowerCase()) }
 
@@ -159,25 +221,59 @@ function weightDistance(have: number, want: number) {
 }
 
 let bundled: FontBook | undefined
-/** The bundled fonts, read once from the package. */
+/** The bundled fonts, read once from the package and checked against their pinned hashes. */
 export function bundledFonts(packageRoot: string): FontBook {
   if (bundled) return bundled
   const book = new FontBook()
-  for (const font of BUNDLED) book.add(parseFont(new Uint8Array(readFileSync(join(packageRoot, "assets", "fonts", font.file))), font.family, font.weight))
+  for (const font of BUNDLED) {
+    const read = (file: string, expected: string) => {
+      const bytes = new Uint8Array(readFileSync(join(packageRoot, "assets", "fonts", file)))
+      if (sha256(bytes) !== expected) throw new ChartsError("FONT_INVALID", `The bundled font ${file} does not match this build.`, "Reinstall the plugin.")
+      return bytes
+    }
+    const bytes = read(font.file, font.sha256)
+    const woff2 = font.file.replace(/\.ttf$/, ".woff2")
+    const resource: FontResource = { family: font.family, weight: font.weight, origin: "bundled", source: font.file, bytes, sha256: font.sha256, mime: "font/ttf", format: "truetype", web: { bytes: read(woff2, font.woff2Sha256), sha256: font.woff2Sha256, mime: "font/woff2", format: "woff2" } }
+    book.add(parseFont(bytes, font.family, font.weight, resource))
+  }
   bundled = book
   return book
 }
 
-/** Bundled fonts plus a theme's own fonts (workspace files that the caller has already confined and read). */
-export function withCustomFonts(base: FontBook, custom: readonly { family: string; weight?: number; bytes: Uint8Array }[]): FontBook {
+/** Bundled fonts plus a theme's own fonts (resources from `readCustomFonts`, or bytes the caller has already read). */
+export function withCustomFonts(base: FontBook, custom: readonly (FontResource | { family: string; weight?: number; bytes: Uint8Array })[]): FontBook {
   if (custom.length === 0) return base
   const book = new FontBook()
   for (const face of base.list()) book.add(face)
+  let total = 0
   for (const font of custom) {
     if (font.bytes.byteLength > MAX_CUSTOM_FONT_BYTES) throw new ChartsError("FONT_TOO_LARGE", `The font for "${font.family}" is over 8 MB.`, "Subset the font or use a smaller file.")
-    book.add(parseFont(font.bytes, font.family, font.weight ?? 400))
+    total += font.bytes.byteLength
+    if (total > MAX_CUSTOM_FONTS_TOTAL_BYTES) throw new ChartsError("FONT_TOO_LARGE", `The theme's font files are over 24 MB together.`, "Subset the fonts, or use fewer weights.")
+    const weight = font.weight ?? 400
+    const resource = "sha256" in font ? font : customFontResource(font.bytes, font.family, weight, font.family)
+    book.add(parseFont(resource.bytes, resource.family, weight, resource))
   }
   return book
+}
+
+/**
+ * Reads a theme's workspace font files under the limits, in this order: confine every path to the workspace, ask the
+ * host for read permission on all of them, check each file's size and the total from the file system, and only then
+ * read the bytes. A file that is too large or not a TrueType/OpenType font is refused before it is parsed.
+ */
+export async function readCustomFonts(workspace: Workspace, files: readonly { family: string; weight?: number; path: string }[], assertRead?: (paths: readonly string[]) => Promise<void>, readBytes: (absolute: string) => Uint8Array = absolute => new Uint8Array(readFileSync(absolute))): Promise<FontResource[]> {
+  if (files.length === 0) return []
+  const confined = files.map(file => ({ file, at: confine(workspace, file.path, "read") }))
+  await assertRead?.(files.map(file => file.path))
+  let total = 0
+  for (const { file, at } of confined) {
+    const size = statSync(at.absolute).size
+    if (size > MAX_CUSTOM_FONT_BYTES) throw new ChartsError("FONT_TOO_LARGE", `The font for "${file.family}" (${file.path}) is over 8 MB.`, "Subset the font or use a smaller file.")
+    total += size
+    if (total > MAX_CUSTOM_FONTS_TOTAL_BYTES) throw new ChartsError("FONT_TOO_LARGE", `The theme's font files are over 24 MB together.`, "Subset the fonts, or use fewer weights.")
+  }
+  return confined.map(({ file, at }) => customFontResource(readBytes(at.absolute), file.family, file.weight ?? 400, at.relative))
 }
 
 export function fileSize(path: string) { return statSync(path).size }

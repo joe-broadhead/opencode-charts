@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { applyTransforms, describeProfile, loadData, type DataInput, type Profile, type Row } from "./data.js"
 import { compactSpec, isObject, substituteThemeColours, type Json } from "./engines/common.js"
@@ -7,7 +6,7 @@ import { prepareVega, renderVega } from "./engines/vega.js"
 import { compileVegaLite, prepareVegaLite, units } from "./engines/vegalite.js"
 import { publish, type Artifact } from "./artifacts.js"
 import { ChartsError, SpecInvalid, type Issue } from "./errors.js"
-import { BUNDLED, bundledFonts, withCustomFonts, type FontBook } from "./fonts.js"
+import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook } from "./fonts.js"
 import { buildHtml, htmlProblem } from "./html.js"
 import { resolveLocale } from "./locale.js"
 import { confine, slug, type Workspace } from "./paths.js"
@@ -57,6 +56,8 @@ export interface Environment {
    * that step failing.
    */
   readonly probe?: (step: "svg" | "png" | "html" | "spec" | "preview" | "commit", file?: string) => void
+  /** Asks the host for permission on workspace files; a tool call always has it, so a theme's font files are asserted before they are read. */
+  readonly assertFiles?: (action: "read" | "edit", resources: readonly string[]) => Promise<void>
 }
 
 export interface RenderResult {
@@ -91,10 +92,8 @@ export function detectEngine(spec: Json): Engine {
   return "vega-lite"
 }
 
-const fontFiles = (packageRoot: string, theme: ThemeTokens) => {
-  const families = new Set([theme.font.family.toLowerCase(), theme.font.mono.toLowerCase()])
-  return BUNDLED.filter(f => families.has(f.family.toLowerCase())).map(f => ({ family: f.family, weight: f.weight, woff2: new Uint8Array(readFileSync(join(packageRoot, "assets", "fonts", f.file.replace(/\.ttf$/, ".woff2")))) }))
-}
+/** The approved faces to embed in SVG and HTML: the ones the drawing names plus the theme's families. */
+const embeddable = (fonts: FontBook, svg: string, theme: ThemeTokens) => fonts.resourcesFor(svg, [theme.font.family, theme.font.mono])
 
 function describeVegaLite(spec: Json, rows: readonly Row[] | undefined): string {
   const u = units(spec)[0]
@@ -160,7 +159,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   // Theme and fonts.
   const theme = resolveTheme({ workspace: env.workspace, configured: env.configuredThemes }, request.theme ?? env.defaults.theme)
   let fonts: FontBook = bundledFonts(env.packageRoot)
-  if (theme.font.files.length) fonts = withCustomFonts(fonts, theme.font.files.map(f => ({ family: f.family, weight: f.weight, bytes: new Uint8Array(readFileSync(confine(env.workspace, f.path, "read").absolute)) })))
+  if (theme.font.files.length) fonts = withCustomFonts(fonts, await readCustomFonts(env.workspace, theme.font.files, env.assertFiles ? paths => env.assertFiles!("read", paths) : undefined))
   const locale = resolveLocale(env.packageRoot, request.locale ?? env.defaults.locale ?? "en-US", request.currency)
   const issues: Issue[] = [...preflight.map(({ problem, path }): Issue => ({ level: "error", code: problem.code, message: problem.detail, path, fix: problem.hint })), ...themeContrastIssues(theme), ...sizeOverrides(request, engine)]
   const notes: string[] = []
@@ -249,7 +248,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
       step("svg")
       let svgOut = svg
       if (request.svgText === "paths") svgOut = normaliseIds(accessible(await svgTextToPaths(env.packageRoot, svg, fonts, defaultFamily), title, description))
-      else if (request.svgText === "embed") svgOut = embedFonts(svg, fontFiles(env.packageRoot, theme))
+      else if (request.svgText === "embed") svgOut = embedFonts(svg, embeddable(fonts, svg, theme))
       artifacts.push({ kind: "svg", file: `${name}.svg`, bytes: svgOut })
     }
     if (formats.has("png")) for (const [i, scale] of scales.entries()) {
@@ -260,8 +259,8 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     if (formats.has("html")) {
       step("html")
       artifacts.push({ kind: "html", file: `${name}.html`, bytes: buildHtml(env.packageRoot, engine === "echarts"
-        ? { engine: "echarts", spec: serialisableOption(echartsOption!), svg, title, description, theme, echartsTheme: echartsTheme(theme), fonts: fontFiles(env.packageRoot, theme), compactSpec: compactSpec(locale.currency ? locale.number.currency : undefined, locale.number.decimal), localeId: locale.id }
-        : { engine: "vega", spec: vegaSpec!, svg, title, description, theme, fonts: fontFiles(env.packageRoot, theme), compactSpec: "", localeId: locale.id }) })
+        ? { engine: "echarts", spec: serialisableOption(echartsOption!), svg, title, description, theme, echartsTheme: echartsTheme(theme), fonts: embeddable(fonts, svg, theme), compactSpec: compactSpec(locale.currency ? locale.number.currency : undefined, locale.number.decimal), localeId: locale.id }
+        : { engine: "vega", spec: vegaSpec!, svg, title, description, theme, fonts: embeddable(fonts, svg, theme), compactSpec: "", localeId: locale.id }) })
     }
     if (formats.has("spec")) {
       step("spec")

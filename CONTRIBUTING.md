@@ -4,19 +4,24 @@
 
 ```sh
 npm ci
+npx playwright-core install --only-shell chromium   # once; on Linux add --with-deps
 npm run check
 ```
 
-Node 24 and Bun 1.4.4 are what CI uses. `npm ci` is enough for every stage; no other install step is needed.
+Node 24 and Bun 1.4.4 are what CI uses. Besides `npm ci`, the `browser` stage needs playwright-core's headless
+Chromium: the build that the exact playwright-core version in `package-lock.json` pins, installed by the command above.
 
 ## The one command
 
-`npm run check` runs, in order: `build`, `typecheck`, `unit`, `copies`, `forbidden`, `icons`, `whitelist`, `jelly`,
+`npm run check` runs, in order: `build`, `typecheck`, `unit`, `browser`, `copies`, `forbidden`, `icons`, `whitelist`, `jelly`,
 `actionlint`, `pack`, `evals` and `host`. It is the gate for every commit: never skip, weaken or delete a stage to
 get a green run.
 
 - `build` writes `dist/`: the plugin, its Vega worker, the PNG rasteriser and the two browser runtimes. The TUI part is
   unminified, and the build fails if it is minified.
+- `browser` opens interactive HTML made through the built plugin's tools in that headless Chromium (`test/browser/`):
+  each page must start under its own CSP with no violation and no request, and each advertised interaction must change
+  what is drawn. A missing browser fails the stage with the install command; it is never skipped.
 - `unit` is every `test/*.test.ts`. `pack` installs the tarball into a temp project and runs it there.
 - `host` starts a stock `opencode serve` for each release in `TESTED_HOSTS`, from `OPENCODE_BIN_<version>` or
   `<version>/` under `OPENCODE_STOCK_ROOT`. A missing binary prints a skip notice; in CI it fails, because a release

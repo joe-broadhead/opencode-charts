@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import type { FontBook } from "./fonts.js"
+import type { FontBook, FontResource } from "./fonts.js"
 
 const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 const unescapeXml = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d))).replace(/&amp;/g, "&")
@@ -36,11 +36,23 @@ export function accessible(svg: string, title: string, description: string): str
   return svg.slice(0, open.index) + tag + head + svg.slice(open.index + open[0].length)
 }
 
+/**
+ * A CSS string literal for a font family: quoted, with every character that could end the string, the rule, the
+ * `<style>` element or (inside an SVG) the XML text escaped as a CSS hex escape.
+ */
+export function cssString(value: string): string {
+  return `"${value.replace(/[\\"'<>&\u0000-\u001f\u007f\u2028\u2029]/g, ch => `\\${ch.codePointAt(0)!.toString(16)} `)}"`
+}
+
+/** `@font-face` rules for approved font resources: each face's web bytes, with its own MIME type and `format()`. */
+export function fontFaceCss(fonts: readonly FontResource[], block = false): string {
+  return fonts.map(f => `@font-face{font-family:${cssString(f.family)};font-weight:${f.weight};${block ? "font-display:block;" : ""}src:url(data:${f.web.mime};base64,${Buffer.from(f.web.bytes).toString("base64")}) format("${f.web.format}")}`).join(block ? "\n" : "")
+}
+
 /** Embeds the fonts the SVG uses as @font-face data, so it draws identically where they are not installed. */
-export function embedFonts(svg: string, faces: readonly { family: string; weight: number; woff2: Uint8Array }[]): string {
-  if (faces.length === 0) return svg
-  const css = faces.map(f => `@font-face{font-family:"${f.family}";font-weight:${f.weight};src:url(data:font/woff2;base64,${Buffer.from(f.woff2).toString("base64")}) format("woff2")}`).join("")
-  return svg.replace(/(<svg\b[^>]*>)/, `$1<style>${css}</style>`)
+export function embedFonts(svg: string, fonts: readonly FontResource[]): string {
+  if (fonts.length === 0) return svg
+  return svg.replace(/(<svg\b[^>]*>)/, (open) => `${open}<style>${fontFaceCss(fonts)}</style>`)
 }
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -24,21 +24,14 @@ const MINIFIED_IMPORT = /\bfrom"|\bimport[{*]/
 rmSync(`${ROOT}dist`, { recursive: true, force: true })
 mkdirSync(`${ROOT}dist/browser`, { recursive: true })
 
-// 1. Browser runtimes for interactive HTML.
-const browser = {
-  vega: `import * as vega from "vega"; import { Handler } from "vega-tooltip"; globalThis.vega = vega; globalThis.vegaTooltip = { Handler };`,
-  echarts: `import * as echarts from "echarts/core";
-import { BarChart, BoxplotChart, CandlestickChart, ChordChart, FunnelChart, GaugeChart, GraphChart, HeatmapChart, LineChart, ParallelChart, PictorialBarChart, PieChart, RadarChart, SankeyChart, ScatterChart, SunburstChart, ThemeRiverChart, TreeChart, TreemapChart, EffectScatterChart } from "echarts/charts";
-import { AriaComponent, CalendarComponent, DatasetComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, ParallelComponent, PolarComponent, RadarComponent, SingleAxisComponent, TitleComponent, TooltipComponent, TransformComponent, VisualMapComponent } from "echarts/components";
-import { SVGRenderer } from "echarts/renderers";
-echarts.use([BarChart, BoxplotChart, CandlestickChart, ChordChart, FunnelChart, GaugeChart, GraphChart, HeatmapChart, LineChart, ParallelChart, PictorialBarChart, PieChart, RadarChart, SankeyChart, ScatterChart, SunburstChart, ThemeRiverChart, TreeChart, TreemapChart, EffectScatterChart, AriaComponent, CalendarComponent, DatasetComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, ParallelComponent, PolarComponent, RadarComponent, SingleAxisComponent, TitleComponent, TooltipComponent, TransformComponent, VisualMapComponent, SVGRenderer]);
-globalThis.echarts = echarts;`,
-}
+// 1. Browser runtimes for interactive HTML, from their entry files in src/browser/. The ECharts one registers the
+//    browser half of src/runtime-support.ts's module table; the Vega one carries vega-interpreter (released from the
+//    same Vega commit as vega 6.4.0), so the page evaluates expressions without generating code.
 const browserHashes = {}
 const bundledInputs = new Set()
-for (const [name, contents] of Object.entries(browser)) {
+for (const name of ["vega", "echarts"]) {
   const outfile = `${ROOT}dist/browser/${name}.js`
-  const r = await build({ stdin: { contents, resolveDir: ROOT, loader: "js" }, bundle: true, format: "iife", platform: "browser", target: "es2020", minify: true, legalComments: "none", outfile, logLevel: "warning", metafile: true })
+  const r = await build({ entryPoints: [`${ROOT}src/browser/${name}.ts`], absWorkingDir: ROOT, bundle: true, format: "iife", platform: "browser", target: "es2020", minify: true, legalComments: "none", outfile, logLevel: "warning", metafile: true })
   for (const input of Object.keys(r.metafile.inputs)) bundledInputs.add(input)
   browserHashes[name] = sha256(outfile)
 }

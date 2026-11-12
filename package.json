@@ -83,6 +83,7 @@
   },
   "devDependencies": {
     "@opencode/plugin": "2.2.5",
+    "@opencode/sdk": "2.2.5",
     "@resvg/resvg-wasm": "2.6.2",
     "@types/bun": "1.4.4",
     "d3-format": "3.1.0",
@@ -91,16 +92,17 @@
     "hyparquet": "1.32.0",
     "hyparquet-writer": "0.18.0",
     "i18n-iso-countries": "7.14.0",
+    "playwright-core": "1.65.0",
     "solid-js": "1.9.17",
     "typescript": "5.9.3",
     "us-atlas": "3.0.1",
     "vega": "6.4.0",
     "vega-embed": "7.3.0",
+    "vega-interpreter": "2.3.2",
     "vega-lite": "6.5.0",
     "vega-tooltip": "1.1.0",
     "world-atlas": "2.0.2",
-    "zod": "4.6.7",
-    "@opencode/sdk": "2.2.5"
+    "zod": "4.6.7"
   },
   "jelly": {
     "title": "Charts",

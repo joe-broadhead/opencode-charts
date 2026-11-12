@@ -87,7 +87,8 @@ describe("files", () => {
     for (const id of ["grouped_bar", "sankey"]) {
       const r = await renderChart({ ...exampleCall(CATALOGUE.find(c => c.id === id)!), formats: ["html"], name: id }, ws.env)
       const html = readFileSync(join(ws.dir, r.files.html!), "utf8")
-      expect(html).toContain(`content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:"`)
+      expect(html).toMatch(/content="default-src 'none'; script-src 'sha256-[A-Za-z0-9+\/]{43}=' 'sha256-[A-Za-z0-9+\/]{43}='; style-src 'unsafe-inline'; font-src data:; img-src data: blob:; base-uri 'none'; form-action 'none'; object-src 'none'"/)
+      expect(html).not.toContain("'unsafe-eval'")
       expect(html).not.toMatch(/<script[^>]+src=|<link\b|@import|url\(\s*["']?https?:/i)
       expect(html).not.toMatch(/(src|href)=["']https?:/i)
       expect(html).toMatch(/<div id="chart"[^>]*><svg/)

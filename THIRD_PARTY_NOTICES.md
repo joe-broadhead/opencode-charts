@@ -47,6 +47,7 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 | vega-functions | 6.2.0 | BSD-3-Clause | licenses/packages/vega-functions@6.2.0.txt |
 | vega-geo | 5.1.3 | BSD-3-Clause | licenses/packages/vega-geo@5.1.3.txt |
 | vega-hierarchy | 5.1.3 | BSD-3-Clause | licenses/packages/vega-hierarchy@5.1.3.txt |
+| vega-interpreter | 2.3.2 | BSD-3-Clause | licenses/packages/vega-interpreter@2.3.2.txt |
 | vega-label | 2.1.3 | BSD-3-Clause | licenses/packages/vega-label@2.1.3.txt |
 | vega-lite | 6.5.0 | BSD-3-Clause | licenses/packages/vega-lite@6.5.0.txt |
 | vega-loader | 5.1.3 | BSD-3-Clause | licenses/packages/vega-loader@5.1.3.txt |

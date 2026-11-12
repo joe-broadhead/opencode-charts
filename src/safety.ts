@@ -1,4 +1,6 @@
-import { ChartsError, pointer } from "./errors.js"
+import { ChartsError, pointer, type Issue } from "./errors.js"
+import { ECHARTS_SERIES_TYPES } from "./runtime-support.js"
+import { findTooltipMarkup, TOOLTIP_TAGS, type TooltipMarkup } from "./engines/echarts-markup.js"
 
 /**
  * Spec safety. A spec is untrusted model output, rendered inside the OpenCode process, so it may not reach the
@@ -33,7 +35,6 @@ export const LIMITS = {
 const RESOURCE_KEYS = new Set(["url", "href", "src", "link", "sublink", "loader", "backgroundImage"])
 const EXPRESSION_KEYS = new Set(["expr", "signal", "calculate", "update", "test", "filter", "as_expr"])
 const EXTERNAL_STRING = /^\s*(?:https?:|ftp:|file:|data:(?!image\/svg\+xml)|javascript:|image:\/\/|\/\/)/i
-const ECHARTS_SERIES = new Set(["line", "bar", "pie", "scatter", "effectScatter", "radar", "tree", "treemap", "sunburst", "boxplot", "candlestick", "heatmap", "parallel", "funnel", "gauge", "sankey", "graph", "themeRiver", "chord", "pictorialBar"])
 
 export type Engine = "vega-lite" | "vega" | "echarts"
 
@@ -67,8 +68,8 @@ export function checkSpec(spec: unknown, engine: Engine) {
     const mark = record.mark ?? (engine === "vega" ? record.type : undefined)
     const markType = typeof mark === "string" ? mark : mark && typeof mark === "object" ? (mark as Record<string, unknown>).type : undefined
     if (typeof markType === "string" && markType.toLowerCase() === "image" && (engine !== "echarts")) refuse("Image marks are not allowed.", [...path, "mark"], "Use symbols, text or shapes instead of images.")
-    if (engine === "echarts" && path[path.length - 2] === "series" && typeof record.type === "string" && !ECHARTS_SERIES.has(record.type)) {
-      const hint = record.type === "map" ? "For maps use Vega-Lite geoshape with data {\"atlas\": \"world-110m\"}." : record.type === "custom" ? "Custom series need JavaScript functions, which a JSON spec cannot carry; use Vega instead." : `Use one of: ${[...ECHARTS_SERIES].join(", ")}.`
+    if (engine === "echarts" && path[path.length - 2] === "series" && typeof record.type === "string" && !ECHARTS_SERIES_TYPES.has(record.type)) {
+      const hint = record.type === "map" ? "For maps use Vega-Lite geoshape with data {\"atlas\": \"world-110m\"}." : record.type === "custom" ? "Custom series need JavaScript functions, which a JSON spec cannot carry; use Vega instead." : `Use one of: ${[...ECHARTS_SERIES_TYPES].join(", ")}.`
       refuse(`The ECharts series type "${record.type}" is not available.`, [...path, "type"], hint)
     }
     if (engine === "echarts" && record.type === "image") refuse("Image graphics are not allowed.", [...path, "type"], "Use shapes or text instead of images.")
@@ -96,12 +97,40 @@ export function deniedLoader() {
   return { options: {}, fileAccess: false, sanitize: deny, load: deny, file: deny, http: deny }
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// ECharts tooltip text that the browser runtime would insert as HTML: the check is engines/echarts-markup.ts, which the
+// page runs again before ECharts starts.
+
+export { tooltipMarkupProblem } from "./engines/echarts-markup.js"
+const FIXES: Record<TooltipMarkup["kind"], string> = {
+  formatter: `Use plain text with the {a}, {b}, {c} and {d} placeholders; only ${TOOLTIP_TAGS.map(t => `<${t}>`).join(", ")} without attributes are allowed (such as "{b}<br/>{c}").`,
+  css: "Use plain declarations such as \"padding: 8px; box-shadow: none\", with no url(), expression(), at-rule import or backslash.",
+  className: "Use a class name of letters, digits, dashes and underscores.",
+}
+
+/** The tooltip text in an ECharts option that ECharts would insert as HTML and that is not inert, as spec errors. */
+export function echartsMarkupIssues(option: unknown): Issue[] {
+  return findTooltipMarkup(option).map(found => ({ level: "error", code: "ECHARTS_MARKUP_REFUSED", message: `The ECharts tooltip text at ${found.path} has ${found.what}, which ECharts would insert into the page as HTML.`, path: found.path, fix: FIXES[found.kind] }))
+}
+
 /** Layer 3: the rendered SVG. */
 export function checkRenderedSvg(svg: string) {
   if (/<(?:image|foreignObject|script|iframe|object|embed)\b/i.test(svg)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains an image, script or embedded object.", "Remove image marks, href channels and embedded content from the spec.")
-  if (/\b(?:href|xlink:href)\s*=\s*["']\s*(?!#)/i.test(svg)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart links to an external resource.", "Remove the href channel from the spec.")
-  if (/\son[a-z]+\s*=/i.test(svg)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains an event handler attribute.", "Remove it from the spec.")
+  // Attributes are read from the tags themselves, quoted values included, so text that merely reads like markup (a
+  // label "<img onerror=…>", escaped in the SVG as &lt;img …) is data, not an attribute. Anything left over that still
+  // looks like a tag means the markup could not be read, and is refused rather than passed.
+  const rest = svg.replace(SVG_TAG, (_tag, attributes: string) => {
+    for (const attribute of attributes.matchAll(SVG_ATTRIBUTE)) {
+      const name = attribute[1]!.toLowerCase(), value = (attribute[2] ?? "").replace(/^["']|["']$/g, "").trim()
+      if (/^on[a-z]+$/.test(name)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains an event handler attribute.", "Remove it from the spec.")
+      if ((name === "href" || name === "xlink:href") && !value.startsWith("#")) throw new ChartsError("SPEC_UNSAFE", "The rendered chart links to an external resource.", "Remove the href channel from the spec.")
+    }
+    return ""
+  })
+  if (rest.replace(/<\/[A-Za-z][^\s>]*\s*>|<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?xml[^>]*\?>/g, "").includes("<")) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains markup that could not be checked.", "Simplify the labels and titles, then render again.")
 }
+const SVG_TAG = /<[A-Za-z][^\s/<>]*((?:\s+[^\s=/<>"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'<>]+))?)*)\s*\/?>/g
+const SVG_ATTRIBUTE = /([^\s=/<>"']+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'<>]+))?/g
 
 // ---------------------------------------------------------------------------------------------------------------
 // Layer 2: static cardinality bounds on a compiled Vega spec (from open-cowork apps/desktop/src/main/chart-spec-safety.ts).

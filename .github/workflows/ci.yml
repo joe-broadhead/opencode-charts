@@ -56,6 +56,15 @@ jobs:
         with:
           bun-version: 1.4.4 # the Bun inside stock OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6
       - run: npm ci --ignore-scripts
+      # The browser stage's headless Chromium: the build that playwright-core's exact version in package-lock.json pins.
+      # On Linux, --with-deps installs the system libraries it needs.
+      - name: Headless Chromium for the browser stage
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            npx --no-install playwright-core install --with-deps --only-shell chromium
+          else
+            npx --no-install playwright-core install --only-shell chromium
+          fi
       # The stock binaries the host stage spawns, so every tested release really runs in CI (R11).
       - name: Stock OpenCode binaries
         run: |
