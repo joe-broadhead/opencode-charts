@@ -152,6 +152,18 @@ export function wrapText(text: string, max: number, lines: number, measure: (s: 
 
 class BudgetExceeded extends Error {}
 
+/**
+ * The plot width left when the category labels are turned 45°: each label hangs from its band's centre, (i + ½) of a
+ * band from the left edge, and reaches w·cos 45° (plus half its height) further left. The plot is the widest P with
+ * room on the left for the y axis (`left`) and for every label's reach: P ≤ (A − reachᵢ) / (1 − (i + ½)/n).
+ */
+export function turnedPlotWidth(available: number, left: number, widths: readonly number[], size: number): number {
+  const n = Math.max(1, widths.length)
+  let plot = available - left
+  widths.forEach((w, i) => { plot = Math.min(plot, (available - (w * Math.SQRT1_2 + size / 2)) / (1 - (i + 0.5) / n)) })
+  return plot
+}
+
 /** All three candidates, in their fixed order. Throws when the work budget is spent (see `planLayout`). */
 export function planCandidates(input: PlannerInput, measure: Measure): Plan[] {
   const cache = new Map<string, number>()
@@ -302,7 +314,12 @@ function candidate(input: PlannerInput, c: 0 | 1 | 2, m: Measure, used: () => nu
               break
             }
           }
-          if (option === 45 && lbl * 1.5 <= slot) { chosen = option; xAngle = -45; xH = longest * Math.SQRT1_2 + lbl * Math.SQRT1_2 + tick; break }
+          if (option === 45) {
+            // A label turned 45° runs down and to the left of its tick, so the first ones reach past the plot's left
+            // edge, and the view must keep that room: the plot is narrower than the axes alone would leave.
+            const turned = turnedPlotWidth(plotW + yW, yW, widths, lbl)
+            if (lbl * 1.5 <= turned / n) { chosen = option; xAngle = -45; plotW = turned; xH = longest * Math.SQRT1_2 + lbl * Math.SQRT1_2 + tick; break }
+          }
           if (option === 90 && lbl * LINE <= slot) { chosen = option; xAngle = -90; xH = longest + tick; break }
         }
         if (!chosen) {

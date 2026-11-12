@@ -57,6 +57,19 @@ async function fontsFor(env: Environment, files: readonly { family: string; weig
 
 const MEASURED_FINDINGS = new Set(["LABEL_COLLISION", "LABEL_CLIPPED"])
 
+/**
+ * Below this share of the canvas, the plot is reported: there is no minimum plot area beyond the planner's 64 × 48 px,
+ * so a chart whose labels take most of the room still fits, and the result says so.
+ */
+export const SMALL_PLOT_SHARE = 0.25
+
+function smallPlot(plot: PlotBounds | undefined, width: number, height: number): { path: string; reason: string }[] {
+  if (!plot) return []
+  const share = (plot.width * plot.height) / (width * height)
+  if (share >= SMALL_PLOT_SHARE) return []
+  return [{ path: "/layout", reason: `the guides take most of the canvas: the plot is ${Math.round(plot.width)}×${Math.round(plot.height)} px, ${Math.round(share * 100)}% of ${width}×${height}; a larger layout, shorter labels or a horizontal_bar for long categories would give the data more room` }]
+}
+
 export interface FitOptions {
   /**
    * The custom fonts, already read with permission and checked against the artifact's digests (the tool adapter does
@@ -125,7 +138,7 @@ export async function fitRecipe(prepared: Prepared, env: Environment, options: F
         floor: layout.minLabelSize,
         fontSizes: { label: tokens.font.labelSize, axisTitle: tokens.font.size, title: tokens.font.titleSize },
         candidate: { index: presentation.plan.candidate, name: presentation.plan.name },
-        adjustments: presentation.plan.adjustments,
+        adjustments: [...presentation.plan.adjustments, ...smallPlot(check.plot, layout.width, layout.height)],
         rejected,
         unresolved: check.issues.filter(i => MEASURED_FINDINGS.has(i.code)),
       }
@@ -133,7 +146,7 @@ export async function fitRecipe(prepared: Prepared, env: Environment, options: F
     }
     rejected.push({ candidate: presentation.plan.name, conflicts })
     from = presentation.plan.candidate + 1
-    if (from >= 3) throw unsatisfiable(settings, conflicts, true)
+    if (from >= 3) throw unsatisfiable(settings, conflicts, true, { recipe: compilation.recipe, planner: presentation.runtime.planner, measure })
   }
   throw unsatisfiable(settings, rejected.flatMap(r => r.conflicts), true)
 }
