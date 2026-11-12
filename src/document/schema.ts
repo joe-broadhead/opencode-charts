@@ -79,7 +79,8 @@ export const PresentationTokenOverridesSchema = partialTokens(ThemeTokensSchema,
  * stay, because a legacy chart is still sized by its theme.
  */
 export const ThemeDefinitionOverridesSchema = (partialTokens(ThemeTokensSchema, [], {}) as z.ZodObject)
-  .extend({ extends: z.string().trim().min(1).max(64).optional().describe("The theme these tokens change: a built-in or a saved one. Default light.") })
+  // null is "no parent", as before the typed projection: the tokens apply over light, like an omitted extends.
+  .extend({ extends: z.string().trim().min(1).max(64).nullable().optional().describe("The theme these tokens change: a built-in or a saved one. Default (or null): light.") })
   .describe("Theme tokens over a base theme: extends, name, description, colors, font, layout, axis, marks, legend. Every token optional; arrays replace whole; unknown keys are refused.")
 
 // ---------------------------------------------------------------------------------------------------------------

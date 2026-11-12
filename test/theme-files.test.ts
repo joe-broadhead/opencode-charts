@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test"
-import { mkdirSync } from "node:fs"
+import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
@@ -7,8 +7,9 @@ import { runTool, type ToolName } from "../src/tools.ts"
 import { BAR, ROWS, workspace } from "./helpers.ts"
 
 /**
- * Saved theme files at the edges: a folder where a saved theme's file goes is a coded refusal (the path is confined
- * for writing, so nothing else checks that it is a file).
+ * Saved theme files and inline theme objects at the edges: a folder where a saved theme's file goes is a coded
+ * refusal (the path is confined for writing, so nothing else checks that it is a file), and `extends: null` in a theme
+ * object means "no parent" (light), as it did before theme objects were checked against the typed token projection.
  */
 const spaces: { cleanup: () => void }[] = []
 afterAll(async () => { for (const s of spaces) s.cleanup(); await closeVegaWorker() })
@@ -48,5 +49,19 @@ describe("a folder where a saved theme's file goes", () => {
     }
     // The listing names only saved themes that are files.
     expect((await t.call("themes", {})).saved).toEqual([])
+  })
+})
+
+describe("extends: null in a theme object", () => {
+  test("means no parent: the tokens apply over light, inline and when saved", async () => {
+    const t = setup()
+    const inline = await t.call("render", { spec: BAR, data: { rows: ROWS }, theme: { extends: null, colors: { text: "#202020" } }, formats: ["svg"] })
+    const omitted = await t.call("render", { spec: BAR, data: { rows: ROWS }, theme: { colors: { text: "#202020" } }, formats: ["svg"], name: "omitted" })
+    expect(inline.theme).toBe("light-custom")
+    expect(readFileSync(join(t.dir, inline.files.svg), "utf8")).toBe(readFileSync(join(t.dir, omitted.files.svg), "utf8"))
+    const saved = await t.call("theme_save", { name: "plain", theme: { extends: null, colors: { text: "#202020" } } })
+    expect(saved.theme.colors.background).toBe("#FFFFFF")
+    expect(saved.theme.colors.text).toBe("#202020")
+    expect((await t.call("render", { spec: BAR, data: { rows: ROWS }, theme: "plain", formats: ["svg"], name: "plain" })).theme).toBe("plain")
   })
 })
