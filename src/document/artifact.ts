@@ -4,7 +4,7 @@ import { recipeDefinition } from "../recipes/definitions.js"
 import type { RecipeId } from "../recipes/types.js"
 import { LIMITS } from "../safety.js"
 import { ThemeTokensSchema } from "../themes/tokens.js"
-import { byteLength, canonicalJson, canonicalValue, DOCUMENT_DEPTH, isDigest, REVISION_PATTERN, scanJson, sha256 } from "./canonical.js"
+import { byteLength, canonicalJson, decodeUtf8, canonicalValue, DOCUMENT_DEPTH, isDigest, REVISION_PATTERN, scanJson, sha256 } from "./canonical.js"
 import { categoryKey } from "./category.js"
 import { ARTIFACT_FORMAT, ARTIFACT_VERSION, DEFAULT_LAYOUT_TARGET, INTERACTION_DEFAULTS, LAYOUT_MODES, LAYOUT_PROFILE_VERSION, LAYOUT_PROFILES, LAYOUT_TARGETS } from "./defaults.js"
 import { DocumentInvalid } from "./issues.js"
@@ -208,7 +208,7 @@ export function parseArtifact(input: string | Uint8Array, options: ParseArtifact
   if (size > ARTIFACT_LIMITS.totalBytes) throw invalid(`The artifact is ${size} bytes, over the ${ARTIFACT_LIMITS.totalBytes}-byte limit for a saved chart.`, "/", "Use a chart artifact this plugin wrote; a larger chart needs aggregated or sampled data.")
   if (options.expectedRevision !== undefined && !isDigest(options.expectedRevision)) throw new ChartsError("DOCUMENT_INVALID", `expectedRevision ${JSON.stringify(options.expectedRevision)} is not a revision.`, "Pass the revision a previous call returned: sha256: and 64 lowercase hex digits.", "/expectedRevision")
   let raw: unknown
-  try { raw = JSON.parse(typeof input === "string" ? input : Buffer.from(input.buffer, input.byteOffset, input.byteLength).toString("utf8")) }
+  try { raw = JSON.parse(typeof input === "string" ? input : decodeUtf8(input)) }
   catch (error) { throw invalid(error instanceof RangeError ? `The artifact is nested too deeply to read (the limit is ${DOCUMENT_DEPTH} levels).` : "The artifact is not valid JSON.") }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw invalid("The artifact is not a JSON object.")
   const envelope = raw as JsonObject

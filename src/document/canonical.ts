@@ -113,5 +113,21 @@ export function sha256(input: string | Uint8Array): string {
 
 export const isDigest = (value: unknown): value is string => typeof value === "string" && REVISION_PATTERN.test(value)
 
-/** UTF-8 byte length without allocating a buffer per call site. */
-export const byteLength = (text: string) => Buffer.byteLength(text, "utf8")
+/**
+ * UTF-8 byte length, computed from the UTF-16 code units without allocating: a surrogate pair is 4 bytes, and a lone
+ * surrogate 3 (it encodes as U+FFFD, as TextEncoder does).
+ */
+export function byteLength(text: string): number {
+  let bytes = 0
+  for (let i = 0; i < text.length; i++) {
+    const unit = text.charCodeAt(i)
+    if (unit < 0x80) bytes += 1
+    else if (unit < 0x800) bytes += 2
+    else if (unit >= 0xd800 && unit <= 0xdbff && i + 1 < text.length && (text.charCodeAt(i + 1) & 0xfc00) === 0xdc00) { bytes += 4; i++ }
+    else bytes += 3
+  }
+  return bytes
+}
+
+/** UTF-8 text from bytes, with the platform-neutral decoder. */
+export const decodeUtf8 = (bytes: Uint8Array) => new TextDecoder("utf-8").decode(bytes)
