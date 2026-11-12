@@ -77,7 +77,7 @@ document version is 1; the artifact envelope is `opencode-charts-artifact` versi
 | Stage | Result |
 | --- | --- |
 | build, typecheck, copies, forbidden, icons, whitelist, jelly, actionlint | passed (actionlint installed and run) |
-| unit | 710 pass, 0 fail, 43 files |
+| unit | 719 pass, 0 fail, 44 files |
 | kit | 105 pass, 0 fail |
 | browser | 37 pass, 0 fail (playwright-core headless Chromium) |
 | pack | 2 pass, 0 fail |
