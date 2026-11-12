@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { existsSync } from "node:fs"
+import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { ROOT, workspace } from "./helpers.js"
 import { ChartsError } from "../src/errors.js"
@@ -161,6 +161,14 @@ describe("the tools RPC", () => {
     for (const key of ["\"update\"", "\"generation\"", "\"revision\""]) expect(schema).toContain(key)
     const stale = await call("update", { documentPath: made.output?.files?.document, expectedRevision: `sha256:${"0".repeat(64)}`, patch: {} })
     expect(stale.data?.code).toBe("DOCUMENT_REVISION_MISMATCH")
+    // A patch with an own __proto__ key (as JSON delivers it) is refused at its path, not dropped into a no-op.
+    const files = () => readdirSync(join(ws.dir, "outputs", "charts")).sort()
+    const listing = files()
+    const proto = await call("update", JSON.parse(`{"documentPath": ${JSON.stringify(made.output?.files?.document)}, "expectedRevision": ${JSON.stringify(made.output?.revision)}, "patch": {"__proto__": {"title": "x"}}}`))
+    expect(proto.data?.code).toBe("DOCUMENT_INVALID")
+    // The RPC's failure shape is code, message and next step (no path); the path is asserted on the tool path.
+    expect(String((proto as { message?: string }).message)).toContain('The patch has the key "__proto__"')
+    expect(files()).toEqual(listing)
   })
 
   test("a call that mixes input arms is refused through the RPC with INPUT_CONFLICT, and writes nothing", async () => {

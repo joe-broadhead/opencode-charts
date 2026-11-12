@@ -336,6 +336,19 @@ describe("charts_update: refusals before anything is drawn or written", () => {
     expect(await at({ title: undefined, appearance: null })).toEqual(["DOCUMENT_INVALID", "/patch/appearance"])
   })
 
+  test("a __proto__ key in the patch is refused at its path, at the top and inside, and nothing is written", async () => {
+    const t = setup()
+    const { path, revision } = await create(t)
+    const listing = t.tree()
+    // Built with JSON.parse, as the wire delivers it: an own "__proto__" key, not an object literal's prototype.
+    for (const [patch, at] of [['{"__proto__":{"title":"x"}}', "/patch/__proto__"], ['{"appearance":{"__proto__":{"theme":"dark"}}}', "/patch/appearance/__proto__"]] as const) {
+      const error = await t.refusal("update", { documentPath: path, expectedRevision: revision, patch: JSON.parse(patch) })
+      expect([error.code, error.path]).toEqual(["DOCUMENT_INVALID", at])
+      expect(error.detail).toContain("__proto__")
+    }
+    expect(t.tree()).toEqual(listing)
+  })
+
   test("an engine document takes title, description, theme and native layout, and refuses recipe layout and presets", async () => {
     const t = setup()
     const made = await t.call("render", { document: ENGINE, name: "engine", formats: ["svg", "document"] })

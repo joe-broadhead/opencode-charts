@@ -96,11 +96,12 @@ const EXPECTED_REVISION = z.string().max(80).describe("With documentPath: the re
 const documentArm = { document: ENGINE_DOCUMENT.optional(), documentPath: DOCUMENT_PATH.optional(), expectedRevision: EXPECTED_REVISION.optional() }
 
 /**
- * charts_update's patch on the wire: an object whose fields the patch validator checks at run time, so each problem
- * comes back with its code and its JSON path under /patch (and a field that would change the chart's meaning, such as
- * data or bindings, is refused with what to do instead) rather than as a bare schema message.
+ * charts_update's patch on the wire: any value, passed through untouched, which the patch validator checks at run
+ * time, so each problem comes back with its code and its JSON path under /patch (a field that would change the chart's
+ * meaning, such as data or bindings, is refused with what to do instead). Not a record: a record schema copies the
+ * object and silently drops a `__proto__` key, which the validator must see to refuse.
  */
-const PATCH = z.record(z.string(), z.unknown()).describe('The presentation change: any of "title", "description" (an empty string is intentionally empty; omitted stays), "appearance" ({"theme", "overrides", "categoryColors"}, merged by property: a given theme is resolved anew, overrides merge token by token with arrays whole and {} clearing them all, categoryColors replaces whole and [] clears it), "layout" (replaces the whole layout: {"target": "presentation"} takes that profile\'s size; {"mode": "native"} for an engine chart) and "interactions" ({"tooltip", "legend", "zoom", "brush"}, merged). Data, bindings, options, transforms, locale, currency and seed cannot change: that is a new document. {} draws the saved chart again.')
+const PATCH = z.unknown().describe('An object, the presentation change: any of "title", "description" (an empty string is intentionally empty; omitted stays), "appearance" ({"theme", "overrides", "categoryColors"}, merged by property: a given theme is resolved anew, overrides merge token by token with arrays whole and {} clearing them all, categoryColors replaces whole and [] clears it), "layout" (replaces the whole layout: {"target": "presentation"} takes that profile\'s size; {"mode": "native"} for an engine chart) and "interactions" ({"tooltip", "legend", "zoom", "brush"}, merged). Data, bindings, options, transforms, locale, currency and seed cannot change: that is a new document. {} draws the saved chart again.')
 
 const MEDIUM = z.enum(["analysis", "report", "presentation", "paper"]).describe("Where the figure will be read: a desk with every detail (analysis), a document skimmed (report, the default), a slide seen for a few seconds (presentation), or print (paper). It sets how much a figure may carry.")
 
