@@ -170,7 +170,7 @@ runs and checks that a run that did nothing fails every task.
 
 One baseline, not a target: no success target is set from it. Setup: the runs used `opencode-evals` `8f64003`
 (case lock epoch 2); the grades below use that corpus plus one clause correction (lock epoch 3, see below), which
-is on an `opencode-evals` branch and not yet merged; the build under test is this repository at `07ec509` (`dist` digest
+is opencode-evals#6 (https://github.com/joe-broadhead/opencode-evals/pull/6), not yet merged; the build under test is this repository at `07ec509` (`dist` digest
 `sha256:0a17b6dd…cfe99d`, which also built the world); stock OpenCode 2.2.5; model `claude-agent/haiku`; one container
 per trial, egress to `api.anthropic.com` only (197 connections, none refused); 13 tasks × 3 trials = 39 runs, plus
 the 2 scripted probes. No run failed for infrastructure, and the credential appears nowhere in the recordings.
@@ -216,8 +216,7 @@ Failure modes, from the recordings:
 
 Grading note: the first grading of these recordings scored add-zoom, add-scatter-brush and long-labels-narrow lower
 because three clauses compared the adapter's joined facts (`rows.count`, `width`, `height`, which are strings) with
-numbers. The clauses were corrected to compare strings (lock epoch 3, `fix(charts): compare the adapter's joined facts as
-strings`, not yet merged in `opencode-evals`) and the same recordings were regraded; no run
+numbers. The clauses were corrected to compare strings (lock epoch 3, opencode-evals#6, not yet merged) and the same recordings were regraded; no run
 was repeated. As first graded: strict 29/39, pass^3 9/13. Per-run browser confirmation of an interaction is not
 graded; the corpus grades the preset and format the agent chose, and the preset's behaviour is the browser suite's
 evidence.
