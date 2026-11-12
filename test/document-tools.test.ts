@@ -7,6 +7,7 @@ import { ChartsError } from "../src/errors.ts"
 import { RECIPE_IDS } from "../src/recipes/types.ts"
 import { recipeExamples } from "../src/recipes/examples.ts"
 import { runTool, type ToolName } from "../src/tools.ts"
+import { selectArm } from "../src/document-tool.ts"
 import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
 
 /**
@@ -164,6 +165,15 @@ describe("one input arm per call (A04)", () => {
     expect(await t.refusal("validate", { expectedRevision: `sha256:${"0".repeat(64)}` })).toMatchObject({ code: "INPUT_INVALID", path: "/expectedRevision" })
     expect(await t.refusal("quick", { type: "bar" })).toMatchObject({ code: "INPUT_INVALID", path: "/data" })
     expect((await t.failed("quick", { documentPath: "x.chart.json" })).name).toBe("ZodError")
+  })
+
+  test("each expectedRevision refusal says what is wrong in its own case", () => {
+    const at = (tool: "render" | "quick", input: Record<string, unknown>) => { try { selectArm(tool, input) } catch (error) { return error as ChartsError } throw new Error("expected a refusal") }
+    const quick = at("quick", { expectedRevision: `sha256:${"0".repeat(64)}`, document: BAR_DOC })
+    expect(quick).toMatchObject({ code: "INPUT_INVALID", path: "/expectedRevision" })
+    expect(quick.detail).toBe("charts_quick does not replay a saved artifact, so expectedRevision has nothing to check.")
+    const render = at("render", { expectedRevision: `sha256:${"0".repeat(64)}` })
+    expect(render.detail).toBe("expectedRevision was given without documentPath.")
   })
 
   test("charts_quick refuses an engine document and points at charts_render", async () => {

@@ -71,7 +71,8 @@ export function selectArm(tool: ChartTool, input: Readonly<Record<string, unknow
     const first = legacy[0] ?? document[0]!
     throw new ChartsError("INPUT_CONFLICT", `The call mixes ${list}. A call takes exactly one of: a spec with its fields${tool === "quick" ? " (type, data, x, y…)" : ""}, a chart document (document)${tool === "quick" ? "" : ", or a saved artifact (documentPath, expectedRevision)"}; formats, scales, name, outDir, inspect, marks and svgText go with any of them. Nothing was drawn or written.`, document.length && legacy.length ? `Move the fields into the document (${where.slice(0, 6).join("; ")}), or drop document and keep the older form.` : artifact.length ? "To draw the saved artifact exactly, pass only documentPath (and expectedRevision); to change it, create a new document or use its own fields." : "Keep one arm.", `/${first}`)
   }
-  if (!artifact.length && input.expectedRevision !== undefined) throw new ChartsError("INPUT_INVALID", "expectedRevision was given without documentPath.", "Pass documentPath with it, the saved .chart.json the revision belongs to.", "/expectedRevision")
+  // Only charts_quick reaches this: it never replays a saved artifact, so it has no revision to check.
+  if (!artifact.length && input.expectedRevision !== undefined) throw new ChartsError("INPUT_INVALID", `charts_${tool} does not replay a saved artifact, so expectedRevision has nothing to check.`, "To draw a saved .chart.json at a known revision, call charts_render (or charts_validate) with documentPath and expectedRevision.", "/expectedRevision")
   if (artifact.length && input.documentPath === undefined) throw new ChartsError("INPUT_INVALID", "expectedRevision was given without documentPath.", "Pass documentPath with it, the saved .chart.json the revision belongs to.", "/expectedRevision")
   if (!arms.length) {
     const what = tool === "quick" ? "type and data, or document" : "spec, document or documentPath"
