@@ -124,6 +124,30 @@ describe("the tools RPC", () => {
     expect(actions).toEqual(["charts_render", "edit"])
   })
 
+  test("a chart document goes through the RPC: quick, validate, then render from the saved artifact, echoing no rows", async () => {
+    const rows = [{ region: "North", revenue: 10, note: "rpc-row-marker" }, { region: "South", revenue: 20, note: "rpc-row-marker" }]
+    const document = { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows }, bindings: { category: "region", value: "revenue" } }, title: "RPC document" }
+    const made = await call("quick", { document, name: "rpc-doc", formats: ["svg", "document"] })
+    expect(made.output?.revision).toMatch(/^sha256:[0-9a-f]{64}$/)
+    expect(made.output?.files?.document).toBe("outputs/charts/rpc-doc.chart.json")
+    const checked = await call("validate", { document, inspect: false })
+    expect(checked.output?.valid).toBe(true)
+    expect(checked.output?.revision).toBe(made.output?.revision)
+    const before = asserts.length
+    const replay = await call("render", { documentPath: made.output?.files?.document, expectedRevision: made.output?.revision, name: "rpc-replay", formats: ["svg"] })
+    expect(replay.output?.revision).toBe(made.output?.revision)
+    expect(replay.output?.source?.input).toBe("documentPath")
+    // Its own action, read on the artifact, then edit on the output folder.
+    expect(asserts.slice(before).map(a => a.action)).toEqual(["charts_render", "read", "edit"])
+    for (const result of [made, checked, replay]) expect(JSON.stringify(result)).not.toContain("rpc-row-marker")
+  })
+
+  test("a call that mixes input arms is refused through the RPC with INPUT_CONFLICT, and writes nothing", async () => {
+    const result = await call("render", { document: { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows: [{ k: "a", v: 1 }] }, bindings: { category: "k", value: "v" } } }, spec: { mark: "bar" }, name: "rpc-mixed" })
+    expect(result.data?.code).toBe("INPUT_CONFLICT")
+    expect(existsSync(join(ws.dir, "outputs", "charts", "rpc-mixed.svg"))).toBe(false)
+  })
+
   test("an image is never inlined into a script's result: the files are on disk", async () => {
     const result = await call("validate", { spec: { mark: "bar", encoding: { x: { field: "region", type: "nominal" }, y: { field: "revenue", type: "quantitative" } } }, data: { rows: [{ region: "North", revenue: 10 }] } })
     expect(JSON.stringify(result)).not.toContain("data:image/png")

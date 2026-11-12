@@ -17,7 +17,7 @@ import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
  * ordinary render fails as `SPEC_TOO_EXPENSIVE`. A plain await does not; neither does plain `bun`.
  */
 setDefaultTimeout(60_000)
-type Step = "svg" | "png" | "html" | "spec" | "preview" | "commit"
+type Step = "svg" | "png" | "html" | "spec" | "document" | "preview" | "commit"
 const spaces: { cleanup: () => void }[] = []
 afterAll(async () => { for (const s of spaces) s.cleanup(); await closeVegaWorker() })
 
@@ -166,5 +166,46 @@ describe("a failure while committing puts back what it replaced", () => {
     expect(readdirSync(join(dir, "outputs", "charts")).sort()).toEqual(["chart.html", "chart.png", "chart.svg", "chart.vl.json"])
     expect(readFileSync(join(dir, "outputs", "charts", "chart.svg"), "utf8")).toContain("Second version")
     expect(statSync(join(dir, "outputs", "charts", "chart.png")).size).toBeGreaterThan(0)
+  })
+})
+
+describe("a saved chart artifact is one more file of the same publication", () => {
+  const artifact = '{"format":"opencode-charts-artifact"}\n'
+  test("it is written as <name>.chart.json beside the other files, and named in the result", async () => {
+    const { renderChart } = await import("../src/pipeline.ts")
+    const { dir, env } = setup()
+    const result = await renderChart({ spec: BAR, data: { rows: ROWS }, name: "chart", formats: ["svg"], document: artifact }, env as never)
+    expect(result.files).toEqual({ svg: "outputs/charts/chart.svg", png: [], document: "outputs/charts/chart.chart.json" })
+    expect(readFileSync(join(dir, "outputs", "charts", "chart.chart.json"), "utf8")).toBe(artifact)
+  })
+
+  test("A30: preparing it fails: the earlier version is untouched and nothing is added", async () => {
+    const { renderChart } = await import("../src/pipeline.ts")
+    let armed = false
+    const { dir, env } = setup(s => { if (armed && s === "document") throw new Error("injected document failure") })
+    await renderChart({ spec: BAR, data: { rows: ROWS }, name: "chart", formats: ["svg"], document: artifact }, env as never)
+    const before = tree(dir)
+    armed = true
+    expect((await failure(renderChart({ spec: BAR, data: { rows: ROWS.slice(1) }, name: "chart", formats: ["svg", "spec"], document: artifact.replace("}", ',"v":2}') }, env as never))).message).toBe("injected document failure")
+    expect(tree(dir)).toEqual(before)
+  })
+
+  test("A31: moving it in fails: the files already moved are put back and no staging is left", async () => {
+    const { renderChart } = await import("../src/pipeline.ts")
+    let armed = false
+    const { dir, env } = setup((s, file) => { if (armed && s === "commit" && file === "chart.chart.json") throw new Error("injected commit failure") })
+    await renderChart({ spec: BAR, data: { rows: ROWS }, name: "chart", formats: ["svg"], document: artifact }, env as never)
+    const before = tree(dir)
+    armed = true
+    expect((await failure(renderChart({ spec: BAR, data: { rows: ROWS.slice(1) }, name: "chart", formats: ["svg"], document: artifact.replace("}", ',"v":2}') }, env as never))).message).toMatch(/^OUTPUT_WRITE_FAILED: Writing outputs\/charts\/chart\.chart\.json failed/)
+    expect(tree(dir)).toEqual(before)
+  })
+
+  test("a check never writes it", async () => {
+    const { renderChart } = await import("../src/pipeline.ts")
+    const { dir, env } = setup()
+    const result = await renderChart({ spec: BAR, data: { rows: ROWS }, formats: ["svg"], document: artifact }, env as never, false)
+    expect(result.files.document).toBeUndefined()
+    expect(tree(dir)).toEqual({})
   })
 })

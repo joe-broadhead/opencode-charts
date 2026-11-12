@@ -1,6 +1,7 @@
 import * as z from "zod"
 import { CURRENCY_FIELD, LOCALE_FIELD } from "./locale-fields.js"
 import { QUICK_TYPES } from "./quick.js"
+import { DEFINITIONS } from "./recipes/definitions.js"
 import { THEME_DIR } from "./themes/store.js"
 
 /**
@@ -61,7 +62,7 @@ const outputs = {
   locale: LOCALE_FIELD,
   currency: CURRENCY_FIELD,
   currencyFields: z.array(z.string()).max(50).optional().describe("Exactly which fields are money; default: fields whose names look like money."),
-  formats: z.array(z.enum(["svg", "png", "html", "spec"])).max(4).optional().describe("Files to write. Default svg, png and spec; add html for an interactive, offline page."),
+  formats: z.array(z.enum(["svg", "png", "html", "spec", "document"])).max(5).optional().describe("Files to write. Default svg, png and spec; add html for an interactive, offline page, and document for the editable <name>.chart.json. With document or documentPath the default is svg, png, spec and document, plus html when an interaction needs it; a list you give is exact."),
   scales: z.array(z.union([z.literal(1), z.literal(2), z.literal(3)])).max(3).optional().describe("PNG pixel densities. Default [2]."),
   name: z.string().max(80).optional().describe("File name stem; default from the title."),
   title: z.string().max(200).optional(),
@@ -77,13 +78,29 @@ const outputs = {
 
 const SPEC = row.describe("A Vega-Lite spec (mark/encoding/layer/facet…), a Vega spec (marks/scales/signals) or an ECharts option (series). Leave data out and pass it in data; use {\"name\": \"table\"} where the spec names it, {\"atlas\": \"world-110m\"} for maps, and \"theme:positive\"-style colour tokens.")
 
+/** One line per recipe: its bindings, `?` marking an optional one, from the recipe registry. */
+const RECIPE_LINES = DEFINITIONS.map(d => `${d.id}(${d.bindings.map(b => `${b.role}${b.required === "always" ? "" : "?"}`).join(", ")})`).join(", ")
+
+/**
+ * A chart document on the wire. The transport schema is an object whose members the document validator checks at run
+ * time, so every problem comes back with its code and its JSON path (an unknown property, a missing binding, a newer
+ * version as DOCUMENT_VERSION_UNSUPPORTED) rather than as a bare schema message; charts_capabilities and
+ * charts_catalogue carry the full schema and runnable examples.
+ */
+const DOCUMENT = z.record(z.string(), z.unknown()).describe(`A chart document, version 1: {"version": 1, "chart": {"kind": "recipe", "recipe": "line", "data": {"rows": [...]} or {"path": "data/x.csv"}, "bindings": {...}, "options": {...}}, "title", "description", "locale", "currency", "seed", "appearance": {"theme", "overrides", "categoryColors"}, "layout": {"target", "mode", "width", "height"}, "interactions": {"tooltip", "legend", "zoom", "brush"}}. Recipes and their bindings (? optional, or left out when options.aggregate is count): ${RECIPE_LINES}. Checked strictly: each problem comes back with its JSON path and a fix.`)
+const ENGINE_DOCUMENT = DOCUMENT.describe(`${DOCUMENT.description!} charts_render also takes a raw engine chart: {"chart": {"kind": "engine", "spec": {...}, "data": {...}}} with layout omitted or {"mode": "native"}.`)
+const DOCUMENT_PATH = z.string().min(1).max(1024).describe("A saved <name>.chart.json (workspace path) to render again exactly: its captured data, theme and defaults. Instead of spec or document.")
+const EXPECTED_REVISION = z.string().max(80).describe("With documentPath: the revision you expect it to hold (sha256:…). A different revision is refused before anything is drawn.")
+/** The input arms a chart call can use instead of a legacy spec: the authoring document, or a saved artifact. */
+const documentArm = { document: ENGINE_DOCUMENT.optional(), documentPath: DOCUMENT_PATH.optional(), expectedRevision: EXPECTED_REVISION.optional() }
+
 const MEDIUM = z.enum(["analysis", "report", "presentation", "paper"]).describe("Where the figure will be read: a desk with every detail (analysis), a document skimmed (report, the default), a slide seen for a few seconds (presentation), or print (paper). It sets how much a figure may carry.")
 
 const STRING = { type: "string" } as const
 const NUMBER = { type: "number" } as const
 const ISSUE = {
   type: "object",
-  properties: { level: { type: "string" }, code: { type: "string" }, message: { type: "string" }, path: { type: "string" }, fix: { type: "string" } },
+  properties: { level: { type: "string" }, code: { type: "string" }, message: { type: "string" }, path: { type: "string" }, fix: { type: "string" }, figureIds: { type: "array", items: STRING } },
   required: ["level", "code", "message"],
   additionalProperties: true,
 } as const
@@ -118,6 +135,16 @@ const RENDER_OUTPUT = {
     figure: FIGURE,
     ms: NUMBER,
     spec: { type: "object", additionalProperties: true },
+    // Chart documents only (document or documentPath, or document output from a legacy call).
+    revision: { type: "string", description: "The document's revision, sha256: and 64 hex digits." },
+    fingerprint: { type: "string", description: "The written bundle's render fingerprint, sha256: and 64 hex digits; not returned by charts_validate." },
+    source: { type: "object", description: "input (document, documentPath or legacy), kind (recipe or engine), recipe, engine, documentPath.", additionalProperties: true },
+    appearance: { type: "object", description: "The theme drawn: its name, its captured base and a hash of its tokens.", additionalProperties: true },
+    categories: { type: "object", description: "The stable colour domain of a recipe chart: role, field, count and the first values.", additionalProperties: true },
+    size: { type: "object", description: "The requested outer size (target, mode, width, height) and the actual one.", additionalProperties: true },
+    interactions: { type: "object", description: "Requested (authored), resolved, and what each format carries; SVG and PNG are the static initial view.", additionalProperties: true },
+    adjustments: { type: "array", items: { type: "object", additionalProperties: true } },
+    diagnostics: { type: "array", items: ISSUE },
   },
   required: ["engine", "theme", "title", "files", "ms"],
   additionalProperties: true,
@@ -212,15 +239,15 @@ type DeclaredTool = Omit<ToolDescriptor, "output">
 export const DECLARED: readonly DeclaredTool[] = [
   {
     name: "render", class: "export", readOnly: false, stability: "stable", docsAnchor: "README.md#tools",
-    description: "Render any chart from a spec: Vega-Lite for statistical charts (bar, line, area, scatter, facets, layers, maps), Vega for treemap, sunburst, tree, force network and word cloud, ECharts for Sankey, chord, gauge, funnel, calendar, candlestick, radar and parallel. Validates first and explains each problem with its JSON path and a fix; lints for misleading or unreadable charts; writes SVG, PNG (and optional interactive HTML) under outputs/charts and returns a markdown image line to show it inline. Start from charts_catalogue's examples, or ask charts_recommend which chart fits.",
-    input: z.strictObject({ spec: SPEC, engine: z.enum(["vega-lite", "vega", "echarts"]).optional().describe("Default: detected from the spec."), data: dataSchema.optional(), ...outputs }),
+    description: "Render any chart from a spec: Vega-Lite for statistical charts (bar, line, area, scatter, facets, layers, maps), Vega for treemap, sunburst, tree, force network and word cloud, ECharts for Sankey, chord, gauge, funnel, calendar, candlestick, radar and parallel. Validates first and explains each problem with its JSON path and a fix; lints for misleading or unreadable charts; writes SVG, PNG (and optional interactive HTML) under outputs/charts and returns a markdown image line to show it inline. Start from charts_catalogue's examples, or ask charts_recommend which chart fits. Instead of spec, pass document (a chart document: a recipe, or a raw engine spec with its data) or documentPath (a saved .chart.json, drawn again from its captured data and theme); one of the three per call.",
+    input: z.strictObject({ spec: SPEC.optional(), engine: z.enum(["vega-lite", "vega", "echarts"]).optional().describe("Default: detected from the spec."), data: dataSchema.optional(), ...outputs, ...documentArm }),
   },
   {
     name: "quick", class: "export", readOnly: false, stability: "stable", docsAnchor: "README.md#tools",
-    description: "A standard chart from a type and field names — bar, horizontal_bar, grouped_bar, stacked_bar, line, area, stacked_area, scatter, bubble, pie, donut, histogram, box_plot, heatmap — with the same theme, checks and files as charts_render. Returns the spec it built, to refine with charts_render.",
+    description: "A standard chart from a type and field names — bar, horizontal_bar, grouped_bar, stacked_bar, line, area, stacked_area, scatter, bubble, pie, donut, histogram, box_plot, heatmap — with the same theme, checks and files as charts_render. Recommended: pass document, a typed recipe document ({\"version\": 1, \"chart\": {\"kind\": \"recipe\", \"recipe\": \"bar\", \"data\", \"bindings\", \"options\"}, …}), checked strictly with a JSON path for each problem, which also saves an editable <name>.chart.json. The older form (type, data, x, y…) still works and returns the spec it built, to refine with charts_render.",
     input: z.strictObject({
-      type: z.enum(QUICK_TYPES).describe("The chart type."),
-      data: dataSchema,
+      type: z.enum(QUICK_TYPES).optional().describe("The chart type."),
+      data: dataSchema.optional(),
       x: z.string().optional().describe("Category or date field (the slice field for pie/donut; the measured field for histogram)."),
       y: z.string().optional().describe("Value field (the measure for pie/donut)."),
       color: z.string().optional().describe("Series or group field (the row field for heatmap)."),
@@ -232,18 +259,20 @@ export const DECLARED: readonly DeclaredTool[] = [
       yTitle: z.string().max(120).optional().describe("Include the unit, such as \"Revenue (€k)\"."),
       bins: z.number().int().min(2).max(200).optional(),
       ...outputs,
+      document: DOCUMENT.optional(),
     }),
   },
   {
     name: "validate", class: "read", readOnly: true, stability: "stable", docsAnchor: "README.md#tools",
-    description: "Check a spec without writing files: the same validation, lint and layout checks as charts_render (unknown fields with did-you-mean, overlapping or clipped labels, too many slices…), the figure tree naming every label, and by default the rendered PNG to look at. Takes the same input as charts_render, so a render call can be checked unchanged; the formats it asks for are checked too (an HTML or PNG runtime that is missing is reported). Returns valid: true, or valid: false with the issues. Use it to fix a chart before rendering the final files.",
+    description: "Check a spec without writing files: the same validation, lint and layout checks as charts_render (unknown fields with did-you-mean, overlapping or clipped labels, too many slices…), the figure tree naming every label, and by default the rendered PNG to look at. Takes the same input as charts_render (spec, document or documentPath), so a render call can be checked unchanged; the formats it asks for are checked too (an HTML or PNG runtime that is missing is reported). Returns valid: true, or valid: false with the issues. Use it to fix a chart before rendering the final files.",
     input: z.strictObject({
-      spec: SPEC,
+      spec: SPEC.optional(),
       engine: z.enum(["vega-lite", "vega", "echarts"]).optional(),
       data: dataSchema.optional(),
       ...outputs,
       formats: outputs.formats.describe("The files the render will ask for: each is checked (an unavailable HTML or PNG runtime is reported), and nothing is written."),
       inspect: z.boolean().optional().describe("Return the rendered PNG. Default true."),
+      ...documentArm,
     }),
   },
   {

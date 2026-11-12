@@ -16,13 +16,26 @@ export interface ThemeSources {
   readonly workspace: Workspace
   /** Themes from the plugin's options (`themes: { name: overrides }`). */
   readonly configured: Readonly<Record<string, ThemeOverrides>>
+  /**
+   * Saved themes already read by an adapter that asked read permission for each file: by name, the parsed file, or null
+   * when there is no file. When set, nothing is read from disk here, and a saved theme outside it is refused.
+   */
+  readonly approved?: ReadonlyMap<string, ThemeOverrides | null>
 }
+
+/** The most named themes (saved or configured) one chain may pass through before a built-in base. */
+export const MAX_THEME_CHAIN = 4
+export const THEME_NAME = NAME
 
 function savedFile(sources: ThemeSources, name: string) {
   return confine(sources.workspace, `${THEME_DIR}/${name}.json`, "write")
 }
 
 function readSaved(sources: ThemeSources, name: string): ThemeOverrides | undefined {
+  if (sources.approved) {
+    if (!sources.approved.has(name)) throw new ChartsError("THEME_INVALID", `The saved theme "${name}" was not read with permission.`, "Name the theme again so it is resolved with its whole extends chain.")
+    return sources.approved.get(name) ?? undefined
+  }
   const file = savedFile(sources, name)
   if (!existsSync(file.absolute)) return undefined
   try { return JSON.parse(readFileSync(file.absolute, "utf8")) as ThemeOverrides }
@@ -44,7 +57,8 @@ export function savedThemeNames(sources: ThemeSources): string[] {
  */
 export function resolveTheme(sources: ThemeSources, theme: string | ThemeOverrides | undefined, depth = 0): ThemeTokens {
   const BUILTIN_THEMES = builtinThemes()
-  if (depth > 4) throw new ChartsError("THEME_CYCLE", "A theme extends itself through too many steps.", "Make each saved theme extend a built-in theme or one other theme.")
+  // Each named theme costs two steps: its name, then its tokens over its base.
+  if (depth > MAX_THEME_CHAIN * 2) throw new ChartsError("THEME_CYCLE", "A theme extends itself through too many steps.", "Make each saved theme extend a built-in theme or one other theme.")
   if (theme === undefined) return BUILTIN_THEMES.light!
   if (typeof theme === "string") {
     const name = theme.trim().toLowerCase()

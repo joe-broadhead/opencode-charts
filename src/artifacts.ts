@@ -6,7 +6,7 @@ import { ensureDirectory, type Workspace } from "./paths.js"
 
 /** One finished file of a render, held in memory until every requested file is ready. */
 export interface Artifact {
-  readonly kind: "svg" | "png" | "html" | "spec"
+  readonly kind: "svg" | "png" | "html" | "spec" | "document"
   /** The file name inside the output folder. */
   readonly file: string
   readonly bytes: string | Uint8Array

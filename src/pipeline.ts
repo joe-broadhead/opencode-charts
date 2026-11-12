@@ -7,7 +7,7 @@ import { compileVegaLite, prepareVegaLite, units } from "./engines/vegalite.js"
 import { publish, type Artifact } from "./artifacts.js"
 import { detectEngine } from "./document/engine.js"
 import { ChartsError, SpecInvalid, type Issue } from "./errors.js"
-import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook } from "./fonts.js"
+import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook, type FontResource } from "./fonts.js"
 import { buildHtml, htmlProblem } from "./html.js"
 import { resolveLocale } from "./locale.js"
 import { confine, slug, type Workspace } from "./paths.js"
@@ -17,7 +17,8 @@ import { figureOf, markedSvg, type Figure } from "./figure.js"
 import { accessible, embedFonts, layoutFacts, normaliseIds, textBoxes, textProblems, type LayoutFacts } from "./svg.js"
 import { echartsTheme } from "./themes/adapters.js"
 import { themeContrastIssues } from "./themes/contrast.js"
-import { resolveTheme, type ThemeSources } from "./themes/store.js"
+import { resolveThemeAsked } from "./themes/chain.js"
+import type { ThemeSources } from "./themes/store.js"
 import type { ThemeOverrides, ThemeTokens } from "./themes/tokens.js"
 
 export type Format = "svg" | "png" | "html" | "spec"
@@ -44,6 +45,15 @@ export interface RenderRequest {
   readonly preview?: boolean
   /** Which labels to number on the preview PNG: those that collide or clip (default), all, or none. */
   readonly marks?: "problems" | "all" | "none"
+  /**
+   * A chart document's resolved theme (its captured base with its overrides), used instead of resolving `theme`. Not a
+   * tool field: only the document adapter sets it.
+   */
+  readonly themeTokens?: ThemeTokens
+  /** A chart document's custom fonts, already read and checked against their captured digests; never read again here. */
+  readonly fontResources?: readonly FontResource[]
+  /** A saved chart artifact's text, written as `<name>.chart.json` in the same staged publication as the other files. */
+  readonly document?: string
 }
 
 export interface Environment {
@@ -56,7 +66,7 @@ export interface Environment {
    * `html`, `spec`, `preview`) and before each file is moved into place (`commit`, with its name). Throwing simulates
    * that step failing.
    */
-  readonly probe?: (step: "svg" | "png" | "html" | "spec" | "preview" | "commit", file?: string) => void
+  readonly probe?: (step: "svg" | "png" | "html" | "spec" | "document" | "preview" | "commit", file?: string) => void
   /** Asks the host for permission on workspace files; a tool call always has it, so a theme's font files are asserted before they are read. */
   readonly assertFiles?: (action: "read" | "edit", resources: readonly string[]) => Promise<void>
 }
@@ -68,7 +78,7 @@ export interface RenderResult {
   readonly description: string
   readonly width: number
   readonly height: number
-  readonly files: { readonly svg?: string; readonly png: readonly string[]; readonly html?: string; readonly spec?: string }
+  readonly files: { readonly svg?: string; readonly png: readonly string[]; readonly html?: string; readonly spec?: string; readonly document?: string }
   readonly markdown?: string
   readonly summary: string
   readonly issues: readonly Issue[]
@@ -151,9 +161,11 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   const dataName = request.data?.name ?? "table"
 
   // Theme and fonts.
-  const theme = resolveTheme({ workspace: env.workspace, configured: env.configuredThemes }, request.theme ?? env.defaults.theme)
+  // A saved theme, and every theme it extends, is asked for (by the real path read) before it is read.
+  const theme = request.themeTokens ?? await resolveThemeAsked({ workspace: env.workspace, configured: env.configuredThemes }, request.theme ?? env.defaults.theme, env.assertFiles ? paths => env.assertFiles!("read", paths) : undefined)
   let fonts: FontBook = bundledFonts(env.packageRoot)
-  if (theme.font.files.length) fonts = withCustomFonts(fonts, await readCustomFonts(env.workspace, theme.font.files, env.assertFiles ? paths => env.assertFiles!("read", paths) : undefined))
+  if (request.fontResources) { if (request.fontResources.length) fonts = withCustomFonts(fonts, request.fontResources) }
+  else if (theme.font.files.length) fonts = withCustomFonts(fonts, await readCustomFonts(env.workspace, theme.font.files, env.assertFiles ? paths => env.assertFiles!("read", paths) : undefined))
   const locale = resolveLocale(env.packageRoot, request.locale ?? env.defaults.locale ?? "en-US", request.currency)
   const issues: Issue[] = [...preflight.map(({ problem, path }): Issue => ({ level: "error", code: problem.code, message: problem.detail, path, fix: problem.hint })), ...themeContrastIssues(theme), ...sizeOverrides(request, engine)]
   const notes: string[] = []
@@ -223,7 +235,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     if (repeated !== undefined) { issues.push({ level: "warning", code: "DUPLICATE_TICKS", message: `An axis repeats the label "${repeated}": its format is coarser than the tick step.`, fix: "Use a finer format (\".1%\", \",.1f\") or fewer ticks (axis.tickCount)." }); break }
   }
 
-  const files: { svg?: string; png: string[]; html?: string; spec?: string } = { png: [] }
+  const files: { svg?: string; png: string[]; html?: string; spec?: string; document?: string } = { png: [] }
   let preview: Uint8Array | undefined
   const name = slug(request.name ?? title)
   const defaultFamily = fonts.has(theme.font.family) ? theme.font.family : "Inter"
@@ -236,7 +248,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
 
   // Every requested file, and the preview, is made in memory first; only then is anything written.
   const artifacts: Artifact[] = []
-  const step = (kind: "svg" | "png" | "html" | "spec" | "preview") => env.probe?.(kind)
+  const step = (kind: "svg" | "png" | "html" | "spec" | "document" | "preview") => env.probe?.(kind)
   if (write) {
     if (formats.has("svg")) {
       step("svg")
@@ -259,6 +271,10 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     if (formats.has("spec")) {
       step("spec")
       artifacts.push({ kind: "spec", file: `${name}.${engine === "vega-lite" ? "vl" : engine === "vega" ? "vg" : "echarts"}.json`, bytes: JSON.stringify(resolvedSpec, null, 1) + "\n" })
+    }
+    if (request.document !== undefined) {
+      step("document")
+      artifacts.push({ kind: "document", file: `${name}.chart.json`, bytes: request.document })
     }
   }
   if (request.preview) {

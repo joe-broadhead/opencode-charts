@@ -29,7 +29,8 @@ export interface CapabilityView {
   readonly version: string
   readonly contract: string
   readonly namespace: string
-  readonly formats: { readonly svg: true; readonly png: boolean; readonly html: boolean; readonly spec: true }
+  /** `document` is the editable chart artifact (`<name>.chart.json`): plain JSON, so always available. */
+  readonly formats: { readonly svg: true; readonly png: boolean; readonly html: boolean; readonly spec: true; readonly document: true }
   readonly engines: readonly { readonly id: string; readonly draws: readonly string[]; readonly note?: string }[]
   readonly themes: readonly { readonly name: string; readonly mode: string; readonly categorical: { readonly published: number; readonly available: number; readonly generated: number }; readonly description?: string }[]
   readonly savedThemes: readonly string[]
@@ -109,7 +110,7 @@ export function capabilities(env: CapabilitySources): CapabilityView {
     version: packageVersion(env.packageRoot),
     contract: CONTRACT_VERSION,
     namespace: NAMESPACE,
-    formats: { svg: true, png, html, spec: true },
+    formats: { svg: true, png, html, spec: true, document: true },
     engines: [
       { id: "vega-lite", draws: ["bar", "line", "area", "scatter", "histogram", "box plot", "heatmap", "pie and donut", "facets", "layers", "dual axis", "maps"], note: "Compiled to Vega and rendered in a worker with a wall-clock limit and a heap cap." },
       { id: "vega", draws: ["treemap", "sunburst", "tree and dendrogram", "force network", "word cloud"], note: "Vega's own wordcloud transform needs a canvas; this build ships a deterministic replacement with the same parameters." },
@@ -145,7 +146,7 @@ export function capabilities(env: CapabilitySources): CapabilityView {
 
 /** The text form the model reads: the same facts, in the order they matter. */
 export function describeCapabilities(view: CapabilityView): string {
-  const formats = [view.formats.svg ? "SVG" : "", view.formats.png ? "PNG" : "", view.formats.html ? "HTML" : "", view.formats.spec ? "spec" : ""].filter(Boolean)
+  const formats = [view.formats.svg ? "SVG" : "", view.formats.png ? "PNG" : "", view.formats.html ? "HTML" : "", view.formats.spec ? "spec" : "", view.formats.document ? "document (.chart.json)" : ""].filter(Boolean)
   return [
     `Charts ${view.version} (contract ${view.contract}), ${view.catalogue.count} chart types.`,
     `Outputs: ${formats.join(", ")}.`,
