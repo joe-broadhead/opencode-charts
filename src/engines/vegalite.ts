@@ -223,6 +223,16 @@ export function prepareVegaLite(input: Json, ctx: VegaLiteContext): PreparedVega
           if (labels.length > 60) issues.push({ level: "warning", code: "LABEL_DENSITY", message: `${labels.length} categories on x: their labels cannot all be read.`, path: pointer(dPath), fix: "Aggregate to fewer categories, filter to the top N, or swap to a horizontal bar chart with y as the category." })
         }
 
+        // A size key has no colour scale, and Vega-Lite draws its symbols black, which vanish on a dark canvas: they
+        // take the theme's muted text colour (the fill of filled marks, the stroke of outlined ones) unless the spec sets one.
+        if (channel === "size" && d.legend !== null) {
+          const legend = isObject(d.legend) ? d.legend as Json : {}
+          const markDef = isObject(unit.spec.mark) ? unit.spec.mark as Json : {}
+          const filled = mark === "circle" || mark === "square" || (mark === "point" && markDef.filled === true) || (mark !== "point" && markDef.filled !== false)
+          const key = filled ? "symbolFillColor" : "symbolStrokeColor"
+          if (legend[key] === undefined) d.legend = { ...legend, [key]: ctx.theme.colors.muted }
+        }
+
         // Many legend entries go below the chart in columns.
         if ((channel === "color" || channel === "fill") && (d.type === "nominal" || d.type === "ordinal") && field && values && d.legend !== null) {
           const count = new Set(values.map(r => r[field])).size

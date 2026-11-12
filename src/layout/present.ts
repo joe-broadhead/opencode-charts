@@ -275,6 +275,12 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
       ? { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, gradientLength: { expr: `${SIGNALS.legendOrient} === 'right' || ${SIGNALS.legendOrient} === 'left' ? clamp(height * 0.8, 40, 200) : clamp(width * 0.5, 60, 240)` } }
       : { ...own, ...WHOLE_LEGEND, orient: plan.signals.charts_legend_orient, columns: { expr: SIGNALS.legendColumns } }
   }
+  // A size key (bubble) has no colour scale: its symbols are drawn in the theme's muted text colour, fully opaque, so they
+  // read on a dark canvas as well as a light one.
+  if (isObject(encoding.size)) {
+    const size = encoding.size as Json
+    size.legend = { ...(isObject(size.legend) ? size.legend as Json : {}), ...WHOLE_LEGEND, symbolOpacity: 1 }
+  }
   spec.params = [...params, ...(Array.isArray(spec.params) ? spec.params as Json[] : [])]
 
   // Interaction presets. A combination no recipe offers is refused here too, whatever let it through.
