@@ -1,11 +1,211 @@
 ---
 name: charts-cookbook
-description: Idiomatic, tested specs for every chart type the charts_* tools draw (Vega-Lite, Vega and ECharts), grouped by purpose, with when to use each. Read it before writing a spec by hand.
+description: Idiomatic, tested examples for every chart type the charts_* tools draw - typed recipe documents for the 14 standard types, and Vega-Lite, Vega and ECharts specs for the rest - grouped by purpose, with when to use each. Read it before writing a chart document or a spec by hand.
 ---
 
 # Charts cookbook
 
-Each spec below is a tested catalogue example (generated from the plugin's own catalogue). The rows shown are a shape example, the first two of the tested dataset, not the whole of it, and an example tested at a size says so. `charts_catalogue {"id": "…"}` returns the exact tested call: the spec with every row, the title, the currency and the size, ready to pass to `charts_render`. Colours written `"theme:…"` follow the active theme. Vega-Lite is the default engine; Vega is for layouts (treemap, sunburst, tree, force, word cloud); ECharts for flows and dashboard types (Sankey, chord, gauge, funnel, calendar, candlestick, radar, parallel).
+Generated from the plugin's own catalogue and recipe registry. For the 14 standard types, the recommended path is a typed recipe document through `charts_quick` (first section). Every other type, and anything a recipe cannot express, is a raw spec through `charts_render`: the advanced path (the sections after it). Each raw spec below is a tested catalogue example. The rows shown are a shape example, the first two of the tested dataset, not the whole of it, and an example tested at a size says so. `charts_catalogue {"id": "…"}` returns the exact tested call: the spec with every row, the title, the currency and the size, ready to pass to `charts_render`. Colours written `"theme:…"` follow the active theme. Vega-Lite is the default engine; Vega is for layouts (treemap, sunburst, tree, force, word cloud); ECharts for flows and dashboard types (Sankey, chord, gauge, funnel, calendar, candlestick, radar, parallel).
+
+## Typed recipe documents (recommended for the 14 standard types)
+
+Pass `{"document": …}` to `charts_quick`. Unknown fields fail with their JSON path; repeated groups need `options.aggregate` (default `none` refuses with `AGGREGATION_REQUIRED`); `count` counts rows and takes no measure. The result names the saved `<name>.chart.json` and its `revision`: change its theme, size or interactions with `charts_update`, never by editing the spec.
+
+### Bar chart — recipe `bar`
+
+Compare one value across categories. One row per category, or set options.aggregate to combine repeated categories. The value is a number.
+
+- Bindings: `category` (required), `value` (required unless `aggregate` is `count`).
+- Options: `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `sort` `input` / `category-ascending` / `category-descending` / `value-ascending` / `value-descending` (default input); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: none (tooltip auto or off only).
+
+Rows shown: 2 of 5, a shape example. `charts_catalogue {"id": "bar"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"bar","data":{"rows":[{"product":"Lattes","revenue_eur":182400},{"product":"Pastries","revenue_eur":96300}]},"bindings":{"category":"product","value":"revenue_eur"},"options":{"sort":"value-descending","yTitle":"Revenue (€)"}},"title":"Revenue by product, 2024","currency":"EUR"}
+```
+
+### Horizontal bar — recipe `horizontal_bar`
+
+Rank many categories, or long category names, on horizontal bars. One row per category, or set options.aggregate to combine repeated categories. The value is a number.
+
+- Bindings: `category` (required), `value` (required unless `aggregate` is `count`).
+- Options: `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `sort` `input` / `category-ascending` / `category-descending` / `value-ascending` / `value-descending` (default input); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: none (tooltip auto or off only).
+
+Rows shown: 2 of 12, a shape example. `charts_catalogue {"id": "horizontal_bar"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"horizontal_bar","data":{"rows":[{"country":"Germany","users_k":820},{"country":"France","users_k":796}]},"bindings":{"category":"country","value":"users_k"},"options":{"sort":"value-descending","xTitle":"Active users (thousands)"}},"title":"Active users by country"}
+```
+
+### Grouped bar — recipe `grouped_bar`
+
+Compare series side by side within each category. One row per category and series, or set options.aggregate. The value is a number.
+
+- Bindings: `category` (required), `series` (required), `value` (required unless `aggregate` is `count`).
+- Options: `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `sort` `input` / `category-ascending` / `category-descending` (default input); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: legend highlight (needs a series binding).
+
+Rows shown: 2 of 16, a shape example. `charts_catalogue {"id": "grouped_bar"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"grouped_bar","data":{"rows":[{"region":"North","quarter":"Q1","revenue_eur":400000},{"region":"North","quarter":"Q2","revenue_eur":535000}]},"bindings":{"category":"region","series":"quarter","value":"revenue_eur"},"options":{"yTitle":"Revenue (€)"}},"title":"Quarterly revenue by region","currency":"EUR"}
+```
+
+### Stacked bar — recipe `stacked_bar`
+
+Show totals and their make-up across categories. One row per category and series, or set options.aggregate. The value is a number.
+
+- Bindings: `category` (required), `series` (required), `value` (required unless `aggregate` is `count`).
+- Options: `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `sort` `input` / `category-ascending` / `category-descending` (default input); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: legend highlight (needs a series binding).
+
+Rows shown: 2 of 36, a shape example. `charts_catalogue {"id": "stacked_bar"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"stacked_bar","data":{"rows":[{"date":"2024-01-01","series":"Web","orders":1200},{"date":"2024-02-01","series":"Web","orders":1375}]},"bindings":{"category":"date","series":"series","value":"orders"},"options":{"xTitle":"Month","yTitle":"Orders"}},"title":"Monthly orders by channel"}
+```
+
+### Line chart — recipe `line`
+
+A value over time or along an ordered axis, one line per series. One row per x (and series), or set options.aggregate. Temporal x is an ISO date; quantitative x and y are numbers.
+
+- Bindings: `x` (required), `y` (required unless `aggregate` is `count`), `series` (optional).
+- Options: `xType` `temporal` / `quantitative` / `ordinal` (required); `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `xSort` `input` / `ascending` / `descending` (default ascending for temporal and quantitative x; input for ordinal x); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: legend highlight (needs a series binding); zoom x (temporal x only).
+
+Rows shown: 2 of 12, a shape example. `charts_catalogue {"id": "line"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"line","data":{"rows":[{"date":"2024-01-01","dau":42000},{"date":"2024-02-01","dau":45850}]},"bindings":{"x":"date","y":"dau"},"options":{"xType":"temporal","yTitle":"Daily active users"}},"title":"Daily active users, 2024"}
+```
+
+### Area chart — recipe `area`
+
+A volume over time; with a series, overlapping areas. One row per x (and series), or set options.aggregate. Temporal x is an ISO date; quantitative x and y are numbers.
+
+- Bindings: `x` (required), `y` (required unless `aggregate` is `count`), `series` (optional).
+- Options: `xType` `temporal` / `quantitative` / `ordinal` (required); `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `xSort` `input` / `ascending` / `descending` (default ascending for temporal and quantitative x; input for ordinal x); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: legend highlight (needs a series binding); zoom x (temporal x only).
+
+Rows shown: 2 of 12, a shape example. `charts_catalogue {"id": "area"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"area","data":{"rows":[{"date":"2024-01-01","storage_tb":40},{"date":"2024-02-01","storage_tb":48}]},"bindings":{"x":"date","y":"storage_tb"},"options":{"xType":"temporal","yTitle":"Storage (TB)"}},"title":"Storage used"}
+```
+
+### Stacked area — recipe `stacked_area`
+
+Totals over time and how each series contributes. One row per x and series, or set options.aggregate. Temporal x is an ISO date; y is a number.
+
+- Bindings: `x` (required), `y` (required unless `aggregate` is `count`), `series` (required).
+- Options: `xType` `temporal` / `quantitative` / `ordinal` (required); `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `xSort` `input` / `ascending` / `descending` (default ascending for temporal and quantitative x; input for ordinal x); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: legend highlight (needs a series binding).
+
+Rows shown: 2 of 48, a shape example. `charts_catalogue {"id": "stacked_area"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"stacked_area","data":{"rows":[{"date":"2024-01-01","region":"North","revenue_eur":300000},{"date":"2024-02-01","region":"North","revenue_eur":336100}]},"bindings":{"x":"date","y":"revenue_eur","series":"region"},"options":{"xType":"temporal","yTitle":"Revenue (€)"}},"title":"Revenue by region","currency":"EUR"}
+```
+
+### Scatter plot — recipe `scatter`
+
+The relationship between two numbers, one point per row. One row per point; x and y are numbers on every row.
+
+- Bindings: `x` (required), `y` (required), `series` (optional).
+- Options: `xTitle`; `yTitle`.
+- Interactions beyond the defaults: legend highlight (needs a series binding); brush interval.
+
+Rows shown: 2 of 60, a shape example. `charts_catalogue {"id": "scatter"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"scatter","data":{"rows":[{"spend_k":5,"conversions":0,"channel":"Search","customers":50},{"spend_k":42,"conversions":91,"channel":"Social","customers":79}]},"bindings":{"x":"spend_k","y":"conversions","series":"channel"},"options":{"xTitle":"Spend (€k)","yTitle":"Conversions"}},"title":"Spend vs conversions"}
+```
+
+### Bubble chart — recipe `bubble`
+
+A scatter plot with a third number as the point's area. One row per bubble; x, y and size are numbers on every row.
+
+- Bindings: `x` (required), `y` (required), `size` (required), `series` (optional).
+- Options: `xTitle`; `yTitle`.
+- Interactions beyond the defaults: legend highlight (needs a series binding); brush interval.
+
+Rows shown: 2 of 30, a shape example. `charts_catalogue {"id": "bubble"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"bubble","data":{"rows":[{"spend_k":5,"conversions":0,"channel":"Search","customers":50},{"spend_k":42,"conversions":91,"channel":"Social","customers":79}]},"bindings":{"x":"spend_k","y":"conversions","size":"customers","series":"channel"},"options":{"xTitle":"Spend (€k)","yTitle":"Conversions"}},"title":"Campaigns: spend, conversions and reach"}
+```
+
+### Pie chart — recipe `pie`
+
+Parts of one whole, for a few slices. One row per slice, or set options.aggregate to sum or count. Values are zero or more; a pie cannot show a negative part.
+
+- Bindings: `category` (required), `value` (required unless `aggregate` is `count`).
+- Options: `aggregate` `none` / `sum` / `count` (default none); `sort` `input` / `category-ascending` / `category-descending` / `value-ascending` / `value-descending` (default input).
+- Interactions beyond the defaults: none (tooltip auto or off only).
+
+Rows shown: 2 of 4, a shape example. `charts_catalogue {"id": "pie"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"pie","data":{"rows":[{"source":"Search","visits":4200},{"source":"Direct","visits":2600}]},"bindings":{"category":"source","value":"visits"},"options":{"sort":"value-descending"}},"title":"Traffic sources"}
+```
+
+### Donut chart — recipe `donut`
+
+A pie with a hole, for a few slices. One row per slice, or set options.aggregate to sum or count. Values are zero or more; a donut cannot show a negative part.
+
+- Bindings: `category` (required), `value` (required unless `aggregate` is `count`).
+- Options: `aggregate` `none` / `sum` / `count` (default none); `sort` `input` / `category-ascending` / `category-descending` / `value-ascending` / `value-descending` (default input).
+- Interactions beyond the defaults: none (tooltip auto or off only).
+
+Rows shown: 2 of 4, a shape example. `charts_catalogue {"id": "donut"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"donut","data":{"rows":[{"item":"Payroll","share":0.52},{"item":"Infrastructure","share":0.21}]},"bindings":{"category":"item","value":"share"},"options":{"sort":"value-descending"}},"title":"Budget split"}
+```
+
+### Histogram — recipe `histogram`
+
+The shape of one numeric variable: rows counted per bin. One row per observation; the value is a number. Rows without a value are left out and reported.
+
+- Bindings: `value` (required).
+- Options: `bins` 2–200 (default 24); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: none (tooltip auto or off only).
+
+Rows shown: 2 of 240, a shape example. `charts_catalogue {"id": "histogram"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"histogram","data":{"rows":[{"group":"A","latency_ms":229.2},{"group":"B","latency_ms":158.5}]},"bindings":{"value":"latency_ms"},"options":{"bins":24,"xTitle":"Latency (ms)","yTitle":"Requests"}},"title":"Checkout latency"}
+```
+
+### Box plot — recipe `box_plot`
+
+Medians, spread and outliers of a value across categories. One row per observation; the value is a number. The recipe never pre-aggregates: the box summarises every row.
+
+- Bindings: `category` (required), `value` (required).
+- Options: `sort` `input` / `category-ascending` / `category-descending` (default input); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: none (tooltip auto or off only).
+
+Rows shown: 2 of 240, a shape example. `charts_catalogue {"id": "box_plot"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"box_plot","data":{"rows":[{"group":"A","latency_ms":229.2},{"group":"B","latency_ms":158.5}]},"bindings":{"category":"group","value":"latency_ms"},"options":{"xTitle":"Service","yTitle":"Latency (ms)"}},"title":"Latency by service"}
+```
+
+### Heatmap — recipe `heatmap`
+
+A value across two categorical dimensions, one cell each. One row per cell (row and column), or set options.aggregate to combine repeated cells. The value is a number.
+
+- Bindings: `column` (required), `row` (required), `value` (required unless `aggregate` is `count`).
+- Options: `aggregate` `none` / `sum` / `mean` / `median` / `min` / `max` / `count` (default none); `rowSort` `input` / `ascending` / `descending` (default input); `columnSort` `input` / `ascending` / `descending` (default input); `xTitle`; `yTitle`.
+- Interactions beyond the defaults: none (tooltip auto or off only).
+
+Rows shown: 2 of 84, a shape example. `charts_catalogue {"id": "heatmap"}` returns this document with every row, as `recipe.examples[0].call`.
+
+```json
+{"version":1,"chart":{"kind":"recipe","recipe":"heatmap","data":{"rows":[{"day":"Mon","hour":"00:00","orders":20},{"day":"Mon","hour":"02:00","orders":23}]},"bindings":{"column":"hour","row":"day","value":"orders"}},"title":"Orders by weekday and hour"}
+```
 
 ## comparison
 
