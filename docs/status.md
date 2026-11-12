@@ -33,6 +33,8 @@ would go stale, the tool is the source of truth.
   the SVG, the PNG and the figure tree carry the exact promise.
 - **The word cloud places horizontal and vertical words only** (the deterministic replacement for Vega's canvas
   transform).
+- **ECharts has no zoom, brush, toolbox or timeline.** Those components are not in either ECharts runtime, so an
+  option that uses one is refused with `ECHARTS_COMPONENT_UNSUPPORTED` and a next step.
 - **A palette distinguishes up to 20 series.** Past a theme's published colours the rest are generated: measured to at
   least 0.10 OKLab ΔE to twelve series and 0.06 to twenty, but not a tested colour-blind-safe set, and
   `charts_themes` says so.

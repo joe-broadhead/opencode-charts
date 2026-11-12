@@ -1,4 +1,5 @@
 import { ChartsError, pointer } from "./errors.js"
+import { ECHARTS_SERIES_TYPES } from "./runtime-support.js"
 
 /**
  * Spec safety. A spec is untrusted model output, rendered inside the OpenCode process, so it may not reach the
@@ -33,7 +34,6 @@ export const LIMITS = {
 const RESOURCE_KEYS = new Set(["url", "href", "src", "link", "sublink", "loader", "backgroundImage"])
 const EXPRESSION_KEYS = new Set(["expr", "signal", "calculate", "update", "test", "filter", "as_expr"])
 const EXTERNAL_STRING = /^\s*(?:https?:|ftp:|file:|data:(?!image\/svg\+xml)|javascript:|image:\/\/|\/\/)/i
-const ECHARTS_SERIES = new Set(["line", "bar", "pie", "scatter", "effectScatter", "radar", "tree", "treemap", "sunburst", "boxplot", "candlestick", "heatmap", "parallel", "funnel", "gauge", "sankey", "graph", "themeRiver", "chord", "pictorialBar"])
 
 export type Engine = "vega-lite" | "vega" | "echarts"
 
@@ -67,8 +67,8 @@ export function checkSpec(spec: unknown, engine: Engine) {
     const mark = record.mark ?? (engine === "vega" ? record.type : undefined)
     const markType = typeof mark === "string" ? mark : mark && typeof mark === "object" ? (mark as Record<string, unknown>).type : undefined
     if (typeof markType === "string" && markType.toLowerCase() === "image" && (engine !== "echarts")) refuse("Image marks are not allowed.", [...path, "mark"], "Use symbols, text or shapes instead of images.")
-    if (engine === "echarts" && path[path.length - 2] === "series" && typeof record.type === "string" && !ECHARTS_SERIES.has(record.type)) {
-      const hint = record.type === "map" ? "For maps use Vega-Lite geoshape with data {\"atlas\": \"world-110m\"}." : record.type === "custom" ? "Custom series need JavaScript functions, which a JSON spec cannot carry; use Vega instead." : `Use one of: ${[...ECHARTS_SERIES].join(", ")}.`
+    if (engine === "echarts" && path[path.length - 2] === "series" && typeof record.type === "string" && !ECHARTS_SERIES_TYPES.has(record.type)) {
+      const hint = record.type === "map" ? "For maps use Vega-Lite geoshape with data {\"atlas\": \"world-110m\"}." : record.type === "custom" ? "Custom series need JavaScript functions, which a JSON spec cannot carry; use Vega instead." : `Use one of: ${[...ECHARTS_SERIES_TYPES].join(", ")}.`
       refuse(`The ECharts series type "${record.type}" is not available.`, [...path, "type"], hint)
     }
     if (engine === "echarts" && record.type === "image") refuse("Image graphics are not allowed.", [...path, "type"], "Use shapes or text instead of images.")
