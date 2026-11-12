@@ -3,7 +3,8 @@ import { loadData } from "./data.js"
 import { ATLASES, type Json } from "./engines/common.js"
 import { ChartsError, SpecInvalid, formatIssues, suggest, type Issue } from "./errors.js"
 import { DocumentInvalid } from "./document/issues.js"
-import { documentFields, documentFormats, documentRequest, issueMapper, legacyDocument, pickDelivery, resolveArtifact, resolveFresh, selectArm, type Arm, type ChartTool, type ResolvedDocument } from "./document-tool.js"
+import { documentFields, documentFormats, documentRequest, fitDocument, fittedIssues, issueMapper, legacyDocument, pickDelivery, resolveArtifact, resolveFresh, selectArm, type Arm, type ChartTool, type ResolvedDocument } from "./document-tool.js"
+import type { FittedRecipe } from "./layout/fit.js"
 import { capabilities, describeCapabilities } from "./capabilities.js"
 import { localeIds } from "./locale.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "./pipeline.js"
@@ -53,6 +54,8 @@ interface Shape {
   readonly preflight?: readonly Issue[]
   /** Text after the summary. */
   readonly note?: string
+  /** Findings made before the render that belong with its own (a recipe's appearance warnings), already pointed. */
+  readonly issues?: readonly Issue[]
 }
 
 async function run(env: ToolEnvironment, request: RenderRequest, write: boolean, inspect: boolean | undefined, extra: Json = {}, shape: Shape = {}): Promise<ToolOutput> {
@@ -62,7 +65,7 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
     if (write) await env.assertFiles("edit", [`${request.outDir ?? env.defaults.outDir}/*`])
     // The 1x preview costs little; it is sent only when asked for, or when there is something to look at.
     const result = await renderChart({ ...request, preview: inspect !== false }, env, write)
-    const issues = result.issues.map(map)
+    const issues = [...(shape.issues ?? []), ...result.issues.map(map)]
     if (shape.preflight?.length) return invalid([...shape.preflight, ...issues])
     const show = inspect ?? (!write || issues.some(i => i.level === "warning"))
     const output: Json = {
@@ -108,13 +111,20 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
     preflight.push({ level: "error", code: mismatch.code, message: mismatch.detail, path: mismatch.path!, fix: mismatch.hint })
   }
   const inspect = (delivery.inspect as boolean | undefined) ?? (write ? undefined : true)
-  const request = documentRequest(resolved, delivery, formats, write)
+  // A recipe is fitted by the layout planner first: a size that cannot be met stops here, before any file.
+  let fitted: FittedRecipe | undefined
+  try { fitted = await fitDocument(env, resolved) } catch (error) {
+    if (error instanceof DocumentInvalid && !write) return invalid([...preflight, ...error.issues])
+    throw error
+  }
+  const request = documentRequest(resolved, delivery, formats, write, fitted)
   const mapIssue = issueMapper(resolved)
   const kind = resolved.artifact.document.chart.kind
   return run(env, request, write, inspect, {}, {
     mapIssue,
     preflight,
-    decorate: (result, issues) => documentFields(env, resolved, result, issues, { formats: write ? formats : formats.filter(f => f !== "document"), delivery, write, inspect: inspect !== false }),
+    issues: fittedIssues(fitted),
+    decorate: (result, issues) => documentFields(env, resolved, result, issues, { formats: write ? formats : formats.filter(f => f !== "document"), delivery, write, inspect: inspect !== false, ...(fitted ? { fitted } : {}) }),
     note: `Document: ${kind === "recipe" ? `recipe ${(resolved.artifact.document.chart as { recipe: string }).recipe}` : "engine chart"}, revision ${resolved.artifact.revision}${resolved.documentPath ? `, replayed from ${resolved.documentPath}` : ""}. SVG and PNG are static pictures of the initial view.${write && formats.includes("document") ? " Change its presentation from the saved .chart.json; change its data or meaning with a new document." : ""}`,
   })
 }

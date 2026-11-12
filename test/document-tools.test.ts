@@ -95,7 +95,8 @@ describe("the recommended document call (brief §5.4), with real data", () => {
     expect(out.source).toEqual({ input: "document", kind: "recipe", recipe: "line", engine: "vega-lite" })
     expect(out.theme).toBe("dark")
     expect(out.categories).toMatchObject({ role: "series", field: "region", count: 2, values: ["North", "South"] })
-    expect(out.size).toEqual({ requested: { target: "inline", mode: "responsive", width: 720, height: 420 }, actual: { width: 720, height: 420 } })
+    expect(out.size).toMatchObject({ requested: { target: "inline", mode: "responsive", width: 720, height: 420 }, actual: { width: 720, height: 420 }, floor: 11, fontSizes: { label: 11 }, candidate: { index: 0, name: "as-designed" } })
+    expect(out.size.plot.width).toBeGreaterThan(0)
     // SVG and PNG are static; the live page is never claimed as verified by a render.
     expect(out.interactions.formats.svg).toEqual({ interactive: false, view: "initial" })
     expect(out.interactions.formats.html.verified).toBe(false)
@@ -557,5 +558,36 @@ describe("results stay bounded", () => {
     expect(out.diagnostics.length).toBeLessThanOrEqual(50)
     for (const d of out.diagnostics) if (d.path) expect(d.path).toMatch(/^\/(document|compiled|formats|scales|outDir|inspect)/)
     expect(await t.text("validate", { document: BAR_DOC, inspect: false })).toContain("revision sha256:")
+  }, 60_000)
+})
+
+describe("recipe documents are fitted by the layout planner", () => {
+  const LONG = ["Northern Europe and the Baltic states", "Southern Europe", "Middle East and North Africa", "Sub-Saharan Africa", "Latin America and the Caribbean", "East Asia and Pacific"]
+  const doc = (layout: Record<string, unknown>, over: Record<string, unknown> = {}) => ({ version: 1, title: "Revenue by region and sales channel, first half of 2024", chart: { kind: "recipe", recipe: "grouped_bar", data: { rows: LONG.flatMap((region, i) => ["Online", "Stores"].map((channel, j) => ({ region, channel, revenue_eur: 100 + i * 10 + j }))) }, bindings: { category: "region", series: "channel", value: "revenue_eur" } }, layout, ...over })
+
+  test("the planner's adjustments and candidate come back with the exact outer size", async () => {
+    const { call } = setup()
+    const out = await call("render", { document: doc({ width: 520, height: 420 }), formats: ["svg"], inspect: false })
+    expect(out.size.actual).toEqual({ width: 520, height: 420 })
+    expect(out.size.candidate.index).toBeGreaterThan(0)
+    expect(out.adjustments.length).toBeGreaterThan(0)
+    for (const a of out.adjustments) expect(a).toMatchObject({ path: expect.stringMatching(/^\//), reason: expect.any(String) })
+  }, 60_000)
+
+  test("a size the planner cannot meet: render refuses before any file, validate says where", async () => {
+    const { refusal, call, files } = setup()
+    const error = await refusal("render", { document: doc({ width: 220, height: 160 }), formats: ["svg", "png"] })
+    expect(error.code).toBe("LAYOUT_UNSATISFIABLE")
+    expect(files().filter(f => f.startsWith("outputs/"))).toEqual([])
+    const checked = await call("validate", { document: doc({ width: 220, height: 160 }) })
+    expect(checked.valid).toBe(false)
+    expect(checked.issues.map((i: { code: string; path: string }) => `${i.code} ${i.path}`)).toEqual(["LAYOUT_UNSATISFIABLE /document/layout"])
+  }, 60_000)
+
+  test("a category colour for a category the chart lacks is a warning of the tool result, at its document path", async () => {
+    const { call } = setup()
+    const out = await call("render", { document: doc({}, { appearance: { categoryColors: [{ value: "Stores", color: "#112233" }, { value: "Kiosk", color: "#445566" }] } }), formats: ["svg"], inspect: false })
+    expect(out.warnings.filter((w: { code: string }) => w.code === "CATEGORY_COLOR_UNUSED").map((w: { path: string }) => w.path)).toEqual(["/document/appearance/categoryColors/1/value"])
+    expect(out.diagnostics.map((d: { code: string }) => d.code)).toContain("CATEGORY_COLOR_UNUSED")
   }, 60_000)
 })

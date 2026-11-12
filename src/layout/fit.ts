@@ -3,7 +3,7 @@ import type { Prepared } from "../document/prepare.js"
 import { DocumentInvalid } from "../document/issues.js"
 import { formatMismatch } from "../interactions/presets.js"
 import { LAYOUT_PROFILES } from "../document/defaults.js"
-import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook } from "../fonts.js"
+import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook, type FontResource } from "../fonts.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "../pipeline.js"
 import { resolveAppearance } from "./appearance.js"
 import type { Conflict } from "./planner.js"
@@ -57,8 +57,16 @@ async function fontsFor(env: Environment, files: readonly { family: string; weig
 
 const MEASURED_FINDINGS = new Set(["LABEL_COLLISION", "LABEL_CLIPPED"])
 
+export interface FitOptions {
+  /**
+   * The custom fonts, already read with permission and checked against the artifact's digests (the tool adapter does
+   * this); measured and drawn with as they are, never read again. Without it the theme's font files are read here.
+   */
+  readonly fonts?: readonly FontResource[]
+}
+
 /** Fits a prepared recipe document. Throws LAYOUT_UNSATISFIABLE (a DocumentInvalid) when no candidate passes. */
-export async function fitRecipe(prepared: Prepared, env: Environment): Promise<FittedRecipe> {
+export async function fitRecipe(prepared: Prepared, env: Environment, options: FitOptions = {}): Promise<FittedRecipe> {
   const { artifact, compilation, settings } = prepared
   if (!compilation || !settings.layout) throw new TypeError("fitRecipe needs a prepared recipe document")
   const doc = artifact.document
@@ -71,7 +79,7 @@ export async function fitRecipe(prepared: Prepared, env: Environment): Promise<F
     ...(artifact.captured.categories ? { categories: artifact.captured.categories } : {}),
   })
   const tokens = appearance.tokens
-  const fonts = await fontsFor(env, tokens.font.files)
+  const fonts = options.fonts ? (options.fonts.length ? withCustomFonts(bundledFonts(env.packageRoot), options.fonts) : bundledFonts(env.packageRoot)) : await fontsFor(env, tokens.font.files)
   const measure = (text: string, size: number, bold?: boolean) => fonts.measure(text, size, tokens.font.family, bold ? tokens.font.titleWeight : 400)
   const rejected: { candidate: string; conflicts: Conflict[] }[] = []
 
@@ -92,6 +100,7 @@ export async function fitRecipe(prepared: Prepared, env: Environment): Promise<F
       ...(doc.title !== undefined ? { title: doc.title } : {}),
       ...(doc.description !== undefined ? { description: doc.description } : {}),
       presentation: presentation.runtime,
+      ...(options.fonts ? { fontResources: options.fonts } : {}),
       formats: [],
     }
     const check = await renderChart(request, env, false)
