@@ -5,6 +5,7 @@ import { prepareECharts, renderECharts, serialisableOption } from "./engines/ech
 import { prepareVega, renderVega } from "./engines/vega.js"
 import { compileVegaLite, prepareVegaLite, units } from "./engines/vegalite.js"
 import { publish, type Artifact } from "./artifacts.js"
+import { detectEngine } from "./document/engine.js"
 import { ChartsError, SpecInvalid, type Issue } from "./errors.js"
 import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook } from "./fonts.js"
 import { buildHtml, htmlProblem } from "./html.js"
@@ -82,15 +83,8 @@ export interface RenderResult {
   readonly figure: Figure
 }
 
-/** Vega-Lite has `mark` or a composition; Vega has `marks`; ECharts has `series`. */
-export function detectEngine(spec: Json): Engine {
-  const schema = typeof spec.$schema === "string" ? spec.$schema : ""
-  if (/vega-lite/.test(schema)) return "vega-lite"
-  if (/vega\/v\d/.test(schema)) return "vega"
-  if (spec.series !== undefined) return "echarts"
-  if (Array.isArray(spec.marks) || Array.isArray(spec.signals) || Array.isArray(spec.scales)) return "vega"
-  return "vega-lite"
-}
+/** One engine detection rule, shared with chart documents: Vega-Lite has `mark` or a composition; Vega has `marks`; ECharts has `series`. */
+export { detectEngine }
 
 /** The approved faces to embed in SVG and HTML: the ones the drawing names plus the theme's families. */
 const embeddable = (fonts: FontBook, svg: string, theme: ThemeTokens) => fonts.resourcesFor(svg, [theme.font.family, theme.font.mono])

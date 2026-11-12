@@ -1,15 +1,12 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ChartsError, suggest } from "./errors.js"
+import { CURRENCY_SYMBOLS as SYMBOLS } from "./locale-fields.js"
 
 /** d3 locale definitions, generated into assets/data/locales.json from d3-format and d3-time-format. */
 interface NumberLocale { decimal: string; thousands: string; grouping: number[]; currency: [string, string]; [key: string]: unknown }
 interface Locales { number: Record<string, NumberLocale>; time: Record<string, Record<string, unknown>> }
 
-const SYMBOLS: Record<string, string> = {
-  USD: "$", EUR: "€", GBP: "£", JPY: "¥", CNY: "¥", INR: "₹", BRL: "R$", CHF: "CHF", SEK: "kr", NOK: "kr", DKK: "kr", PLN: "zł", KRW: "₩", RUB: "₽",
-  TRY: "₺", AUD: "A$", CAD: "CA$", NZD: "NZ$", ZAR: "R", MXN: "MX$", CZK: "Kč", HUF: "Ft", ILS: "₪", HKD: "HK$", SGD: "S$", AED: "AED", SAR: "SAR", NGN: "₦", KES: "KSh", IDR: "Rp", THB: "฿", VND: "₫", PHP: "₱", UAH: "₴",
-}
 
 let cache: Locales | undefined
 const load = (root: string) => (cache ??= JSON.parse(readFileSync(join(root, "assets", "data", "locales.json"), "utf8")) as Locales)

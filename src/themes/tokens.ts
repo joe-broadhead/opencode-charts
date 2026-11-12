@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { MONO, SANS } from "../fonts.js"
+import { MONO, SANS } from "../constants.js"
 
 /**
  * A theme is a small set of tokens. Each engine's own theme (Vega-Lite config, Vega config, ECharts theme) is derived

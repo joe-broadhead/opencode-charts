@@ -1,4 +1,5 @@
 import * as z from "zod"
+import { CURRENCY_FIELD, LOCALE_FIELD } from "./locale-fields.js"
 import { QUICK_TYPES } from "./quick.js"
 import { THEME_DIR } from "./themes/store.js"
 
@@ -57,8 +58,8 @@ const dataSchema = z.strictObject({
 
 const outputs = {
   theme: z.union([z.string(), row]).optional().describe("A theme name (light, dark, high-contrast, print, presentation, or a saved one), or tokens with \"extends\"."),
-  locale: z.string().max(16).optional().describe("Number and date formats, such as en-GB or de-DE. Default en-US."),
-  currency: z.string().length(3).optional().describe("ISO 4217 code (EUR, USD, GBP…): money-like fields get it, in compact form (€1.2M)."),
+  locale: LOCALE_FIELD,
+  currency: CURRENCY_FIELD,
   currencyFields: z.array(z.string()).max(50).optional().describe("Exactly which fields are money; default: fields whose names look like money."),
   formats: z.array(z.enum(["svg", "png", "html", "spec"])).max(4).optional().describe("Files to write. Default svg, png and spec; add html for an interactive, offline page."),
   scales: z.array(z.union([z.literal(1), z.literal(2), z.literal(3)])).max(3).optional().describe("PNG pixel densities. Default [2]."),

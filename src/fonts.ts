@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
+import { MONO, SANS } from "./constants.js"
 import { ChartsError } from "./errors.js"
 import { confine, type Workspace } from "./paths.js"
 
@@ -48,8 +49,7 @@ export interface FontFace {
   readonly fallbackAdvance: number
 }
 
-export const SANS = "Inter"
-export const MONO = "JetBrains Mono"
+export { MONO, SANS }
 export const BUNDLED_FAMILIES = [SANS, MONO] as const
 
 /** The bundled faces, each pinned by the SHA-256 of its TTF and of its WOFF2 web form: a swapped file is refused. */
