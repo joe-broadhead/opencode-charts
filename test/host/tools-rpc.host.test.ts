@@ -9,6 +9,9 @@ import { join } from "node:path"
 import { available, binary, rpc, session, startHost, TESTED_HOSTS, unwrap, refusedCode, type Host } from "./harness.js"
 import { stockGate } from "../support/stock-gate.js"
 
+/** A recipe chart document, the recommended authoring call's input. */
+const HOST_DOCUMENT = { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows: [{ region: "North", revenue: 10 }, { region: "South", revenue: 20 }] }, bindings: { category: "region", value: "revenue" } }, title: "Host document" }
+
 for (const version of TESTED_HOSTS) {
   // A missing stock binary skips with a line on a laptop and fails in CI (R34): a release that did not run is not evidence.
   const gate = stockGate(version, binary(version), available(version))
@@ -95,12 +98,25 @@ for (const version of TESTED_HOSTS) {
         ["render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] }, formats: ["svg"], name: `accept-${version.replaceAll(".", "-")}` }],
         ["quick", { type: "bar", data: { rows: [{ k: "a", v: 1 }] }, x: "k", y: "v", formats: ["svg"], name: `accept-quick-${version.replaceAll(".", "-")}` }],
         ["theme_save", { name: "host-accept", theme: { extends: "light", colors: { text: "#111111" } } }],
+        ["quick", { document: HOST_DOCUMENT, formats: ["svg", "document"], name: `accept-doc-${version.replaceAll(".", "-")}` }],
+        ["validate", { document: HOST_DOCUMENT, inspect: false }],
+        ["render", { document: { ...HOST_DOCUMENT, chart: { kind: "engine", spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] } } }, formats: ["svg"], name: `accept-engine-doc-${version.replaceAll(".", "-")}` }],
       ]
       for (const [method, input] of calls) {
         const result = await rpc(host, method, writer, input)
         expect(result.status, `${method} was refused: ${JSON.stringify(result.data).slice(0, 300)}`).toBe(200)
         expect(unwrap(result.data).output, `${method} returned no output`).toBeDefined()
       }
+    })
+
+    test("a saved chart document renders again from its path, with its revision as a precondition", async () => {
+      const made = unwrap((await rpc(host, "quick", writer, { document: HOST_DOCUMENT, formats: ["svg", "document"], name: `host-doc-${version.replaceAll(".", "-")}` })).data)
+      expect(made.output.revision).toMatch(/^sha256:[0-9a-f]{64}$/)
+      const replay = await rpc(host, "render", writer, { documentPath: made.output.files.document, expectedRevision: made.output.revision, formats: ["svg"], name: `host-replay-${version.replaceAll(".", "-")}` })
+      expect(replay.status).toBe(200)
+      expect(unwrap(replay.data).output.revision).toBe(made.output.revision)
+      const stale = await rpc(host, "validate", reader, { documentPath: made.output.files.document, expectedRevision: `sha256:${"0".repeat(64)}` })
+      expect(JSON.stringify(stale.data)).toContain("DOCUMENT_REVISION_MISMATCH")
     })
 
     test("a method whose session has no agent is refused with the code that names it", async () => {

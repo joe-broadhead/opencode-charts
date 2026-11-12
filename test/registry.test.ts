@@ -48,6 +48,30 @@ describe("the registry", () => {
     }
   })
 
+  test("the chart tools take the document arms, and document is a format, on every surface's schema", () => {
+    for (const name of ["render", "validate"] as const) {
+      const schema = inputSchema(name) as { properties: Record<string, any>; required?: string[] }
+      for (const key of ["spec", "document", "documentPath", "expectedRevision"]) expect(Object.keys(schema.properties)).toContain(key)
+      // One of three arms per call, so no arm is required by the transport schema; the tool refuses a mixture.
+      expect(schema.required ?? []).not.toContain("spec")
+      expect(schema.properties.formats.items.enum).toEqual(["svg", "png", "html", "spec", "document"])
+    }
+    const quick = inputSchema("quick") as { properties: Record<string, any>; required?: string[] }
+    expect(Object.keys(quick.properties)).toContain("document")
+    expect(Object.keys(quick.properties)).not.toContain("documentPath")
+    expect(quick.required ?? []).toEqual([])
+    // The document's description lists every recipe with its bindings, from the recipe registry.
+    for (const id of ["bar", "grouped_bar", "line", "bubble", "histogram", "heatmap"]) expect(String(quick.properties.document.description)).toContain(`${id}(`)
+  })
+
+  test("the chart tools' output schemas declare the document fields, with no pattern anywhere", () => {
+    for (const name of ["render", "quick", "validate"] as const) {
+      const output = DESCRIPTORS.find(d => d.name === name)!.output as { properties: Record<string, unknown> }
+      for (const key of ["revision", "fingerprint", "source", "appearance", "categories", "size", "interactions", "adjustments", "diagnostics"]) expect(Object.keys(output.properties)).toContain(key)
+      expect(JSON.stringify(output)).not.toContain('"pattern"')
+    }
+  })
+
   test("README's table lists every tool once", () => {
     for (const name of TOOL_NAMES) {
       const pattern = new RegExp(`\\\`${NAMESPACE}_${name}\\\``, "g")
@@ -82,6 +106,7 @@ describe("capabilities", () => {
   test("advertises only what this build has: every format it names has its file", () => {
     expect(view.formats.svg).toBe(true)
     expect(view.formats.spec).toBe(true)
+    expect(view.formats.document).toBe(true)
     expect(view.formats.png).toBe(existsSync(join(ROOT, "dist", "resvg.wasm")))
     expect(view.formats.html).toBe(existsSync(join(ROOT, "dist", "browser", "vega.js")) && existsSync(join(ROOT, "dist", "browser", "echarts.js")))
   })
