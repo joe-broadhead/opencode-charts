@@ -25,6 +25,7 @@ const stages = {
   typecheck: () => run("tsc", ["-p", "tsconfig.json"]),
   // The unit suites are the files directly in test/; test/pack packs and installs the package, so it is its own stage.
   unit: () => run("bun", ["test", ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`)]),
+  kit: () => run("node", ["--test", "scripts/release-kit.test.mjs"]),
   // Interactive HTML in a real browser: playwright-core's headless Chromium, pinned by the exact playwright-core
   // version in package-lock.json. A missing browser fails this stage, never skips it; install it once with
   // `npx playwright-core install --only-shell chromium` (on Linux add --with-deps for the system libraries).
