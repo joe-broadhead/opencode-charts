@@ -98,6 +98,10 @@ introduced here is version 1.
 - **Custom fonts in exports**: a theme's own `.ttf` or `.otf` is embedded in HTML and embedded-font SVG with its own
   data URI and `format()`, from the same approved resource list as metrics and the PNG.
 - A label containing markup (`<img onerror=…>`) in a drawn SVG is data, not a refused event handler.
+- **Layout fitting is monotonic in size**: a recipe chart that fits at one size fits at every larger one. Axes keep
+  room for every label (Vega's default `maxExtent` had capped it), turned labels' reach is counted, a refusal names
+  sizes that draw and suggests `horizontal_bar` only where it fits, and a plot its guides leave small is reported as
+  an adjustment at `/layout`.
 - An empty recipe dataset is `DATA_EMPTY` at `/document/chart/data`, and `charts_validate` reports it as
   `valid: false`.
 
