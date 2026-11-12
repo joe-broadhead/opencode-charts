@@ -170,7 +170,7 @@ const DATE = /^\d{4}-\d{2}(-\d{2})?([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}
 export function profile(rows: readonly Row[]): Profile {
   const names = [...new Set(rows.slice(0, 2000).flatMap(row => Object.keys(row)))]
   const fields = names.map((name): FieldProfile => {
-    const values = rows.map(row => row[name]).filter(v => v !== null && v !== undefined && v !== "")
+    const values = rows.map(row => (Object.hasOwn(row, name) ? row[name] : undefined)).filter(v => v !== null && v !== undefined && v !== "")
     const missing = rows.length - values.length
     const distinct = new Set(values.map(v => (typeof v === "object" ? JSON.stringify(v) : String(v)))).size
     if (values.length === 0) return { name, type: "empty", distinct: 0, missing }

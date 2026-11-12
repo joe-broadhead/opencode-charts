@@ -1,5 +1,6 @@
 import { suggest, pointer, type ChartsCode } from "../errors.js"
 import { categoryDomain, categoryKey, compareCategories, isCategoryValue, normaliseCategory, showCategory, type CategoryValue } from "../document/category.js"
+import { defineMember, ownValue } from "../document/canonical.js"
 import { IssueList } from "../document/issues.js"
 import type { RecipeChartV1 } from "../document/types.js"
 import { optionDefaults, recipeDefinition } from "./definitions.js"
@@ -48,7 +49,7 @@ interface KeyReading { readonly id: string; readonly display: unknown; readonly 
 
 /** Reads one grouping or position value; `undefined` when the row has a problem (recorded). */
 function readKey(kind: "category" | XType, role: string, field: string, row: Row, index: number, problems: RowProblems): KeyReading | undefined {
-  const value = row[field]
+  const value = ownValue(row, field)
   if (kind === "category" || kind === "ordinal") {
     const v = value === undefined ? null : value
     if (!isCategoryValue(v)) { problems.error("TYPE_MISMATCH", role, field, "is not a category (a string, a finite number, true/false or null)", "Use scalar values for this field, or derive one with a calculate transform.", index, value); return undefined }
@@ -68,7 +69,7 @@ function readKey(kind: "category" | XType, role: string, field: string, row: Row
 
 /** Reads a measure: a number, null for missing, or undefined when invalid (recorded). */
 function readMeasure(role: string, field: string, row: Row, index: number, problems: RowProblems): number | null | undefined {
-  const value = row[field]
+  const value = ownValue(row, field)
   if (isMissing(value)) return null
   const n = finiteNumber(value)
   if (n === undefined) problems.error("TYPE_MISMATCH", role, field, "is not a finite number", numberFix(field), index, value)
@@ -171,13 +172,18 @@ export function compileRecipe(chart: RecipeChartV1, rows: readonly Row[], contex
       const x = readKey("quantitative", "x", b.x!, row, i, problems), y = readKey("quantitative", "y", b.y!, row, i, problems)
       let size: number | undefined
       if (id === "bubble") {
-        const s = row[b.size!]
+        const s = ownValue(row, b.size!)
         if (isMissing(s)) problems.error("VALUE_MISSING", "size", b.size!, "has no value", filterFix(b.size!), i, s)
         else if ((size = finiteNumber(s)) === undefined) problems.error("TYPE_MISMATCH", "size", b.size!, "is not a finite number", numberFix(b.size!), i, s)
       }
       const series = colorField ? readKey("category", "series", colorField, row, i, problems) : undefined
       if (!x || !y || (id === "bubble" && size === undefined) || (colorField && !series)) return
-      values.push({ [b.x!]: x.display, [b.y!]: y.display, ...(id === "bubble" ? { [b.size!]: size } : {}), ...(colorField ? { [colorField]: series!.display } : {}) })
+      const mark: Row = {}
+      defineMember(mark, b.x!, x.display)
+      defineMember(mark, b.y!, y.display)
+      if (id === "bubble") defineMember(mark, b.size!, size)
+      if (colorField) defineMember(mark, colorField, series!.display)
+      values.push(mark)
     })
     problems.report(issues)
     issues.throwIfErrors()
@@ -200,7 +206,10 @@ export function compileRecipe(chart: RecipeChartV1, rows: readonly Row[], contex
       if (v === undefined || (id === "box_plot" && !cat)) return
       if (v === null) { missing++; return }
       if (cat) cats.push(cat)
-      values.push({ ...(cat ? { [b.category!]: cat.display } : {}), [b.value!]: v })
+      const mark: Row = {}
+      if (cat) defineMember(mark, b.category!, cat.display)
+      defineMember(mark, b.value!, v)
+      values.push(mark)
     })
     problems.report(issues)
     issues.throwIfErrors()
@@ -275,8 +284,8 @@ export function compileRecipe(chart: RecipeChartV1, rows: readonly Row[], contex
     const measureTitle = op === "count" ? "Count" : op === "none" ? undefined : `${AGG_LABEL[op]} of ${measureField}`
     const markRow = (g: Group): Row => {
       const row: Row = {}
-      for (const [r] of roles) row[b[r]!] = g.keys[r]!.display
-      row[measureName] = g.value
+      for (const [r] of roles) defineMember(row, b[r]!, g.keys[r]!.display)
+      defineMember(row, measureName, g.value)
       return row
     }
     const measure = (axisTitle: "xTitle" | "yTitle", extra: Record<string, unknown> = {}) => ({ field: measureName, type: "quantitative", ...(measureTitle !== undefined ? { title: measureTitle } : {}), ...title(axisTitle), ...extra })
@@ -295,7 +304,7 @@ export function compileRecipe(chart: RecipeChartV1, rows: readonly Row[], contex
       if (id === "pie" || id === "donut") {
         const rankField = uniqueName("slice_order", new Set([...bound, measureName]))
         internal.push(rankField)
-        values.forEach((row, i) => { row[rankField] = i })
+        values.forEach((row, i) => defineMember(row, rankField, i))
         spec = {
           mark: { type: "arc", ...(id === "donut" ? { innerRadius: 70 } : {}) },
           encoding: {

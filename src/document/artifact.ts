@@ -251,7 +251,7 @@ function crossCheck(document: CapturedDocumentV1, captured: CapturedStateV1) {
   }
   const def = recipeDefinition(chart.recipe as RecipeId)
   const options = { ...(captured.defaults.recipeOptions ?? {}), ...((chart.options ?? {}) as JsonObject) }
-  if (captured.defaults.recipeOptions) for (const key of Object.keys(captured.defaults.recipeOptions)) if ((chart.options as JsonObject | undefined)?.[key] !== undefined) throw invalid(`captured.defaults.recipeOptions.${key} is also authored; a default is captured only for an omitted option.`, `/captured/defaults/recipeOptions/${key}`)
+  if (captured.defaults.recipeOptions) for (const key of Object.keys(captured.defaults.recipeOptions)) if (chart.options && Object.hasOwn(chart.options, key)) throw invalid(`captured.defaults.recipeOptions.${key} is also authored; a default is captured only for an omitted option.`, `/captured/defaults/recipeOptions/${key}`)
   if (!def.optionsSchema.safeParse(options).success) throw invalid(`The captured recipe options do not fit the ${chart.recipe} recipe.`, "/captured/defaults/recipeOptions")
   const role = def.colorRole
   const bound = role ? (chart.bindings as JsonObject)[role] : undefined

@@ -1,6 +1,6 @@
-// Prototype keys (__proto__, constructor, prototype) in JSON input: refused with a code and a path everywhere JSON
-// comes in, never dropped by a copy. A dropped key would leave the canonical text, and so the revision, unchanged while
-// the raw object carried it on to replay and rendering.
+// The __proto__ key in JSON input: refused with a code and a path everywhere JSON comes in, never dropped by a copy. A
+// dropped key would leave the canonical text, and so the revision, unchanged while the raw object carried it on to replay
+// and rendering. (constructor and prototype are ordinary keys: test/ordinary-keys.test.ts.)
 import { describe, expect, test } from "bun:test"
 import { applyTransforms } from "../src/data.ts"
 import { ChartsError } from "../src/errors.ts"
@@ -13,7 +13,7 @@ function refusal(fn: () => unknown): ChartsError {
   try { fn() } catch (error) { if (error instanceof ChartsError) return error; throw error }
   throw new Error("expected a refusal")
 }
-const KEYS = ["__proto__", "constructor", "prototype"]
+const KEYS = ["__proto__"]
 const bar = (rows: unknown) => ({ version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows }, bindings: { category: "c", value: "v" } } })
 
 async function saved(): Promise<{ artifact: ChartArtifactV1; text: string }> {
@@ -51,7 +51,7 @@ describe("prototype keys", () => {
     expect(injected).not.toBe(text)
     expect(refusal(() => parseArtifact(injected))).toMatchObject({ code: "ARTIFACT_INVALID", path: "/document/chart/data/rows/0/__proto__" })
     const engine = serializeArtifact((await prepareDocument({ version: 1, chart: { kind: "engine", spec: { mark: "bar", encoding: {} } } }, undefined, env)).artifact)
-    expect(refusal(() => parseArtifact(engine.replace('"encoding":{}', '"encoding":{"constructor":{"x":1}}')))).toMatchObject({ code: "ARTIFACT_INVALID", path: "/document/chart/spec/encoding/constructor" })
+    expect(refusal(() => parseArtifact(engine.replace('"encoding":{}', '"encoding":{"__proto__":{"x":1}}')))).toMatchObject({ code: "ARTIFACT_INVALID", path: "/document/chart/spec/encoding/__proto__" })
   })
 
   test("parseArtifact returns the canonical parsed value, not the raw envelope", async () => {

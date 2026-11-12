@@ -168,7 +168,7 @@ function schemaAt(schema: z.ZodType, path: Path): z.ZodType | undefined {
   return s && unwrap(s)
 }
 
-const valueAt = (root: unknown, path: Path) => path.reduce<unknown>((node, key) => (node && typeof node === "object" ? (node as Record<string, unknown>)[key as string] : undefined), root)
+const valueAt = (root: unknown, path: Path) => path.reduce<unknown>((node, key) => (node && typeof node === "object" && Object.hasOwn(node, key) ? (node as Record<string, unknown>)[key as string] : undefined), root)
 
 function convertIssues(error: z.ZodError, schema: z.ZodType, input: unknown, base: Path, refused: (path: Path) => string | undefined): Issue[] {
   const out: Issue[] = []

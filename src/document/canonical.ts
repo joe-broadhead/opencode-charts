@@ -50,8 +50,7 @@ export interface ScanOptions {
 }
 
 /**
- * Walks parsed JSON without recursion, before anything recursive touches it: refuses prototype keys (`__proto__`,
- * `constructor`, `prototype`) and nesting deeper than `maxDepth`, each with a coded error and its JSON pointer.
+ * Walks parsed JSON without recursion, before anything recursive touches it: refuses the `__proto__` key and nesting deeper than `maxDepth`, each with a coded error and its JSON pointer.
  */
 export function scanJson(root: unknown, options: ScanOptions) {
   const base = options.base ?? []
@@ -62,15 +61,16 @@ export function scanJson(root: unknown, options: ScanOptions) {
     if (depth > options.maxDepth) throw new ChartsError(options.code, `${options.what} is nested deeper than ${options.maxDepth} levels (at ${pointer(path)}).`, "Flatten the nested values; chart data, specs and documents need far fewer levels.", pointer(path))
     if (Array.isArray(node)) { for (let i = node.length - 1; i >= 0; i--) stack.push({ node: node[i], path: [...path, i], depth: depth + 1 }); continue }
     for (const key of Object.keys(node)) {
-      if (PROTOTYPE_KEYS.has(key)) throw new ChartsError(options.code, `${options.what} has the key "${key}", which names an object's prototype and is not allowed.`, "Rename that key; chart data, specs and documents never need __proto__, constructor or prototype.", pointer([...path, key]))
-      stack.push({ node: (node as Record<string, unknown>)[key], path: [...path, key], depth: depth + 1 })
+      if (PROTOTYPE_KEYS.has(key)) throw new ChartsError(options.code, `${options.what} has the key "${key}", which sets an object's prototype instead of a property and is not allowed.`, "Rename that key; chart data, specs and documents never need __proto__.", pointer([...path, key]))
+      stack.push({ node: Object.getOwnPropertyDescriptor(node, key)!.value, path: [...path, key], depth: depth + 1 })
     }
   }
 }
 
 /**
  * A JSON-safe deep copy with sorted keys. `base` prefixes error paths; `maxDepth` bounds the nesting below `value`,
- * checked before the copy recurses. Prototype keys are refused, and every member is defined, never assigned.
+ * checked before the copy recurses. `__proto__` is refused; every other key, `constructor` and `prototype` included,
+ * is read as an own property and defined, never assigned.
  */
 export function canonicalValue(value: unknown, base: readonly (string | number)[] = [], maxDepth = DOCUMENT_DEPTH): JsonValue {
   scanJson(value, { base, maxDepth, code: "DATA_INVALID", what: "The value" })
@@ -88,7 +88,7 @@ export function canonicalValue(value: unknown, base: readonly (string | number)[
       if (!isPlainObject(node)) refuse(path, `a ${(node as object).constructor?.name ?? "non-plain"} object`)
       const out: Record<string, JsonValue> = {}
       for (const key of Object.keys(node).sort(compareCodePoints)) {
-        const child = (node as Record<string, unknown>)[key]
+        const child = Object.getOwnPropertyDescriptor(node, key)!.value
         if (child === undefined) continue
         Object.defineProperty(out, key, { value: visit(child, [...path, key]), enumerable: true, writable: true, configurable: true })
       }
@@ -97,6 +97,14 @@ export function canonicalValue(value: unknown, base: readonly (string | number)[
     return refuse(path, node === undefined ? "undefined" : `a ${typeof node}`)
   }
   return visit(value, [...base])
+}
+
+/** A row's own value for a field: never one inherited from Object.prototype (a missing "constructor" is undefined). */
+export const ownValue = (row: Readonly<Record<string, unknown>>, field: string): unknown => (Object.hasOwn(row, field) ? row[field] : undefined)
+
+/** Sets a member by definition, so no key, whatever its name, can reach a setter or the prototype. */
+export function defineMember(target: Record<string, unknown>, key: string, value: unknown) {
+  Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true })
 }
 
 /** The canonical text: compact, sorted keys. Equal values give equal bytes. */

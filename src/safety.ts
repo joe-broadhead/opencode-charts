@@ -32,10 +32,11 @@ export const LIMITS = {
 } as const
 
 /**
- * Keys that name an object's prototype. JSON data never needs them, and in JavaScript `__proto__` changes an object's
- * prototype instead of adding a property, so a copy would silently drop it. They are refused wherever JSON comes in.
+ * The one key JSON input may not carry: in JavaScript, `__proto__` changes an object's prototype instead of adding a
+ * property, so any copy of the object silently drops it. It is refused wherever JSON comes in. Other names, such as
+ * `constructor` and `prototype`, are ordinary keys: every reader takes own properties only and every writer defines them.
  */
-export const PROTOTYPE_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"])
+export const PROTOTYPE_KEYS: ReadonlySet<string> = new Set(["__proto__"])
 
 // Keys that name an external resource in Vega, Vega-Lite or ECharts. `url` also covers ECharts' title links.
 const RESOURCE_KEYS = new Set(["url", "href", "src", "link", "sublink", "loader", "backgroundImage"])
@@ -82,7 +83,7 @@ export function checkSpec(spec: unknown, engine: Engine) {
     if (engine === "echarts" && (path[path.length - 1] === "geo" || path[path.length - 1] === "bmap")) refuse("ECharts geo components are not available.", path, "For maps use Vega-Lite geoshape with data {\"atlas\": \"world-110m\"}.")
     for (const [key, child] of Object.entries(record)) {
       const childPath = [...path, key]
-      if (PROTOTYPE_KEYS.has(key)) refuse(`"${key}" is not allowed as a key: it names an object's prototype.`, childPath, "Rename that key; a spec never needs __proto__, constructor or prototype.")
+      if (PROTOTYPE_KEYS.has(key)) refuse(`"${key}" is not allowed as a key: it sets an object's prototype instead of a property.`, childPath, "Rename that key; a spec never needs __proto__.")
       if (RESOURCE_KEYS.has(key) && child !== null && child !== undefined && child !== false && !(key === "url" && isAtlasData(record))) refuse(`"${key}" loads or links an external resource.`, childPath, key === "url" ? "Inline the rows with data.rows, read a workspace file with data.path, or use {\"atlas\": \"world-110m\"} for a map." : "Remove it; charts are static and self-contained.")
       if (EXPRESSION_KEYS.has(key) && typeof child === "string") {
         if (++expressions > LIMITS.expressions) refuse(`The spec has more than ${LIMITS.expressions} expressions.`, childPath, "Simplify the spec.")
