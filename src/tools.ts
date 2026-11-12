@@ -107,6 +107,12 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
     if (error instanceof DocumentInvalid && !write) return invalid(error.issues)
     throw error
   }
+  // A recipe with no rows after data.transform has nothing to draw, and nothing is invented to fill it.
+  if (resolved.artifact.document.chart.kind === "recipe" && resolved.rows?.length === 0) {
+    const empty = { detail: "The chart's data has no rows after data.transform, so there is nothing to draw; no values are invented.", path: "/document/chart/data", hint: "Check data.rows or the file, and any data.transform filter; if the data is really empty, say so instead of drawing a chart." }
+    if (!write) return invalid([{ level: "error", code: "DATA_EMPTY", message: empty.detail, path: empty.path, fix: empty.hint }])
+    throw new ChartsError("DATA_EMPTY", empty.detail, empty.hint, empty.path)
+  }
   const { formats, mismatch } = documentFormats(delivery.formats, resolved.settings)
   const preflight: Issue[] = []
   if (mismatch) {
@@ -118,6 +124,7 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
   let fitted: FittedRecipe | undefined
   try { fitted = await fitDocument(env, resolved) } catch (error) {
     if (error instanceof DocumentInvalid && !write) return invalid([...preflight, ...error.issues])
+    if (error instanceof SpecInvalid && !write) return invalid([...preflight, ...error.issues.map(issueMapper(resolved))])
     throw error
   }
   // A new document's output (an inline document, or a saved artifact drawn again) is published as one complete,
