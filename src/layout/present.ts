@@ -1,4 +1,5 @@
 import type { Issue } from "../errors.js"
+import { LIMITS } from "../safety.js"
 import { humanise } from "../engines/common.js"
 import type { CategoryValue } from "../document/category.js"
 import type { EffectiveSettings } from "../document/prepare.js"
@@ -103,7 +104,9 @@ function titleChannels(encoding: Json, options: Json) {
  * past 200 px end in an ellipsis, a legend title past 180 px too, and a symbol legend shows 30 entries and then
  * "…N entries". Nothing is cut here; the planner and the drawn check decide whether it fits, and refuse when not.
  */
-const WHOLE_AXIS = { labelLimit: 0, titleLimit: 0 }
+// Vega also caps the room an axis keeps for its labels at maxExtent (default 200 px): longer labels, or turned ones
+// deeper than that, run under the axis title and past the fitted bounds. The planner budgets that room itself.
+const WHOLE_AXIS = { labelLimit: 0, titleLimit: 0, maxExtent: LIMITS.dimension }
 const WHOLE_LEGEND = { labelLimit: 0, titleLimit: 0, symbolLimit: 0 }
 
 export class LayoutUnsatisfiable extends DocumentInvalid {}
