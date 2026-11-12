@@ -133,7 +133,7 @@ export async function fitRecipe(prepared: Prepared, env: Environment, options: F
     }
     rejected.push({ candidate: presentation.plan.name, conflicts })
     from = presentation.plan.candidate + 1
-    if (from >= 3) throw unsatisfiable(settings, conflicts, true)
+    if (from >= 3) throw unsatisfiable(settings, conflicts, true, { recipe: compilation.recipe, planner: presentation.runtime.planner, measure })
   }
   throw unsatisfiable(settings, rejected.flatMap(r => r.conflicts), true)
 }

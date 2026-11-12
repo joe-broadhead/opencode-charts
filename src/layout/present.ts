@@ -111,15 +111,70 @@ const WHOLE_LEGEND = { labelLimit: 0, titleLimit: 0, symbolLimit: 0 }
 
 export class LayoutUnsatisfiable extends DocumentInvalid {}
 
+/** What the refusal's alternatives are computed from: the planner's view of the chart, and the text measurements. */
+export interface AlternativeContext {
+  readonly recipe: string
+  readonly planner: Omit<PlannerInput, "width">
+  readonly measure: TextMeasure
+}
+
+/** The planner's view of the same data drawn as a horizontal bar chart: the category axis on y, the measure on x. */
+function asHorizontalBar(planner: Omit<PlannerInput, "width">): Omit<PlannerInput, "width"> | undefined {
+  if (planner.x?.kind !== "discrete" || planner.y?.kind !== "continuous") return undefined
+  const { x, y, ...rest } = planner
+  return { ...rest, x: { kind: "continuous", labels: y.labels, ...(y.title ? { title: y.title } : {}) }, y: { kind: "discrete", labels: x.labels, ...(x.title ? { title: x.title } : {}) } }
+}
+
+const STEP = 10
+/** The smallest size (in STEP px, above `after`) along one dimension at which the planner fits the chart, if any. */
+function smallest(fits: (size: number) => boolean, after: number): number | undefined {
+  const max = LIMITS.dimension
+  if (!fits(max)) return undefined
+  let lo = Math.floor(after / STEP), hi = Math.ceil(max / STEP)
+  // Fitting is monotone in the size (a tested property): the first fitting step is found by bisection.
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fits(mid * STEP)) hi = mid; else lo = mid }
+  return Math.min(max, hi * STEP)
+}
+
+/**
+ * Alternatives that keep the chart's meaning, each checked with the planner at the requested size: the same chart at
+ * the smallest width (at this height) and height (at this width) that fit, and, for a vertical bar chart, the
+ * horizontal bar chart of the same data, suggested only if it fits this size, otherwise with the size it needs.
+ */
+export function layoutAlternatives(context: AlternativeContext, width: number, height: number, measured: boolean): string[] {
+  const fits = (planner: Omit<PlannerInput, "width">, w: number, h: number) => planLayout({ ...planner, width: w, height: h }, context.measure).ok
+  // A drawing that failed its check at this size needs more room than the planner's estimate of it.
+  const sizes = (planner: Omit<PlannerInput, "width">) => {
+    const w = smallest(size => fits(planner, size, height), measured || fits(planner, width, height) ? width : 0)
+    const h = smallest(size => fits(planner, width, size), measured || fits(planner, width, height) ? height : 0)
+    return { w, h }
+  }
+  const out: string[] = []
+  const own = sizes(context.planner)
+  const parts = [own.w !== undefined ? `${own.w} px wide at ${height} px tall` : undefined, own.h !== undefined ? `${own.h} px tall at ${width} px wide` : undefined].filter(Boolean)
+  out.push(parts.length ? `This chart fits from ${parts.join(", or from ")} (layout.width, layout.height).` : `No size up to ${LIMITS.dimension} px fits this chart as it is: shorten the labels or the title, or use fewer categories.`)
+  if (context.recipe === "bar") {
+    const horizontal = asHorizontalBar(context.planner)
+    if (horizontal && fits(horizontal, width, height)) out.push(`A horizontal_bar of the same data fits ${width}×${height} px: its long category labels run down the side.`)
+    else if (horizontal) {
+      const need = { w: smallest(size => fits(horizontal, size, height), 0), h: smallest(size => fits(horizontal, width, size), 0) }
+      const at = [need.w !== undefined ? `${need.w} px wide at ${height} px tall` : undefined, need.h !== undefined ? `${need.h} px tall at ${width} px wide` : undefined].filter(Boolean)
+      out.push(at.length ? `A horizontal_bar does not fit ${width}×${height} px either; it needs ${at.join(", or ")}.` : `A horizontal_bar does not fit at any size up to ${LIMITS.dimension} px either.`)
+    }
+  }
+  return out
+}
+
 /** The LAYOUT_UNSATISFIABLE issue for a set of conflicts, with alternatives that keep the chart's meaning. */
-export function unsatisfiable(settings: EffectiveSettings, conflicts: readonly Conflict[], measured = false): LayoutUnsatisfiable {
+export function unsatisfiable(settings: EffectiveSettings, conflicts: readonly Conflict[], measured = false, context?: AlternativeContext): LayoutUnsatisfiable {
   const l = settings.layout!
   const list = conflicts.slice(0, 6).map(c => `${c.what} (needs ${c.needed}, has ${c.available}, at ${c.path})`).join("; ")
+  const alternatives = context ? layoutAlternatives(context, l.width, l.height, measured) : []
   return new LayoutUnsatisfiable([{
     level: "error", code: "LAYOUT_UNSATISFIABLE",
     message: `The chart does not fit ${l.width}×${l.height} px with every label at ${l.minLabelSize} px or more, in any of the three layout candidates${measured ? " (measured on the drawn chart)" : ""}: ${list}.`,
     path: "/layout",
-    fix: `${conflicts.some(c => c.path.startsWith("/encoding/color/legend")) ? "The legend cannot show every series: draw fewer series (combine the small ones into one with an explicit data.transform, or split the chart), or give it more room. " : ""}Give it more room (a larger layout.width or layout.height, or a layout.target such as report), shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter; for long category labels a horizontal_bar reads better. Labels are never shrunk below ${l.minLabelSize} px, and no category, series or legend entry is dropped to fit.`,
+    fix: `${conflicts.some(c => c.path.startsWith("/encoding/color/legend")) ? "The legend cannot show every series: draw fewer series (combine the small ones into one with an explicit data.transform, or split the chart), or give it more room. " : ""}${alternatives.length ? `${alternatives.join(" ")} ` : "Give it more room (a larger layout.width or layout.height, or a layout.target such as report). "}Otherwise shorten the title or the category labels in the data, or use fewer categories with an explicit data.transform filter. Labels are never shrunk below ${l.minLabelSize} px, and no category, series or legend entry is dropped to fit.`,
   }])
 }
 
@@ -164,10 +219,11 @@ export function presentRecipe(input: PresentInput): RecipePresentation {
     ...(x ? { x } : {}), ...(y ? { y } : {}), ...(legend ? { legend } : {}), ...(radial ? { radial: true } : {}),
   }
   const outcome = planLayout({ ...planner, width: layout.width }, input.measure)
-  if (!outcome.ok) throw unsatisfiable(settings, outcome.conflicts)
+  const context: AlternativeContext = { recipe: compilation.recipe, planner, measure: input.measure }
+  if (!outcome.ok) throw unsatisfiable(settings, outcome.conflicts, false, context)
   const from = input.from ?? 0
   const plan = outcome.candidates.find(p => p.feasible && p.candidate >= from)
-  if (!plan) throw unsatisfiable(settings, outcome.candidates[outcome.candidates.length - 1]!.conflicts)
+  if (!plan) throw unsatisfiable(settings, outcome.candidates[outcome.candidates.length - 1]!.conflicts, false, context)
 
   // The outer size, exactly; guides read the plan's signals.
   spec.width = layout.width
