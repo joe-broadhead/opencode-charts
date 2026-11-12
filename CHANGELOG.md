@@ -3,6 +3,110 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+The tool contract moves from 1.0.0 to 1.1.0 (`CONTRACT_VERSION`); the change is additive. Every 1.0.0 call keeps its
+meaning, apart from the refusals under Security and Fixed that correct defects, and new warnings. The chart document
+introduced here is version 1.
+
+### Security
+
+- **Interactive HTML could run script from an ECharts tooltip.** In 0.0.0 the page's CSP allowed `'unsafe-inline'`
+  scripts, and ECharts writes a tooltip formatter string into the page as HTML, so a formatter such as
+  `<img src=x onerror=…>` in an option (the option can come from data or a model) ran its handler when the tooltip
+  opened. Three layers now stop it: the page's `script-src` is the SHA-256 hashes of exactly its own two scripts
+  (with `base-uri`, `form-action` and `object-src` `'none'`), so no inline handler, `javascript:` URL or injected
+  script runs; every ECharts tooltip in an option is checked against an allow-list of attribute-free tags (`<br>`,
+  `<b>`, `<span>`, `<table>`…), and anything else, an attribute, a comment or an encoded `<` is refused with
+  `ECHARTS_MARKUP_REFUSED` at its JSON path; and the same check runs inside the page before ECharts starts, so an
+  edited page fails to its static chart rather than inserting markup. `{b}<br/>{c}` still draws two lines. Regenerate
+  any interactive HTML made with 0.0.0 from untrusted options.
+
+### Added
+
+- **Chart documents** (`ChartDocumentV1`, version 1): a typed recipe or a raw engine spec, its data, and its
+  appearance, layout and interactions, checked strictly with a JSON path for every problem. `charts_quick` takes
+  `document` (the recommended path for the 14 standard types); `charts_render` and `charts_validate` take
+  `document` or a saved `documentPath` (with an optional `expectedRevision`); `document` is a new output format. A
+  call takes exactly one input arm (`INPUT_CONFLICT` otherwise). See `docs/documents.md`.
+- **14 typed recipes** (`bar`, `horizontal_bar`, `grouped_bar`, `stacked_bar`, `line`, `area`, `stacked_area`,
+  `scatter`, `bubble`, `pie`, `donut`, `histogram`, `box_plot`, `heatmap`) from one registry that owns each recipe's
+  schemas, compiler, examples, data requirements and interaction and layout support. Aggregation is explicit:
+  repeated groups without `options.aggregate` are `AGGREGATION_REQUIRED`, `count` counts rows and takes no measure,
+  and a missing measure is left out and reported (`VALUE_MISSING`), never read as zero.
+- **The saved artifact** `<name>.chart.json` (`opencode-charts-artifact`, version 1): the canonical document with its
+  rows captured before the transform, the captured theme base, defaults, custom-font digests and colour domain, and a
+  `sha256:` revision. Replaying it uses what it captured, not today's defaults. A result also carries a render
+  `fingerprint`, and never the captured rows.
+- **`charts_update`**: a presentation patch (title, alt text, theme and token overrides, category colours, layout,
+  interactions) to a saved artifact at a known revision, published as a new immutable generation. Data, bindings,
+  aggregation, sorting, transforms, locale, currency and seed cannot change. A stale or edited revision is
+  `DOCUMENT_REVISION_MISMATCH`, and a custom font whose bytes changed is `DOCUMENT_DEPENDENCY_CHANGED`, before
+  anything is drawn. It is an `export` tool on every surface: registration, tools RPC, Jelly (`ask`), permissions and
+  `docs/tool-parity.md`.
+- **Immutable generations**: a document call's files are staged whole and published as one folder
+  `<outDir>/<name>-<digest>/` named by its file manifest; an identical existing folder is verified and reused, a
+  different one is refused, and a failure publishes nothing.
+- **Recipe layout**: `width` and `height` are the outer canvas, exact in SVG and in PNG pixels × scale. Five targets
+  (`inline` 720 × 420 responsive, `analysis` and `report` 900 × 540, `presentation` 1280 × 720 with 18 px labels,
+  `paper` 1000 × 650). A pure three-candidate planner, shared with the HTML page, wraps or turns labels, moves the
+  legend and thins ticks, and never drops data or shrinks text below the floor: `LAYOUT_UNSATISFIABLE` lists the
+  conflicts instead. Engine documents keep native layout (`LAYOUT_UNSUPPORTED` otherwise).
+- **Interaction presets** in HTML: `tooltip` (with a keyboard-reachable values table), `legend: "highlight"`,
+  `zoom: "x"` (temporal line and area) and `brush: "interval"` (scatter and bubble), with the documented combinations,
+  accessible Clear/Reset controls, and responsive re-planning at the container's width. An unsupported preset or
+  combination is `INTERACTION_UNSUPPORTED`; an explicit format list without `html` for an explicit interaction is
+  `INTERACTION_FORMAT_MISMATCH`.
+- **Typed appearance**: `appearance.overrides` and `charts_theme_save`'s `theme` are strict projections of the
+  canonical theme tokens (an unknown token is refused at its path). Recipe charts get a stable colour domain by typed
+  category identity (`1` and `"1"` differ), and `categoryColors` pins colours by category.
+- **Interactive HTML status**: `<html data-chart-status>` is `initializing`, `ready` or `failed`; the live chart starts
+  off-screen after the embedded fonts load and replaces the static SVG only once it started. A failure keeps the
+  static chart with a visible notice and an `HTML_RUNTIME_FAILED` diagnostic.
+- **Discovery from the registry**: `charts_capabilities` reports document versions, the recipe contracts, the layout
+  profiles and the interaction presets; `charts_catalogue` marks the recipe types and returns each one's contract and
+  exact `charts_quick` document calls; `charts_recommend` adds a document draft on the caller's own columns, with an
+  explicit medium as its layout target, and withholds it with a warning when the aggregate would have to be guessed.
+- `SIZE_OVERRIDE_IGNORED`: a raw spec's own `width` or `height` beats the tool's, as before, and now says so, naming
+  both values and the path.
+- New codes: `INPUT_CONFLICT`, `DOCUMENT_INVALID`, `DOCUMENT_VERSION_UNSUPPORTED`, `DOCUMENT_REVISION_MISMATCH`,
+  `DOCUMENT_DEPENDENCY_CHANGED`, `ARTIFACT_INVALID`, `AGGREGATION_REQUIRED`, `POSITION_MISSING`, `LAYOUT_UNSUPPORTED`,
+  `LAYOUT_UNSATISFIABLE`, `INTERACTION_UNSUPPORTED`, `INTERACTION_FORMAT_MISMATCH`, `VALUE_MISSING`,
+  `CATEGORY_COLOR_UNUSED`, `SIZE_OVERRIDE_IGNORED`, `ECHARTS_COMPONENT_UNSUPPORTED`, `ECHARTS_MARKUP_REFUSED`,
+  `HTML_RUNTIME_FAILED`, `OUTPUT_WRITE_FAILED`. The README's and `docs/configuration.md`'s tables list them.
+- **A `browser` check stage**: playwright-core's headless Chromium (pinned in the lockfile) opens pages made by the
+  built plugin, under their CSP, with violation, console and request listeners, and exercises every advertised
+  interaction. A missing browser fails the stage.
+- `docs/documents.md`; the cookbook skill now leads with a generated recipe-document section, and
+  `test/generated.test.ts` fails when the cookbook or the recipe table in `docs/documents.md` is stale.
+
+### Fixed
+
+- **Vega and Vega-Lite HTML did not start in a browser.** Vega's default expression evaluator builds functions from
+  strings, which the page's CSP (no `unsafe-eval`) refuses. Pages now parse with `{ast: true}` and run with
+  vega-interpreter 2.3.2; the network-denying loader stays.
+- **`charts_catalogue`'s example call** left out the example's `width`, `height` and `locale` (the calendar heatmap is
+  820 × 220). One function now builds the exact tested call for the catalogue, the cookbook, the gallery, the goldens
+  and the evals.
+- **The compiler's fit and autosize warnings** were filtered out; they now reach the result as `VEGA_LITE_WARNING`.
+- **ECharts options that used `dataZoom`, `brush`, `toolbox`, `timeline`, `matrix` or `thumbnail`** were drawn without
+  them; they are refused with `ECHARTS_COMPONENT_UNSUPPORTED` at their path. One module table feeds the server and
+  browser runtimes and the capability report.
+- **Partial output**: every requested file and the preview are now made before anything is written, an invalid PNG
+  scale is a finding up front, and legacy flat files are staged and moved into place with a best-effort rollback
+  (`OUTPUT_WRITE_FAILED` names any file it could not restore). `charts_validate` creates no folder.
+- **Custom fonts in exports**: a theme's own `.ttf` or `.otf` is embedded in HTML and embedded-font SVG with its own
+  data URI and `format()`, from the same approved resource list as metrics and the PNG.
+- A label containing markup (`<img onerror=…>`) in a drawn SVG is data, not a refused event handler.
+- An empty recipe dataset is `DATA_EMPTY` at `/document/chart/data`, and `charts_validate` reports it as
+  `valid: false`.
+
+### Changed
+
+- `CONTRACT_VERSION` is 1.1.0.
+- The cookbook and the charts skill describe the document workflow first (recipe, typed document, inspect, update)
+  and the raw spec as the advanced path.
+
 ## [0.0.0] - 2026-11-10
 <!-- kit-release: the GitHub release v0.0.0 -->
 
