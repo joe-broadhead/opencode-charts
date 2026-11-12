@@ -82,6 +82,16 @@ introduced here is version 1.
 
 ### Fixed
 
+- **Catalogue examples that could not be read.** The funnel's labels sat inside segments narrower than the label, some
+  at under 4.5:1 contrast, and printed `10000`: they now sit outside the segments with grouped counts (`10,000`). The
+  waterfall hid four of its six step names and laid two change labels over their bars: it is wider, names every step
+  and puts each change above its bar, with the total labelled. The radial chart had no month labels or legend: each
+  wedge now names its month and value, beside a titled colour legend. The world choropleth drew only the countries
+  with data: every country is now drawn, those without data in a no-data fill with its own legend entry. Smaller
+  fixes: human axis and legend titles (lollipop, dumbbell, brushable scatter, line with band), padded scales (dumbbell,
+  dot plot), a dumbbell row with two distinct points, `0%` rather than `+0%` (diverging bar), year labels (connected
+  scatter), no gridlines through the end labels (slope), and labelled ends on the calendar heatmap's legend. These
+  change the examples only, not how any chart type renders a call.
 - **Vega and Vega-Lite HTML did not start in a browser.** Vega's default expression evaluator builds functions from
   strings, which the page's CSP (no `unsafe-eval`) refuses. Pages now parse with `{ast: true}` and run with
   vega-interpreter 2.3.2; the network-denying loader stays.

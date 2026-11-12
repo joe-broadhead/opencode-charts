@@ -256,7 +256,7 @@ Gains and losses around zero.
 Row shape (2 of 9 rows): `[{"country":"Germany","change_pct":-0.12},{"country":"France","change_pct":-0.06}]`
 
 ```json
-{"mark":"bar","encoding":{"y":{"field":"country","type":"nominal","sort":"-x"},"x":{"field":"change_pct","type":"quantitative","axis":{"format":"+.0%"},"title":"Change vs 2023"},"color":{"condition":{"test":"datum.change_pct < 0","value":"theme:negative"},"value":"theme:positive"}}}
+{"mark":"bar","encoding":{"y":{"field":"country","type":"nominal","sort":"-x"},"x":{"field":"change_pct","type":"quantitative","axis":{"format":"+.0%","labelExpr":"datum.value === 0 ? '0%' : datum.label"},"title":"Change vs 2023"},"color":{"condition":{"test":"datum.change_pct < 0","value":"theme:negative"},"value":"theme:positive"}}}
 ```
 
 ### Lollipop — `lollipop` (vega-lite)
@@ -266,7 +266,7 @@ A lighter bar chart for many categories.
 Row shape (2 of 8 rows): `[{"store":"Germany","nps":18},{"store":"France","nps":41}]`
 
 ```json
-{"encoding":{"y":{"field":"store","type":"nominal","sort":"-x"},"x":{"field":"nps","type":"quantitative","title":"NPS (points)"}},"layer":[{"mark":{"type":"rule","strokeWidth":2,"color":"theme:axis"},"encoding":{"x":{"datum":0},"x2":{"field":"nps"}}},{"mark":{"type":"point","filled":true,"size":120}}]}
+{"encoding":{"y":{"field":"store","type":"nominal","sort":"-x","title":"Store"},"x":{"field":"nps","type":"quantitative","title":"NPS (points)"}},"layer":[{"mark":{"type":"rule","strokeWidth":2,"color":"theme:axis"},"encoding":{"x":{"datum":0},"x2":{"field":"nps"}}},{"mark":{"type":"point","filled":true,"size":120}}]}
 ```
 
 ### Dumbbell — `dumbbell` (vega-lite)
@@ -276,7 +276,7 @@ Before/after or two values per category.
 Row shape (2 of 10 rows): `[{"area":"Search","when":"Before","score":52},{"area":"Search","when":"After","score":61}]`
 
 ```json
-{"encoding":{"y":{"field":"area","type":"nominal"},"x":{"field":"score","type":"quantitative","scale":{"zero":false},"title":"Score (0–100)"}},"layer":[{"mark":{"type":"line","color":"theme:axis","strokeWidth":2},"encoding":{"detail":{"field":"area"}}},{"mark":{"type":"point","filled":true,"size":110,"opacity":1},"encoding":{"color":{"field":"when","type":"nominal","sort":["Before","After"],"title":null}}}]}
+{"encoding":{"y":{"field":"area","type":"nominal","title":"Area"},"x":{"field":"score","type":"quantitative","scale":{"zero":false,"padding":16},"title":"Score (0–100)"}},"layer":[{"mark":{"type":"line","color":"theme:axis","strokeWidth":2},"encoding":{"detail":{"field":"area"}}},{"mark":{"type":"point","filled":true,"size":110,"opacity":1},"encoding":{"color":{"field":"when","type":"nominal","sort":["Before","After"],"title":null}}}]}
 ```
 
 ### Dot plot (Cleveland) — `dot_plot` (vega-lite)
@@ -286,7 +286,7 @@ Precise comparison when bars would be heavy; non-zero baselines are fine.
 Row shape (2 of 7 rows): `[{"city":"Berlin","delivery_min":24},{"city":"Paris","delivery_min":41}]`
 
 ```json
-{"mark":{"type":"point","filled":true,"size":90},"encoding":{"y":{"field":"city","type":"nominal","sort":"x"},"x":{"field":"delivery_min","type":"quantitative","scale":{"zero":false},"title":"Median delivery (min)"}}}
+{"mark":{"type":"point","filled":true,"size":90},"encoding":{"y":{"field":"city","type":"nominal","sort":"x"},"x":{"field":"delivery_min","type":"quantitative","scale":{"zero":false,"padding":16},"title":"Median delivery (min)"}}}
 ```
 
 ### Bullet chart — `bullet` (vega-lite)
@@ -307,8 +307,10 @@ How increases and decreases build from a start to an end total.
 
 Row shape (2 of 6 rows): `[{"step":"Revenue","amount":1200},{"step":"Cost of goods","amount":-480}]`
 
+Tested at width 560.
+
 ```json
-{"transform":[{"window":[{"op":"sum","field":"amount","as":"total"}]},{"window":[{"op":"lead","field":"step","as":"lead"}]},{"calculate":"datum.step === 'Profit' ? datum.total : datum.total - datum.amount","as":"previous"},{"calculate":"datum.step === 'Profit' ? 0 : datum.total","as":"end"},{"calculate":"datum.step === 'Profit' ? 'Total' : datum.amount >= 0 ? 'Increase' : 'Decrease'","as":"kind"}],"encoding":{"x":{"field":"step","type":"ordinal","sort":null,"title":null}},"layer":[{"mark":{"type":"bar","width":{"band":0.7}},"encoding":{"y":{"field":"previous","type":"quantitative","title":"€k"},"y2":{"field":"end"},"color":{"field":"kind","type":"nominal","scale":{"domain":["Increase","Decrease","Total"],"range":["theme:positive","theme:negative","theme:neutral"]},"title":null}}},{"mark":{"type":"text","dy":-8,"baseline":"bottom"},"encoding":{"y":{"field":"previous","type":"quantitative","aggregate":"max"},"text":{"field":"amount","type":"quantitative","format":"+,.0f"}},"transform":[{"filter":"datum.step !== 'Profit'"}]}]}
+{"transform":[{"window":[{"op":"sum","field":"amount","as":"total"}]},{"window":[{"op":"lead","field":"step","as":"lead"}]},{"calculate":"datum.step === 'Profit' ? datum.total : datum.total - datum.amount","as":"previous"},{"calculate":"datum.step === 'Profit' ? 0 : datum.total","as":"end"},{"calculate":"datum.step === 'Profit' ? 'Total' : datum.amount >= 0 ? 'Increase' : 'Decrease'","as":"kind"},{"calculate":"max(datum.previous, datum.end)","as":"top"},{"calculate":"datum.step === 'Profit' ? format(datum.total, ',.0f') : format(datum.amount, '+,.0f')","as":"label"}],"encoding":{"x":{"field":"step","type":"ordinal","sort":null,"title":null,"axis":{"labelAngle":0,"labelOverlap":false}}},"layer":[{"mark":{"type":"bar","width":{"band":0.7}},"encoding":{"y":{"field":"previous","type":"quantitative","title":"€k"},"y2":{"field":"end"},"color":{"field":"kind","type":"nominal","scale":{"domain":["Increase","Decrease","Total"],"range":["theme:positive","theme:negative","theme:neutral"]},"title":null}}},{"mark":{"type":"text","dy":-6,"baseline":"bottom"},"encoding":{"y":{"field":"top","type":"quantitative","title":"€k"},"text":{"field":"label"}}}]}
 ```
 
 ## part-to-whole
@@ -349,16 +351,22 @@ Cyclical categories such as months or directions.
 
 Row shape (2 of 12 rows): `[{"month":"Jan","rain_mm":75},{"month":"Feb","rain_mm":76}]`
 
+Tested at width 460, height 420.
+
 ```json
-{"mark":{"type":"arc","stroke":"theme:background","strokeWidth":1},"encoding":{"theta":{"field":"month","type":"nominal","sort":null},"radius":{"field":"rain_mm","type":"quantitative","scale":{"type":"sqrt","zero":true,"rangeMin":20}},"color":{"field":"rain_mm","type":"quantitative","legend":null}}}
+{"encoding":{"theta":{"field":"month","type":"nominal","sort":null},"radius":{"field":"rain_mm","type":"quantitative","scale":{"type":"sqrt","zero":true,"rangeMin":20}}},"layer":[{"mark":{"type":"arc","stroke":"theme:background","strokeWidth":1},"encoding":{"color":{"field":"rain_mm","type":"quantitative","title":"Rainfall (mm)"}}},{"transform":[{"calculate":"datum.month + ' ' + format(datum.rain_mm, ',.0f')","as":"label"}],"mark":{"type":"text","radiusOffset":20,"fontSize":11},"encoding":{"text":{"field":"label"}}}]}
 ```
 
 ### Funnel — `funnel` (echarts)
 
 Drop-off through ordered stages.
 
+Row shape (2 of 5 rows): `[{"stage":"Visited","visitors":10000,"visitors_label":"10,000"},{"stage":"Viewed product","visitors":6200,"visitors_label":"6,200"}]`
+
+Tested at width 640, height 340.
+
 ```json
-{"series":[{"type":"funnel","left":"10%","width":"80%","sort":"descending","gap":2,"label":{"show":true,"position":"inside","formatter":"{b}  {c}"},"data":[{"name":"Visited","value":10000},{"name":"Viewed product","value":6200},{"name":"Added to basket","value":2400},{"name":"Checkout","value":1300},{"name":"Paid","value":980}]}]}
+{"series":[{"type":"funnel","left":"4%","width":"58%","bottom":16,"sort":"descending","gap":2,"encode":{"itemName":"stage","value":"visitors"},"label":{"show":true,"position":"right","formatter":"{b}  {@visitors_label}"},"labelLine":{"show":true,"length":16}}]}
 ```
 
 ### Gauge — `gauge` (echarts)
@@ -440,7 +448,7 @@ An estimate with its uncertainty.
 Row shape (2 of 12 rows): `[{"date":"2024-01-01","forecast":500,"low":470,"high":530},{"date":"2024-02-01","forecast":550.2,"low":514.2,"high":586.2}]`
 
 ```json
-{"encoding":{"x":{"field":"date","type":"temporal","title":null}},"layer":[{"mark":{"type":"area","opacity":0.25},"encoding":{"y":{"field":"low","type":"quantitative","title":"Units per day"},"y2":{"field":"high"}}},{"mark":"line","encoding":{"y":{"field":"forecast","type":"quantitative"}}}]}
+{"encoding":{"x":{"field":"date","type":"temporal","title":null}},"layer":[{"mark":{"type":"area","opacity":0.25},"encoding":{"y":{"field":"low","type":"quantitative","title":"Units per day"},"y2":{"field":"high"}}},{"mark":"line","encoding":{"y":{"field":"forecast","type":"quantitative","title":"Units per day"}}}]}
 ```
 
 ### Slope chart — `slope` (vega-lite)
@@ -452,7 +460,7 @@ Row shape (2 of 8 rows): `[{"brand":"Alpha","year":"2023","share":0.31},{"brand"
 Tested at width 320, height 360.
 
 ```json
-{"encoding":{"x":{"field":"year","type":"ordinal","axis":{"labelAngle":0},"title":null},"y":{"field":"share","type":"quantitative","axis":{"format":".0%"},"title":"Market share"},"color":{"field":"brand","type":"nominal","legend":null}},"layer":[{"mark":{"type":"line","point":true}},{"mark":{"type":"text","align":"left","dx":8},"encoding":{"text":{"field":"brand"}},"transform":[{"filter":"datum.year === '2024'"}]}]}
+{"encoding":{"x":{"field":"year","type":"ordinal","axis":{"labelAngle":0},"title":null},"y":{"field":"share","type":"quantitative","axis":{"format":".0%","grid":false},"title":"Market share"},"color":{"field":"brand","type":"nominal","legend":null}},"layer":[{"mark":{"type":"line","point":true}},{"mark":{"type":"text","align":"left","dx":8},"encoding":{"text":{"field":"brand"}},"transform":[{"filter":"datum.year === '2024'"}]}]}
 ```
 
 ### Bump chart — `bump` (vega-lite)
@@ -494,7 +502,7 @@ Row shape (2 of 366 rows): `[{"date":"2024-01-01","commits":3},{"date":"2024-01-
 Tested at width 820, height 220.
 
 ```json
-{"visualMap":{"min":0,"max":14,"orient":"horizontal","left":"center","bottom":4,"itemHeight":120,"calculable":false},"calendar":{"range":"2024","cellSize":["auto",14],"left":64,"right":24},"series":[{"type":"heatmap","coordinateSystem":"calendar","encode":{"time":"date","value":"commits"}}]}
+{"visualMap":{"min":0,"max":14,"orient":"horizontal","left":"center","bottom":4,"itemHeight":120,"calculable":false,"text":["14 commits","0"]},"calendar":{"range":"2024","cellSize":["auto",14],"left":64,"right":24},"series":[{"type":"heatmap","coordinateSystem":"calendar","encode":{"time":"date","value":"commits"}}]}
 ```
 
 ### Candlestick — `candlestick` (echarts)
@@ -656,7 +664,7 @@ How two measures moved together over time.
 Row shape (2 of 10 rows): `[{"year":2015,"unemployment":0.1,"inflation":0.001},{"year":2016,"unemployment":0.096,"inflation":0.002}]`
 
 ```json
-{"mark":{"type":"line","point":true},"encoding":{"x":{"field":"unemployment","type":"quantitative","axis":{"format":".1%"},"scale":{"zero":false},"title":"Unemployment"},"y":{"field":"inflation","type":"quantitative","axis":{"format":".0%"},"title":"Inflation"},"order":{"field":"year"}}}
+{"encoding":{"x":{"field":"unemployment","type":"quantitative","axis":{"format":".1%"},"scale":{"zero":false},"title":"Unemployment"},"y":{"field":"inflation","type":"quantitative","axis":{"format":".0%"},"title":"Inflation"},"order":{"field":"year"}},"layer":[{"mark":{"type":"line","point":true}},{"mark":{"type":"text","align":"left","dx":7,"dy":-7,"fontSize":10},"encoding":{"text":{"field":"year","type":"nominal"}}}]}
 ```
 
 ### Parallel coordinates — `parallel` (echarts)
@@ -686,7 +694,7 @@ Interactive HTML: drag to highlight a region.
 Row shape (2 of 60 rows): `[{"spend_k":5,"conversions":0,"channel":"Search","customers":50},{"spend_k":42,"conversions":91,"channel":"Social","customers":79}]`
 
 ```json
-{"params":[{"name":"brush","select":"interval"}],"mark":{"type":"point","filled":true},"encoding":{"x":{"field":"spend_k","type":"quantitative","title":"Spend (€k)"},"y":{"field":"conversions","type":"quantitative","title":"Conversions"},"color":{"condition":{"param":"brush","field":"channel","type":"nominal"},"value":"theme:grid"}}}
+{"params":[{"name":"brush","select":"interval"}],"mark":{"type":"point","filled":true},"encoding":{"x":{"field":"spend_k","type":"quantitative","title":"Spend (€k)"},"y":{"field":"conversions","type":"quantitative","title":"Conversions"},"color":{"condition":{"param":"brush","field":"channel","type":"nominal","title":"Channel"},"value":"theme:grid"}}}
 ```
 
 ## flow
@@ -732,7 +740,7 @@ Row shape (2 of 25 rows): `[{"iso":"USA","users_share":0.92},{"iso":"CAN","users
 Tested at width 640, height 340.
 
 ```json
-{"data":{"atlas":"world-110m"},"projection":{"type":"equalEarth"},"transform":[{"lookup":"properties.iso_a3","from":{"data":{"name":"table"},"key":"iso","fields":["users_share"]}}],"mark":{"type":"geoshape"},"encoding":{"color":{"field":"users_share","type":"quantitative","legend":{"format":".0%"},"title":"Internet users","condition":{"test":"datum.users_share == null","value":"theme:grid"}}}}
+{"data":{"atlas":"world-110m"},"projection":{"type":"equalEarth"},"layer":[{"mark":{"type":"geoshape","stroke":"theme:background","strokeWidth":0.5},"encoding":{"color":{"datum":"No data","type":"nominal","scale":{"domain":["No data"],"range":["theme:grid"]},"legend":{"title":null,"orient":"bottom-right"}}}},{"transform":[{"lookup":"properties.iso_a3","from":{"data":{"name":"table"},"key":"iso","fields":["users_share"]}},{"filter":"isValid(datum.users_share)"}],"mark":{"type":"geoshape"},"encoding":{"color":{"field":"users_share","type":"quantitative","legend":{"format":".0%"},"title":"Internet users"}}}],"resolve":{"scale":{"color":"independent"}}}
 ```
 
 ### US states choropleth — `choropleth_us` (vega-lite)
