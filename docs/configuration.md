@@ -41,6 +41,7 @@ so is `charts_*`, so a tool a later version adds runs at once:
   {"action": "charts_render", "resource": "*", "effect": "allow"},
   {"action": "charts_quick", "resource": "*", "effect": "allow"},
   {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_update", "resource": "*", "effect": "allow"},
   {"action": "charts_recommend", "resource": "*", "effect": "allow"},
   {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
   {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
@@ -50,7 +51,7 @@ so is `charts_*`, so a tool a later version adds runs at once:
 ```
 
 The `access` option narrows it from each tool's class. `"all"` is the default, as above. `"ask-changes"` makes the
-three that write files — `charts_render`, `charts_quick` and `charts_theme_save` — and any tool a later version adds
+four that write files — `charts_render`, `charts_quick`, `charts_update` and `charts_theme_save` — and any tool a later version adds
 ask, while `charts_validate`, `charts_recommend`, `charts_capabilities`, `charts_catalogue` and `charts_themes` run.
 `"read-only"` denies those four writers and runs the five reads. The README prints the block for each value. Every
 later rule wins, so your own `permissions` can allow or stop one tool. An agent without a base allow gets no block.

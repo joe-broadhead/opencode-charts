@@ -95,6 +95,13 @@ const EXPECTED_REVISION = z.string().max(80).describe("With documentPath: the re
 /** The input arms a chart call can use instead of a legacy spec: the authoring document, or a saved artifact. */
 const documentArm = { document: ENGINE_DOCUMENT.optional(), documentPath: DOCUMENT_PATH.optional(), expectedRevision: EXPECTED_REVISION.optional() }
 
+/**
+ * charts_update's patch on the wire: an object whose fields the patch validator checks at run time, so each problem
+ * comes back with its code and its JSON path under /patch (and a field that would change the chart's meaning, such as
+ * data or bindings, is refused with what to do instead) rather than as a bare schema message.
+ */
+const PATCH = z.record(z.string(), z.unknown()).describe('The presentation change: any of "title", "description" (an empty string is intentionally empty; omitted stays), "appearance" ({"theme", "overrides", "categoryColors"}, merged by property: a given theme is resolved anew, overrides merge token by token with arrays whole and {} clearing them all, categoryColors replaces whole and [] clears it), "layout" (replaces the whole layout: {"target": "presentation"} takes that profile\'s size; {"mode": "native"} for an engine chart) and "interactions" ({"tooltip", "legend", "zoom", "brush"}, merged). Data, bindings, options, transforms, locale, currency and seed cannot change: that is a new document. {} draws the saved chart again.')
+
 const MEDIUM = z.enum(["analysis", "report", "presentation", "paper"]).describe("Where the figure will be read: a desk with every detail (analysis), a document skimmed (report, the default), a slide seen for a few seconds (presentation), or print (paper). It sets how much a figure may carry.")
 
 const STRING = { type: "string" } as const
@@ -161,8 +168,20 @@ const VALIDATE_OUTPUT = {
   additionalProperties: true,
 } as const
 
+/** What `update` returns: the render result for the new revision, where it came from, and the generation folder. */
+const UPDATE_OUTPUT = {
+  ...RENDER_OUTPUT,
+  properties: {
+    ...(RENDER_OUTPUT.properties as object),
+    update: { type: "object", description: "from (the source artifact's documentPath and revision), to (the new revision and its saved .chart.json, if written), changed (the authored fields that changed) and theme (whether appearance.theme was resolved anew and changed the base).", additionalProperties: true },
+    generation: { type: "object", description: "The new generation folder (directory), the digest of its file manifest, and reused: true when an identical generation was already there and was verified instead of written.", additionalProperties: true },
+  },
+  required: [...RENDER_OUTPUT.required, "revision", "update"],
+} as const
+
 const OUTPUTS: Record<string, Record<string, unknown>> = {
   render: RENDER_OUTPUT,
+  update: UPDATE_OUTPUT,
   quick: RENDER_OUTPUT,
   validate: VALIDATE_OUTPUT,
   recommend: {
@@ -277,6 +296,22 @@ export const DECLARED: readonly DeclaredTool[] = [
     }),
   },
   {
+    name: "update", class: "export", readOnly: false, stability: "stable", docsAnchor: "README.md#tools",
+    description: "Change a saved chart's presentation without changing what it shows: theme and token overrides, category colours, size and layout target, title, alt text, and interactions (tooltip, legend highlight, x zoom, brush). Reads the saved <name>.chart.json (documentPath), checks it is still at expectedRevision, applies the patch to its document, and writes a new generation folder <outDir>/<name>-<digest>/ with the new revision; the saved artifact and earlier generations are never overwritten. Its data, bindings, aggregation and sorting stay as saved: for different data or a different chart, create a new document.",
+    input: z.strictObject({
+      documentPath: DOCUMENT_PATH.describe("The saved <name>.chart.json (workspace path) to change: a charts_quick or charts_render document output, or an earlier charts_update's."),
+      expectedRevision: EXPECTED_REVISION.describe("The revision you last saw for it (sha256:…, from the call that wrote it). A different revision is refused before anything is drawn or written."),
+      patch: PATCH,
+      formats: outputs.formats.describe("Files to write in the new generation. Default svg, png, spec and document, plus html when an interaction needs it; a list you give is exact (without document the new revision is drawn but not saved)."),
+      scales: outputs.scales,
+      name: outputs.name.describe("File name stem; default from the title. The generation folder is <name>-<digest>."),
+      outDir: outputs.outDir,
+      svgText: outputs.svgText,
+      inspect: outputs.inspect,
+      marks: outputs.marks,
+    }),
+  },
+  {
     name: "recommend", class: "read", readOnly: true, stability: "experimental", docsAnchor: "README.md#tools",
     description: "Which chart fits this question, this data and this medium: a ranked shortlist of chart types with a reason each, the encoding to use, and a ready charts_render call you can adapt. Reads the data's shape (types, cardinality, nulls, time) when you pass it, and abstains with a reason when nothing fits. It never renders; charts_render draws.",
     input: z.strictObject({
@@ -317,7 +352,7 @@ export const DECLARED: readonly DeclaredTool[] = [
   },
 ]
 
-export type ToolName = "render" | "quick" | "validate" | "recommend" | "capabilities" | "catalogue" | "themes" | "theme_save"
+export type ToolName = "render" | "quick" | "validate" | "update" | "recommend" | "capabilities" | "catalogue" | "themes" | "theme_save"
 
 /** The output schema of a tool, by name. */
 export const outputSchema = (name: string): Record<string, unknown> => OUTPUTS[name] ?? { type: "object", additionalProperties: true }

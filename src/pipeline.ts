@@ -4,7 +4,7 @@ import { compactSpec, isObject, substituteThemeColours, type Json } from "./engi
 import { prepareECharts, renderECharts, serialisableOption } from "./engines/echarts.js"
 import { prepareVega, renderVega } from "./engines/vega.js"
 import { compileVegaLite, prepareVegaLite, units } from "./engines/vegalite.js"
-import { publish, type Artifact } from "./artifacts.js"
+import { publish, publishGeneration, type Artifact, type Generation } from "./artifacts.js"
 import { detectEngine } from "./document/engine.js"
 import { ChartsError, SpecInvalid, type Issue } from "./errors.js"
 import { bundledFonts, readCustomFonts, withCustomFonts, type FontBook, type FontResource } from "./fonts.js"
@@ -58,6 +58,11 @@ export interface RenderRequest {
   readonly document?: string
   /** A recipe document's layout plan and controls: the legend follows the plan's signals, and HTML can re-plan live. */
   readonly presentation?: RuntimePresentation
+  /**
+   * Publish the files as a new immutable generation folder, `<outDir>/<name>-<bundle digest prefix>/`, instead of the
+   * flat legacy layout: charts_update's publication. Not a tool field.
+   */
+  readonly generation?: boolean
 }
 
 export interface Environment {
@@ -97,6 +102,8 @@ export interface RenderResult {
   readonly figure: Figure
   /** The plot's measured bounds in the drawing (Vega and Vega-Lite): its origin and size, guides outside it. */
   readonly plot?: PlotBounds
+  /** The generation folder the files were published in, when the request asked for one. */
+  readonly generation?: Omit<Generation, "files">
 }
 
 /** One engine detection rule, shared with chart documents: Vega-Lite has `mark` or a composition; Vega has `marks`; ECharts has `series`. */
@@ -291,8 +298,14 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     const marked = request.marks === "none" ? svg : markedSvg(svg, figure, { which: request.marks ?? "problems", font: `${defaultFamily}, sans-serif` })
     preview = (await svgToPng(env.packageRoot, marked, fonts, 1, defaultFamily)).png
   }
+  let generation: Omit<Generation, "files"> | undefined
   if (write && artifacts.length) {
-    const written = publish(env.workspace, outDir, artifacts, file => env.probe?.("commit", file))
+    let written: readonly string[]
+    if (request.generation) {
+      const published = publishGeneration(env.workspace, outDir, name, artifacts, file => env.probe?.("commit", file))
+      written = published.files
+      generation = { directory: published.directory, digest: published.digest, reused: published.reused }
+    } else written = publish(env.workspace, outDir, artifacts, file => env.probe?.("commit", file))
     artifacts.forEach((artifact, i) => {
       if (artifact.kind === "png") files.png.push(written[i]!)
       else files[artifact.kind] = written[i]!
@@ -303,7 +316,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     engine, theme: theme.name, title, description, width: width!, height: height!, files,
     ...(shown ? { markdown: `![${title.replace(/[\[\]]/g, "")}](${shown})` } : {}),
     summary: [description, profile ? `Data: ${dataSource ?? "inline"}; ${describeProfile(profile)}` : ""].filter(Boolean).join(" "),
-    issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg, resolvedSpec, figure, ...(plot ? { plot } : {}),
+    issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg, resolvedSpec, figure, ...(plot ? { plot } : {}), ...(generation ? { generation } : {}),
   }
 }
 

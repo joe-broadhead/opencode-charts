@@ -72,7 +72,7 @@ function nextStep(view: Omit<StatusView, "nextStep">, shipped: number, png: Char
   if (missing) return "Reinstall the plugin, since a skill it ships did not load."
   if (view.unguardedAgents.length > 0) return AGENT_FIX
   if (!view.host.supported) return `Use OpenCode ${TESTED_HOSTS.join(" or ")}, since Charts supports OpenCode ${HOST_RANGE} and this is ${view.host.version ?? "of no known version"}.`
-  if (view.tools.visible < view.tools.total) return "Check the agent's permissions, since some Charts tools are denied to it; a read-only helper is denied the three that write."
+  if (view.tools.visible < view.tools.total) return "Check the agent's permissions, since some Charts tools are denied to it; a read-only helper is denied the four that write."
   return NOTHING_TO_DO
 }
 export async function buildStatus(sources: StatusSources): Promise<StatusView> {

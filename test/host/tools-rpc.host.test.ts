@@ -36,8 +36,8 @@ for (const version of TESTED_HOSTS) {
     test("describe lists every tool with its class, and no method is unclassified", async () => {
       const described = (await rpc(host, "describe", reader, undefined)).data as { output?: { methods?: { name: string; class: string; kind: string }[]; unclassified?: unknown[] } }
       const methods = described.output?.methods ?? []
-      expect(methods.map(method => method.name).sort()).toEqual(["capabilities", "catalogue", "quick", "recommend", "render", "theme_save", "themes", "validate"])
-      expect(methods.map(method => method.class).sort()).toEqual(["export", "export", "export", "read", "read", "read", "read", "read"])
+      expect(methods.map(method => method.name).sort()).toEqual(["capabilities", "catalogue", "quick", "recommend", "render", "theme_save", "themes", "update", "validate"])
+      expect(methods.map(method => method.class).sort()).toEqual(["export", "export", "export", "export", "read", "read", "read", "read", "read"])
       expect(described.output?.unclassified ?? []).toEqual([])
     })
 
@@ -116,6 +116,24 @@ for (const version of TESTED_HOSTS) {
       expect(replay.status).toBe(200)
       expect(unwrap(replay.data).output.revision).toBe(made.output.revision)
       const stale = await rpc(host, "validate", reader, { documentPath: made.output.files.document, expectedRevision: `sha256:${"0".repeat(64)}` })
+      expect(JSON.stringify(stale.data)).toContain("DOCUMENT_REVISION_MISMATCH")
+    })
+
+    test("charts_update changes a saved chart into a new generation, under its declared output schema, and asks like a writer", async () => {
+      const made = unwrap((await rpc(host, "quick", writer, { document: HOST_DOCUMENT, formats: ["svg", "document"], name: `host-update-${version.replaceAll(".", "-")}` })).data)
+      const patch = { appearance: { theme: "dark" }, layout: { target: "presentation" } }
+      // A writer under the plugin's own ask rule is refused before dispatch, and no generation appears.
+      const asked = await rpc(host, "update", asking, { documentPath: made.output.files.document, expectedRevision: made.output.revision, patch })
+      expect(refusedCode(asked.data)).toBe("PERMISSION_DENIED")
+      // The real result is accepted against the update output schema the RPC nests.
+      const updated = await rpc(host, "update", writer, { documentPath: made.output.files.document, expectedRevision: made.output.revision, patch, formats: ["svg", "document"] })
+      expect(updated.status, JSON.stringify(updated.data).slice(0, 300)).toBe(200)
+      const output = unwrap(updated.data).output
+      expect(output.update.from).toEqual({ documentPath: made.output.files.document, revision: made.output.revision })
+      expect(output.update.to.revision).not.toBe(made.output.revision)
+      expect(existsSync(join(host.a, output.files.document))).toBe(true)
+      expect(output.generation.directory).toMatch(/\/host-document-[0-9a-f]{16}$/)
+      const stale = await rpc(host, "update", writer, { documentPath: made.output.files.document, expectedRevision: `sha256:${"0".repeat(64)}`, patch })
       expect(JSON.stringify(stale.data)).toContain("DOCUMENT_REVISION_MISMATCH")
     })
 

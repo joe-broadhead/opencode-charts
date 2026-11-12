@@ -72,6 +72,25 @@ describe("the registry", () => {
     }
   })
 
+  test("charts_update is one writer on every surface: registry, Jelly, permissions, RPC schema and parity table", () => {
+    const update = DESCRIPTORS.find(d => d.name === "update")!
+    expect({ class: update.class, readOnly: update.readOnly }).toEqual({ class: "export", readOnly: false })
+    expect(pkg.jelly.tools.find(tool => tool.name === "charts.update")).toEqual({ name: "charts.update", permission: "charts_update", effect: "allow", readOnly: false })
+    expect(KNOWN_READS).not.toContain("charts_update")
+    const input = inputSchema("update") as { properties: Record<string, any>; required?: string[]; additionalProperties?: unknown }
+    // The source, its revision precondition and the patch are required; the delivery fields go with them; nothing else.
+    expect([...(input.required ?? [])].sort()).toEqual(["documentPath", "expectedRevision", "patch"])
+    expect(Object.keys(input.properties).sort()).toEqual(["documentPath", "expectedRevision", "formats", "inspect", "marks", "name", "outDir", "patch", "scales", "svgText"])
+    expect(input.additionalProperties).toBe(false)
+    expect(input.properties.formats.items.enum).toEqual(["svg", "png", "html", "spec", "document"])
+    for (const field of ["title", "description", "appearance", "layout", "interactions"]) expect(String(input.properties.patch.description)).toContain(`"${field}"`)
+    const output = update.output as { properties: Record<string, unknown>; required: string[] }
+    for (const key of ["revision", "fingerprint", "source", "appearance", "size", "interactions", "diagnostics", "update", "generation"]) expect(Object.keys(output.properties)).toContain(key)
+    expect(output.required).toEqual(expect.arrayContaining(["files", "revision", "update"]))
+    expect(JSON.stringify(output)).not.toContain('"pattern"')
+    expect(parity).toContain("| `update` | model | export | yes | yes |")
+  })
+
   test("README's table lists every tool once", () => {
     for (const name of TOOL_NAMES) {
       const pattern = new RegExp(`\\\`${NAMESPACE}_${name}\\\``, "g")

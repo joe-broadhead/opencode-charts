@@ -47,7 +47,7 @@ export interface Host {
   close(): Promise<void>
 }
 
-/** A project agent's rules: `reader` allows the reads, `writer` also allows the three that write, `locked` denies. */
+/** A project agent's rules: `reader` allows the reads, `writer` also allows the four that write, `locked` denies. */
 const AGENTS = {
   reader: {
     description: "charts host test reader",

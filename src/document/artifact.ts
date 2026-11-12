@@ -82,21 +82,30 @@ export function captureDefaults(document: ChartDocumentV1, env: DefaultsEnvironm
   if (document.seed === undefined) out.seed = env.seed
   if (document.chart.kind === "recipe") {
     if (recipeOptionDefaults && Object.keys(recipeOptionDefaults).length) out.recipeOptions = { ...recipeOptionDefaults }
-    const layout = (document.layout ?? {}) as RecipeLayoutV1
-    const profile = LAYOUT_PROFILES[layout.target ?? DEFAULT_LAYOUT_TARGET]
-    out.layout = {
-      profile: profile.target,
-      profileVersion: LAYOUT_PROFILE_VERSION,
-      ...(layout.mode === undefined ? { mode: profile.mode } : {}),
-      ...(layout.width === undefined ? { width: profile.width } : {}),
-      ...(layout.height === undefined ? { height: profile.height } : {}),
-      minLabelSize: profile.minLabelSize,
-    }
+    out.layout = captureLayoutDefaults(document.layout as RecipeLayoutV1 | undefined)
     const authored = document.interactions ?? {}
     const omitted = Object.fromEntries(Object.entries(INTERACTION_DEFAULTS).filter(([k]) => (authored as JsonObject)[k] === undefined))
     if (Object.keys(omitted).length) out.interactions = omitted
   }
   return out
+}
+
+/**
+ * A recipe layout's captured defaults: the selected profile (and its table version), the effective value of each
+ * layout field the author left out, and the profile's readability floor. Creation captures them, and an update that
+ * replaces the layout captures them again for the new layout.
+ */
+export function captureLayoutDefaults(layout: RecipeLayoutV1 | undefined): CapturedDefaultsV1["layout"] {
+  const given = layout ?? {}
+  const profile = LAYOUT_PROFILES[given.target ?? DEFAULT_LAYOUT_TARGET]
+  return {
+    profile: profile.target,
+    profileVersion: LAYOUT_PROFILE_VERSION,
+    ...(given.mode === undefined ? { mode: profile.mode } : {}),
+    ...(given.width === undefined ? { width: profile.width } : {}),
+    ...(given.height === undefined ? { height: profile.height } : {}),
+    minLabelSize: profile.minLabelSize,
+  }
 }
 
 /** The revision: exactly the inputs that define the chart's content. */

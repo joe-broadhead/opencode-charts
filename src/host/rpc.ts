@@ -13,7 +13,7 @@ export { pluginError, TOOLS_RPC_ID } from "./tools-rpc.js"
  * call asserts its own action exactly as a model's call does, and the file rules are asserted by the environment the
  * tool runs with. Nothing about a call differs from the model path except the source of the permission.
  *
- * The classes come from the registry (`read` for the five that write nothing, `export` for the three that write a
+ * The classes come from the registry (`read` for the five that write nothing, `export` for the four that write a
  * file), so `describe`, the model's tool list and `charts_capabilities` cannot disagree.
  */
 

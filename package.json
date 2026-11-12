@@ -128,6 +128,12 @@
         "readOnly": true
       },
       {
+        "name": "charts.update",
+        "permission": "charts_update",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
         "name": "charts.recommend",
         "permission": "charts_recommend",
         "effect": "allow",

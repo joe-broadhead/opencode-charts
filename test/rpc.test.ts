@@ -61,14 +61,14 @@ describe("the tools RPC", () => {
   test("is registered as charts.tools, with one method per tool and no MCP method", () => {
     expect(registration?.contract.id).toBe("charts.tools")
     const methods = Object.keys(registration!.contract.methods).sort()
-    expect(methods).toEqual(["capabilities", "catalogue", "describe", "quick", "recommend", "render", "theme_save", "themes", "validate"])
+    expect(methods).toEqual(["capabilities", "catalogue", "describe", "quick", "recommend", "render", "theme_save", "themes", "update", "validate"])
   })
 
   test("describe reports each method's class, so a script can see what writes", async () => {
     const description = await call("describe", undefined)
     const payload = (description as { data?: unknown }).data ?? description
     const text = JSON.stringify(payload)
-    for (const name of ["render", "quick", "theme_save"]) expect(text).toContain(`"${name}"`)
+    for (const name of ["render", "quick", "update", "theme_save"]) expect(text).toContain(`"${name}"`)
     expect(text).toContain("export")
     expect(text).toContain("read")
   })
@@ -140,6 +140,26 @@ describe("the tools RPC", () => {
     // Its own action, read on the artifact, then edit on the output folder.
     expect(asserts.slice(before).map(a => a.action)).toEqual(["charts_render", "read", "edit"])
     for (const result of [made, checked, replay]) expect(JSON.stringify(result)).not.toContain("rpc-row-marker")
+  })
+
+  test("charts_update goes through the RPC with the model path's asks, its own output schema, and no rows echoed", async () => {
+    expect(registration!.contract.methods.update).toBeDefined()
+    const rows = [{ region: "North", revenue: 10, note: "rpc-update-marker" }, { region: "South", revenue: 20, note: "rpc-update-marker" }]
+    const document = { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows }, bindings: { category: "region", value: "revenue" } }, title: "RPC update" }
+    const made = await call("quick", { document, name: "rpc-update", formats: ["svg", "document"] })
+    const before = asserts.length
+    const updated = await call("update", { documentPath: made.output?.files?.document, expectedRevision: made.output?.revision, patch: { appearance: { theme: "dark" } }, formats: ["svg", "document"] })
+    expect(updated.output?.update?.from).toEqual({ documentPath: "outputs/charts/rpc-update.chart.json", revision: made.output?.revision })
+    expect(updated.output?.files?.document).toMatch(/^outputs\/charts\/rpc-update-[0-9a-f]{16}\/rpc-update\.chart\.json$/)
+    expect(existsSync(join(ws.dir, updated.output?.files?.document))).toBe(true)
+    // Its own action, read on the artifact, then edit on the output folder: as on the model path.
+    expect(asserts.slice(before).map(a => a.action)).toEqual(["charts_update", "read", "edit"])
+    expect(JSON.stringify(updated)).not.toContain("rpc-update-marker")
+    // The method declares the registry's update output inside its envelope.
+    const schema = JSON.stringify(registration!.contract.methods.update!.output)
+    for (const key of ["\"update\"", "\"generation\"", "\"revision\""]) expect(schema).toContain(key)
+    const stale = await call("update", { documentPath: made.output?.files?.document, expectedRevision: `sha256:${"0".repeat(64)}`, patch: {} })
+    expect(stale.data?.code).toBe("DOCUMENT_REVISION_MISMATCH")
   })
 
   test("a call that mixes input arms is refused through the RPC with INPUT_CONFLICT, and writes nothing", async () => {
