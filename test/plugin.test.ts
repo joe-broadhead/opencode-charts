@@ -170,7 +170,7 @@ describe("/charts-status", () => {
       "Defaults: theme light, locale en-US, files under outputs/charts/",
       "Themes: 5 built in, 0 from options, none saved in .charts/themes",
       "Skills: charts, charts-cookbook",
-      "Tools: 8 of 8 visible to this agent",
+      "Tools: 9 of 9 visible to this agent",
       "Agents without default rules: none",
       "OpenCode: 2.2.5",
       `Version: ${(await Bun.file(join(ROOT, "package.json")).json()).version}`,

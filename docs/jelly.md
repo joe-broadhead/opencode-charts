@@ -12,13 +12,13 @@ because that schema accepts no unknown keys.
 
 ## Tools and permissions
 
-8 tools are declared (5 read-only). Jelly's agents have no base "allow everything" rule, so this plugin's own
+9 tools are declared (5 read-only). Jelly's agents have no base "allow everything" rule, so this plugin's own
 default rules, which it puts after that rule, never reach them. Jelly writes each declared `ask` or `deny` as that
 tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
 `readOnly`. A declared `allow` changes nothing in Jelly.
 
-- Ask: `charts.render`, `charts.quick` and `charts.theme_save`, which write files in the workspace: charts under
-  `outputs/charts/` (or the folder a call names), themes under `.charts/themes/`.
+- Ask: `charts.render`, `charts.quick`, `charts.update` and `charts.theme_save`, which write files in the workspace:
+  charts under `outputs/charts/` (or the folder a call names), themes under `.charts/themes/`.
 - Off: none.
 - Everything else runs: `charts.validate`, `charts.recommend`, `charts.capabilities`, `charts.catalogue` and
   `charts.themes`, which write nothing.

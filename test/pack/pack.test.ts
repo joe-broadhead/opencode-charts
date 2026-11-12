@@ -58,7 +58,7 @@ describe("the packed tarball", () => {
     expect(size).toBeLessThan(MAX_PACKED_BYTES)
   }, 180_000)
 
-  test("installs with scripts off next to @opencode/plugin alone, then loads and renders a chart", async () => {
+  test("installs with scripts off next to @opencode/plugin alone, then loads, renders a chart and updates a saved one", async () => {
     const dir = join(work, "project")
     mkdirSync(dir)
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "charts-pack-project", private: true, type: "module" }))
@@ -87,15 +87,23 @@ describe("the packed tarball", () => {
       }
       const stop = await plugin.setup(ctx)
       const result = await tools.get("render").execute({ spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, title: "Pack test", formats: ["svg", "png", "html"] }, { sessionID: "s", agent: "build", messageID: "m", id: "c" })
+      const call = { sessionID: "s", agent: "build", messageID: "m", id: "c" }
+      const made = await tools.get("quick").execute({ document: { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, bindings: { category: "k", value: "v" } }, title: "Pack document" }, formats: ["svg", "document"] }, call)
+      const updated = await tools.get("update").execute({ documentPath: made.output.files.document, expectedRevision: made.output.revision, patch: { appearance: { theme: "dark" } }, formats: ["svg", "html", "document"] }, call)
       await commands.get("charts-status").execute({ sessionID: "s", delivery: "immediate", prompt: { text: "" } })
-      console.log(JSON.stringify({ tools: [...tools.keys()].sort(), files: result.output.files, asserts }))
+      console.log(JSON.stringify({ tools: [...tools.keys()].sort(), files: result.output.files, asserts, update: { from: made.output.revision, to: updated.output.revision, files: updated.output.files, generation: updated.output.generation } }))
       await stop()
     `)
     const lines = run("bun", [script], dir).trim().split("\n").map(line => JSON.parse(line) as Record<string, unknown>)
     const status = String(lines.find(line => "status" in line)?.status)
-    const out = lines.find(line => "tools" in line) as { tools: string[]; files: Record<string, unknown>; asserts: string[] }
-    expect(out.tools).toEqual(["capabilities", "catalogue", "quick", "recommend", "render", "theme_save", "themes", "validate"])
-    expect(out.asserts).toEqual(["charts_render", "edit"])
+    const out = lines.find(line => "tools" in line) as { tools: string[]; files: Record<string, unknown>; asserts: string[]; update: { from: string; to: string; files: Record<string, string>; generation: { directory: string; reused: boolean } } }
+    expect(out.tools).toEqual(["capabilities", "catalogue", "quick", "recommend", "render", "theme_save", "themes", "update", "validate"])
+    expect(out.asserts).toEqual(["charts_render", "edit", "charts_quick", "edit", "charts_update", "read", "edit"])
+    // charts_update from the packed build: a new revision in its own generation folder, with the packaged HTML runtime.
+    expect(out.update.to).not.toBe(out.update.from)
+    expect(out.update.generation).toMatchObject({ directory: expect.stringMatching(/^outputs\/charts\/pack-document-[0-9a-f]{16}$/), reused: false })
+    for (const file of [out.update.files.svg!, out.update.files.html!, out.update.files.document!]) expect(statSync(join(workspace, file)).size).toBeGreaterThan(0)
+    expect(readFileSync(join(workspace, out.update.files.document!), "utf8")).toContain(out.update.to)
     expect(out.files).toMatchObject({ svg: "outputs/charts/pack-test.svg", html: "outputs/charts/pack-test.html" })
     for (const file of ["pack-test.svg", "pack-test.png", "pack-test.html"]) expect(statSync(join(workspace, "outputs", "charts", file)).size).toBeGreaterThan(0)
     expect(status).toContain("Renderers: SVG ready; PNG ready; HTML ready")

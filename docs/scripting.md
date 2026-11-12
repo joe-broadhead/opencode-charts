@@ -25,6 +25,7 @@ never inlined into a script's result — the files are in the workspace, as for 
 |---|---|---|---|
 | `render` | `charts_render` | `export` | `outputs/charts/*` |
 | `quick` | `charts_quick` | `export` | `outputs/charts/*` |
+| `update` | `charts_update` | `export` | `outputs/charts/<name>-<digest>/*` |
 | `theme_save` | `charts_theme_save` | `export` | `.charts/themes/<name>.json` |
 | `validate` | `charts_validate` | `read` | nothing |
 | `recommend` | `charts_recommend` | `read` | nothing |

@@ -62,7 +62,7 @@ export type ThemeTokens = z.infer<typeof ThemeTokensSchema>
 
 type Deep<T> = { [K in keyof T]?: T[K] extends readonly unknown[] ? T[K] : T[K] extends object ? Deep<T[K]> : T[K] }
 /** A custom theme: any subset of the tokens, on top of a base (a built-in or a saved theme). */
-export type ThemeOverrides = Deep<ThemeTokens> & { extends?: string }
+export type ThemeOverrides = Deep<ThemeTokens> & { extends?: string | null }
 
 export const ThemeOverridesSchema: z.ZodType<ThemeOverrides> = z.looseObject({}).describe("Theme tokens to override, on top of `extends` (default light).") as never
 

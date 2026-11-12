@@ -46,7 +46,7 @@ would go stale, the tool is the source of truth.
 - **The recommendation's draft is a draft.** For the types a builder covers it runs on the caller's own columns; for
   the rest it is the catalogue's example, labelled as such. It is never rendered before it is returned.
 - **The tools RPC follows the same default.** Every method is allowed, so a script renders without a prompt; `access:
-  "read-only"` denies the three writers, and a saved "Always allow" from an interactive session does not authorize a
+  "read-only"` denies the four writers, and a saved "Always allow" from an interactive session does not authorize a
   script.
 - **Host support is `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.** The host suite runs on every one.
 

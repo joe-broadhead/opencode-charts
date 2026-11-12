@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from "node:fs"
+import { readFileSync } from "node:fs"
 import { ChartsError, suggest } from "../errors.js"
 import { ThemeDefinitionOverridesSchema } from "../document/schema.js"
 import { confine } from "../paths.js"
-import { builtinThemes, MAX_THEME_CHAIN, resolveTheme, THEME_NAME, themePath, type ThemeSources } from "./store.js"
+import { builtinThemes, MAX_THEME_CHAIN, resolveTheme, savedThemeExists, THEME_NAME, themePath, type ThemeSources } from "./store.js"
 import type { ThemeOverrides, ThemeTokens } from "./tokens.js"
 
 /**
@@ -61,7 +61,7 @@ export async function approveThemeChain(sources: ThemeSources, theme: string | T
     let overrides: ThemeOverrides | undefined
     if (THEME_NAME.test(next)) {
       const file = confine(sources.workspace, themePath(next), "write")
-      if (existsSync(file.absolute)) {
+      if (savedThemeExists(file, next)) {
         await assertRead?.([file.relative])
         const text = readFileSync(file.absolute, "utf8")
         try { overrides = JSON.parse(text) as ThemeOverrides } catch { throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not valid JSON.`, "Save it again with charts_theme_save.") }

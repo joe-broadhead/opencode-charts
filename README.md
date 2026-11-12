@@ -81,6 +81,7 @@ is the default, so this is the block in force:
   {"action": "charts_render", "resource": "*", "effect": "allow"},
   {"action": "charts_quick", "resource": "*", "effect": "allow"},
   {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_update", "resource": "*", "effect": "allow"},
   {"action": "charts_recommend", "resource": "*", "effect": "allow"},
   {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
   {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
@@ -90,7 +91,7 @@ is the default, so this is the block in force:
 ```
 <!-- /rules:all -->
 
-With `access: "ask-changes"`, the five reads run and the three writers ask:
+With `access: "ask-changes"`, the five reads run and the four writers ask:
 
 <!-- rules:ask-changes -->
 ```json
@@ -99,6 +100,7 @@ With `access: "ask-changes"`, the five reads run and the three writers ask:
   {"action": "charts_render", "resource": "*", "effect": "ask"},
   {"action": "charts_quick", "resource": "*", "effect": "ask"},
   {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_update", "resource": "*", "effect": "ask"},
   {"action": "charts_recommend", "resource": "*", "effect": "allow"},
   {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
   {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
@@ -108,7 +110,7 @@ With `access: "ask-changes"`, the five reads run and the three writers ask:
 ```
 <!-- /rules:ask-changes -->
 
-With `access: "read-only"`, the five reads run and the three writers are denied:
+With `access: "read-only"`, the five reads run and the four writers are denied:
 
 <!-- rules:read-only -->
 ```json
@@ -117,6 +119,7 @@ With `access: "read-only"`, the five reads run and the three writers are denied:
   {"action": "charts_render", "resource": "*", "effect": "deny"},
   {"action": "charts_quick", "resource": "*", "effect": "deny"},
   {"action": "charts_validate", "resource": "*", "effect": "allow"},
+  {"action": "charts_update", "resource": "*", "effect": "deny"},
   {"action": "charts_recommend", "resource": "*", "effect": "allow"},
   {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
   {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
@@ -160,6 +163,7 @@ next step.
 | `charts_render` | Any spec (Vega-Lite, Vega or ECharts, detected) plus `data` (`rows`, or a workspace `path` to CSV, TSV, JSON, JSONL or Parquet, with optional Vega-Lite `transform`s). Writes `<name>.svg`, `<name>.png` and `<name>.vl.json` (plus `.html` on request), and returns a markdown image line to show it inline. |
 | `charts_quick` | `bar`, `horizontal_bar`, `grouped_bar`, `stacked_bar`, `line`, `area`, `stacked_area`, `scatter`, `bubble`, `pie`, `donut`, `histogram`, `box_plot` and `heatmap`, from field names. |
 | `charts_validate` | The same checks as render, plus the PNG, with no files written. It takes the same input as `charts_render`, checks the requested formats can be made, and returns `valid: true` or `valid: false` with the issues. Also returns the figure tree: every label, its box, and which ones collide or run off the edge, with ids the preview numbers. |
+| `charts_update` | Change a saved chart's presentation (theme, token overrides, category colours, layout and size, title, alt text, interactions) from its `.chart.json` at a known revision; writes a new generation folder `<outDir>/<name>-<digest>/` with the new revision, and never overwrites the saved chart. Data, bindings, aggregation and sorting stay as saved. |
 | `charts_recommend` | Which chart fits a question, its data and its medium: a ranked shortlist with a reason each, the encoding to use, and a ready `charts_render` call on your own columns. Advises; it never renders. |
 | `charts_capabilities` | Exactly what this build can do: engines, working output formats, themes and palette sizes, bundled fonts and the scripts they cover, data formats, limits, and what is known not to work. |
 | `charts_catalogue` | Every chart type, and a working example of any: the exact tested call, with its data, title, currency and size. |

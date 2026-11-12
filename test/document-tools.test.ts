@@ -89,7 +89,10 @@ describe("the recommended document call (brief §5.4), with real data", () => {
     t.write("data/revenue.csv", CSV)
     const out = await t.call("quick", RECOMMENDED_CALL)
     expect(Object.keys(out.files).sort()).toEqual(["document", "html", "png", "spec", "svg"])
-    expect(t.files()).toEqual(["data/revenue.csv", ...["chart.json", "html", "png", "svg", "vl.json"].map(e => `outputs/charts/revenue-by-region.${e}`)].sort())
+    // A new document's files are one generation folder, named by the digest of its file manifest.
+    expect(out.generation).toEqual({ directory: expect.stringMatching(/^outputs\/charts\/revenue-by-region-[0-9a-f]{16}$/), digest: expect.stringMatching(/^sha256:[0-9a-f]{64}$/), reused: false })
+    expect(out.generation.directory).toBe(`outputs/charts/revenue-by-region-${out.generation.digest.slice(7, 23)}`)
+    expect(t.files()).toEqual(["data/revenue.csv", ...["chart.json", "html", "png", "svg", "vl.json"].map(e => `${out.generation.directory}/revenue-by-region.${e}`)].sort())
     expect(out.revision).toMatch(/^sha256:[0-9a-f]{64}$/)
     expect(out.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/)
     expect(out.source).toEqual({ input: "document", kind: "recipe", recipe: "line", engine: "vega-lite" })
@@ -194,7 +197,8 @@ describe("one input arm per call (A04)", () => {
   test("delivery fields go with every arm", async () => {
     const t = setup()
     const out = await t.call("quick", { document: BAR_DOC, name: "delivered", outDir: "elsewhere", scales: [1], formats: ["svg", "png"], svgText: "paths", marks: "none", inspect: false })
-    expect(out.files).toEqual({ svg: "elsewhere/delivered.svg", png: ["elsewhere/delivered.png"] })
+    expect(out.files).toEqual({ svg: `${out.generation.directory}/delivered.svg`, png: [`${out.generation.directory}/delivered.png`] })
+    expect(out.generation.directory).toMatch(/^elsewhere\/delivered-[0-9a-f]{16}$/)
   }, 60_000)
 })
 

@@ -79,7 +79,8 @@ export const PresentationTokenOverridesSchema = partialTokens(ThemeTokensSchema,
  * stay, because a legacy chart is still sized by its theme.
  */
 export const ThemeDefinitionOverridesSchema = (partialTokens(ThemeTokensSchema, [], {}) as z.ZodObject)
-  .extend({ extends: z.string().trim().min(1).max(64).optional().describe("The theme these tokens change: a built-in or a saved one. Default light.") })
+  // null is "no parent", as before the typed projection: the tokens apply over light, like an omitted extends.
+  .extend({ extends: z.string().trim().min(1).max(64).nullable().optional().describe("The theme these tokens change: a built-in or a saved one. Default (or null): light.") })
   .describe("Theme tokens over a base theme: extends, name, description, colors, font, layout, axis, marks, legend. Every token optional; arrays replace whole; unknown keys are refused.")
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -211,7 +212,11 @@ function convertIssues(error: z.ZodError, schema: z.ZodType, input: unknown, bas
   return out
 }
 
-function check<T>(schema: z.ZodType, value: unknown, base: Path, issues: Issue[], refused: (path: Path) => string | undefined = () => undefined): T | undefined {
+/**
+ * Parses `value` against a strict schema; each problem is added to `issues` with its JSON path under `base` (an
+ * unknown key as UNKNOWN_PROPERTY with the `refused` hint or a did-you-mean). Shared with the update patch validator.
+ */
+export function checkStrict<T>(schema: z.ZodType, value: unknown, base: Path, issues: Issue[], refused: (path: Path) => string | undefined = () => undefined): T | undefined {
   const parsed = schema.safeParse(value)
   if (parsed.success) return parsed.data as T
   issues.push(...convertIssues(parsed.error, schema, value, base, refused))
@@ -253,7 +258,7 @@ export function parseDocument(raw: unknown, options: ParseOptions = {}): ChartDo
   scanJson(raw, { maxDepth: DOCUMENT_DEPTH, code: "DOCUMENT_INVALID", what: "The document" })
   const issues: Issue[] = []
 
-  const top = check<JsonObject>(z.strictObject({ ...topShape, chart: z.unknown().optional(), layout: z.unknown().optional() }), raw, [], issues, path => (path.length === 1 ? hintFor(TOP_HINTS, String(path[0])) : path[0] === "appearance" ? overrideHint(path) : undefined))
+  const top = checkStrict<JsonObject>(z.strictObject({ ...topShape, chart: z.unknown().optional(), layout: z.unknown().optional() }), raw, [], issues, path => (path.length === 1 ? hintFor(TOP_HINTS, String(path[0])) : path[0] === "appearance" ? overrideHint(path) : undefined))
   const chartRaw = raw.chart
   let chart: JsonObject | undefined
   let recipe: RecipeId | undefined
@@ -265,11 +270,11 @@ export function parseDocument(raw: unknown, options: ParseOptions = {}): ChartDo
     } else {
       recipe = chartRaw.recipe as RecipeId
       const def = recipeDefinition(recipe)
-      chart = check<JsonObject>(recipeChartSchema(recipe, captured), chartRaw, ["chart"], issues, path => hintFor(def.refused, path.slice(1).join(".")) ?? dataHint(path, captured))
+      chart = checkStrict<JsonObject>(recipeChartSchema(recipe, captured), chartRaw, ["chart"], issues, path => hintFor(def.refused, path.slice(1).join(".")) ?? dataHint(path, captured))
       if (chart) recipeCrossChecks(recipe, chart, issues)
     }
   } else if (chartRaw.kind === "engine") {
-    chart = check<JsonObject>(engineChartSchema(captured), chartRaw, ["chart"], issues, path => dataHint(path, captured))
+    chart = checkStrict<JsonObject>(engineChartSchema(captured), chartRaw, ["chart"], issues, path => dataHint(path, captured))
     if (chart) {
       const spec = chart.spec as JsonObject
       try { checkSpec(spec, (chart.engine as never) ?? detectEngine(spec)) }
@@ -304,7 +309,8 @@ const TOP_HINTS: Readonly<Record<string, string>> = {
   formats: "formats is a delivery field of the tool call, beside document, not inside it.",
 }
 
-function overrideHint(path: Path): string | undefined {
+/** Why a token path under appearance.overrides is refused (an identity key, or a size that layout owns). */
+export function overrideHint(path: Path): string | undefined {
   if (path[1] !== "overrides") return undefined
   const token = path.slice(2).join(".")
   if (token === "extends") return hintFor(EXCLUDED_TOKENS, "name")
@@ -350,10 +356,10 @@ function layoutChecks(kind: unknown, layout: unknown, issues: Issue[]): JsonObje
       if (layout.mode !== undefined && layout.mode !== "native") { at(issues).error("LAYOUT_UNSUPPORTED", `layout.mode ${JSON.stringify(layout.mode)} is not available for an engine document. ${why}`, ["layout", "mode"], fix); return undefined }
       for (const key of extra) if (["target", "width", "height"].includes(key)) { at(issues).error("LAYOUT_UNSUPPORTED", `layout.${key} is not available for an engine document. ${why}`, ["layout", key], fix); return undefined }
     }
-    return check<JsonObject>(NativeLayoutV1Schema, layout, ["layout"], issues)
+    return checkStrict<JsonObject>(NativeLayoutV1Schema, layout, ["layout"], issues)
   }
   if (isPlain(layout) && layout.mode === "native") { at(issues).error("DOCUMENT_INVALID", "layout.mode \"native\" is the layout of engine documents.", ["layout", "mode"], "For a recipe use mode fixed or responsive, with target, width and height."); return undefined }
-  return check<JsonObject>(RecipeLayoutV1Schema, layout, ["layout"], issues)
+  return checkStrict<JsonObject>(RecipeLayoutV1Schema, layout, ["layout"], issues)
 }
 
 function interactionChecks(kind: unknown, recipe: RecipeId | undefined, chart: JsonObject, interactions: JsonObject | undefined, issues: Issue[]) {

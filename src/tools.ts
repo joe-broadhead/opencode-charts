@@ -1,9 +1,11 @@
+import { basename } from "node:path"
 import { CATALOGUE, catalogueEntry, exampleCall } from "./catalogue.js"
 import { loadData } from "./data.js"
 import { ATLASES, type Json } from "./engines/common.js"
 import { ChartsError, SpecInvalid, formatIssues, suggest, type Issue } from "./errors.js"
 import { DocumentInvalid } from "./document/issues.js"
-import { documentFields, documentFormats, documentRequest, fitDocument, fittedIssues, issueMapper, legacyDocument, pickDelivery, resolveArtifact, resolveFresh, selectArm, type Arm, type ChartTool, type ResolvedDocument } from "./document-tool.js"
+import { documentFields, documentFormats, documentRequest, fitDocument, fittedIssues, issueMapper, legacyDocument, pickDelivery, resolveArtifact, resolveFresh, resolveUpdate, selectArm, type Arm, type ChartTool, type ResolvedDocument } from "./document-tool.js"
+import { PATCH_FIELDS } from "./document/patch.js"
 import type { FittedRecipe } from "./layout/fit.js"
 import { capabilities, describeCapabilities } from "./capabilities.js"
 import { localeIds } from "./locale.js"
@@ -117,17 +119,64 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
     if (error instanceof DocumentInvalid && !write) return invalid([...preflight, ...error.issues])
     throw error
   }
-  const request = documentRequest(resolved, delivery, formats, write, fitted)
+  // A new document's output (an inline document, or a saved artifact drawn again) is published as one complete,
+  // immutable generation folder; a legacy call that asks for document output keeps the flat file names.
+  const request: RenderRequest = { ...documentRequest(resolved, delivery, formats, write, fitted), ...(write && arm !== "legacy" ? { generation: true } : {}) }
   const mapIssue = issueMapper(resolved)
   const kind = resolved.artifact.document.chart.kind
   return run(env, request, write, inspect, {}, {
     mapIssue,
     preflight,
     issues: fittedIssues(fitted),
-    decorate: (result, issues) => documentFields(env, resolved, result, issues, { formats: write ? formats : formats.filter(f => f !== "document"), delivery, write, inspect: inspect !== false, ...(fitted ? { fitted } : {}) }),
+    decorate: (result, issues) => ({
+      ...(documentFields(env, resolved, result, issues, { formats: write ? formats : formats.filter(f => f !== "document"), delivery, write, inspect: inspect !== false, ...(fitted ? { fitted } : {}) }) as Record<string, Json>),
+      ...(result.generation ? { generation: { ...result.generation } } : {}),
+    }),
     note: `Document: ${kind === "recipe" ? `recipe ${(resolved.artifact.document.chart as { recipe: string }).recipe}` : "engine chart"}, revision ${resolved.artifact.revision}${resolved.documentPath ? `, replayed from ${resolved.documentPath}` : ""}. SVG and PNG are static pictures of the initial view.${write && formats.includes("document") ? " Change its presentation from the saved .chart.json; change its data or meaning with a new document." : ""}`,
   })
 }
+
+/** A path into the patched document, as a path into the update call: the patched sections are under /patch. */
+const intoPatch = (issue: Issue): Issue => {
+  const match = /^\/document\/([a-z]+)(\/.*)?$/i.exec(issue.path ?? "")
+  return match && (PATCH_FIELDS as readonly string[]).includes(match[1]!) ? { ...issue, path: `/patch/${match[1]}${match[2] ?? ""}` } : issue
+}
+
+/**
+ * charts_update: the saved artifact verified at expectedRevision, the patch applied, the new revision drawn through
+ * the layout planner like any recipe document, and its files published as a new generation folder. A stale revision,
+ * an invalid patch, a format list that contradicts an explicit interaction, or a size that cannot be met all stop the
+ * call before anything is written; the source artifact and earlier generations are never touched.
+ */
+async function runUpdate(env: ToolEnvironment, input: Record<string, unknown>): Promise<ToolOutput> {
+  const given = pickDelivery(input)
+  const { resolved, origin } = await resolveUpdate(env, String(input.documentPath), String(input.expectedRevision), input.patch)
+  // The files keep the source artifact's stem (revenue.chart.json → revenue-<digest>/revenue.*) unless a name is given.
+  const delivery = given.name !== undefined ? given : { ...given, name: basename(origin.documentPath).replace(/\.chart\.json$/i, "").replace(/\.json$/i, "") }
+  const { formats, mismatch } = documentFormats(delivery.formats, resolved.settings)
+  if (mismatch) throw mismatch
+  const fitted = await fitDocument(env, resolved)
+  const request: RenderRequest = { ...documentRequest(resolved, delivery, formats, true, fitted), generation: true }
+  const mapIssue = issueMapper(resolved)
+  const revision = resolved.artifact.revision
+  const changed = origin.changed.length ? `changed ${origin.changed.join(", ")}` : "no authored field changed"
+  return run(env, request, true, delivery.inspect, {}, {
+    mapIssue: issue => intoPatch(mapIssue(issue)),
+    issues: fittedIssues(fitted).map(intoPatch),
+    decorate: (result, issues) => ({
+      ...(documentFields(env, resolved, result, issues, { formats, delivery, write: true, inspect: delivery.inspect !== false, ...(fitted ? { fitted } : {}) }) as Record<string, Json>),
+      update: {
+        from: { documentPath: origin.documentPath, revision: origin.revision },
+        to: { revision, ...(result.files.document ? { documentPath: result.files.document } : {}) },
+        changed: [...origin.changed],
+        theme: { ...origin.theme },
+      },
+      ...(result.generation ? { generation: { ...result.generation } } : {}),
+    }),
+    note: `Updated ${origin.documentPath} (revision ${origin.revision}) to revision ${revision}: ${changed}${origin.theme.resolved ? `; theme "${resolved.settings.theme.name}" resolved anew${origin.theme.changed ? " with changed tokens" : ""}` : ""}. ${generationNote(formats)} The source artifact was not changed; data, bindings, aggregation and sorting are as saved. SVG and PNG are static pictures of the initial view.`,
+  })
+}
+const generationNote = (formats: readonly string[]) => formats.includes("document") ? "The new generation holds its own .chart.json: update that one next, with the new revision." : "No .chart.json was written (document is not in formats), so this revision cannot be updated again."
 
 const pickOutputs = (input: Record<string, unknown>): Partial<RenderRequest> => {
   const keys = ["theme", "locale", "currency", "currencyFields", "formats", "scales", "name", "title", "description", "outDir", "svgText", "seed", "width", "height", "marks"] as const
@@ -142,6 +191,7 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
     if (arm !== "legacy" || (input.formats as readonly string[] | undefined)?.includes("document")) return runDocument(env, name, input, arm)
   }
   switch (name) {
+    case "update": return runUpdate(env, input)
     case "render": return run(env, { spec: input.spec as Json, ...(input.engine ? { engine: input.engine as RenderRequest["engine"] } : {}), ...(input.data ? { data: input.data } : {}), ...pickOutputs(input) }, true, input.inspect as boolean | undefined)
     case "validate": return run(env, { spec: input.spec as Json, ...(input.engine ? { engine: input.engine as RenderRequest["engine"] } : {}), ...(input.data ? { data: input.data } : {}), ...pickOutputs(input) }, false, (input.inspect as boolean | undefined) ?? true)
     case "quick": {

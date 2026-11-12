@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test"
+import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { renderChart } from "../src/pipeline.ts"
 import { runTool } from "../src/tools.ts"
@@ -11,6 +11,9 @@ import { BAR, ROWS, workspace } from "./helpers.ts"
 const ws = workspace()
 const env = { ...ws.env, assertFiles: async () => undefined }
 afterAll(async () => { ws.cleanup(); await closeVegaWorker() })
+// The Vega worker's cold start (a new thread, the engine and the fonts) is paid here, outside the comparisons below,
+// so no assertion depends on how fast a runner starts a thread.
+beforeAll(async () => { await renderChart({ spec: BAR, data: { rows: ROWS }, formats: ["svg"] }, env, false) }, 60_000)
 
 type Warning = { code: string; path?: string; message: string; fix?: string }
 const check = async (input: Record<string, unknown>) => (await runTool(env as never, "validate", { data: { rows: ROWS }, inspect: false, ...input })).output as { valid?: boolean; width: number; height: number; warnings: Warning[] }

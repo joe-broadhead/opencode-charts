@@ -13,6 +13,7 @@ to hide a writer from a read-only agent.
 | `render` | model | export | yes | yes |
 | `quick` | model | export | yes | yes |
 | `validate` | model | read | yes | yes |
+| `update` | model | export | yes | yes |
 | `recommend` | model | read | yes | yes |
 | `capabilities` | model | read | yes | yes |
 | `catalogue` | model | read | yes | yes |
@@ -20,5 +21,5 @@ to hide a writer from a read-only agent.
 | `theme_save` | model | export | yes | yes |
 
 There is no host audience: every tool here is for the model, and the two that a script most often wants
-(`validate`, `catalogue`) are `read`, so a script runs them with no prompt. `render`, `quick` and `theme_save` are
+(`validate`, `catalogue`) are `read`, so a script runs them with no prompt. `render`, `quick`, `update` and `theme_save` are
 `export`, so a script needs an agent rule that allows them (`docs/scripting.md`).

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ChartsError, suggest } from "../errors.js"
 import { confine, ensureDirectory, type Workspace } from "../paths.js"
@@ -31,13 +31,23 @@ function savedFile(sources: ThemeSources, name: string) {
   return confine(sources.workspace, `${THEME_DIR}/${name}.json`, "write")
 }
 
+/**
+ * Whether a saved theme's file exists. The path is confined for writing (a theme may not exist yet), so it is not
+ * checked to be a file: a folder (or a device) where the theme's file goes is NOT_A_FILE here, not a raw EISDIR later.
+ */
+export function savedThemeExists(file: { readonly absolute: string; readonly relative: string }, name: string): boolean {
+  if (!existsSync(file.absolute)) return false
+  if (!statSync(file.absolute).isFile()) throw new ChartsError("NOT_A_FILE", `The saved theme "${name}" (${file.relative}) is not a regular file: there is a folder or a device where its file goes.`, `Move or remove ${file.relative}, then save the theme again with charts_theme_save (or use another name).`)
+  return true
+}
+
 function readSaved(sources: ThemeSources, name: string): ThemeOverrides | undefined {
   if (sources.approved) {
     if (!sources.approved.has(name)) throw new ChartsError("THEME_INVALID", `The saved theme "${name}" was not read with permission.`, "Name the theme again so it is resolved with its whole extends chain.")
     return sources.approved.get(name) ?? undefined
   }
   const file = savedFile(sources, name)
-  if (!existsSync(file.absolute)) return undefined
+  if (!savedThemeExists(file, name)) return undefined
   try { return JSON.parse(readFileSync(file.absolute, "utf8")) as ThemeOverrides }
   catch { throw new ChartsError("THEME_INVALID", `The saved theme "${name}" (${file.relative}) is not valid JSON.`, "Save it again with charts_theme_save.") }
 }
@@ -46,7 +56,7 @@ export function savedThemeNames(sources: ThemeSources): string[] {
   const names = new Set(Object.keys(sources.configured))
   try {
     const dir = confine(sources.workspace, THEME_DIR, "write").absolute
-    if (existsSync(dir)) for (const file of readdirSync(dir)) if (file.endsWith(".json") && NAME.test(file.slice(0, -5))) names.add(file.slice(0, -5))
+    if (existsSync(dir)) for (const file of readdirSync(dir, { withFileTypes: true })) if (file.isFile() && file.name.endsWith(".json") && NAME.test(file.name.slice(0, -5))) names.add(file.name.slice(0, -5))
   } catch { /* no saved themes */ }
   return [...names].sort()
 }
@@ -94,6 +104,7 @@ export function saveTheme(sources: ThemeSources, name: string, overrides: ThemeO
   const resolved = resolveTheme(sources, { ...overrides, name })
   ensureDirectory(sources.workspace, THEME_DIR)
   const file = savedFile(sources, name)
+  savedThemeExists(file, name)
   writeFileSync(file.absolute, JSON.stringify({ ...overrides, name }, null, 2) + "\n")
   return { file: file.relative, theme: resolved }
 }

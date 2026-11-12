@@ -5,8 +5,8 @@ import { version as vegaVersion } from "vega"
 import { version as vegaLiteVersion } from "vega-lite"
 import { parseData, transformData, type Row } from "./data.js"
 import {
-  ARTIFACT_LIMITS, DocumentInvalid, FALLBACK_LOCALE, FALLBACK_SEED, canonicalJson, isDigest, parseArtifact, parseDocument,
-  prepareDocument, renderFingerprint, replayArtifact, serializeArtifact, sha256, verifyFontDependencies,
+  ARTIFACT_LIMITS, DocumentInvalid, FALLBACK_LOCALE, FALLBACK_SEED, applyPatch, buildArtifact, canonicalJson, isDigest, parseArtifact, parseDocument,
+  parsePatch, patchIssuePath, prepareDocument, renderFingerprint, replayArtifact, serializeArtifact, sha256, verifyFontDependencies,
   type CapturedThemeV1, type ChartArtifactV1, type EffectiveSettings, type FontDependencyV1, type JsonObject, type SourceData,
 } from "./document/index.js"
 import type { Json } from "./engines/common.js"
@@ -105,8 +105,8 @@ export interface ResolvedDocument {
   readonly rows?: readonly JsonObject[]
   readonly compilation?: RecipeCompilation
   readonly fonts: readonly FontResource[]
-  readonly input: "document" | "documentPath" | "legacy"
-  /** The saved artifact's workspace path, for the documentPath arm. */
+  readonly input: "document" | "documentPath" | "legacy" | "update"
+  /** The saved artifact's workspace path: the documentPath arm's, or the artifact charts_update started from. */
   readonly documentPath?: string
 }
 
@@ -242,6 +242,74 @@ export async function resolveArtifact(env: DocumentEnvironment, documentPath: st
     const replay = await replayArtifact(artifact, transformRunner())
     return { artifact, ...replay, fonts, input: "documentPath", documentPath: path }
   } catch (error) { underDocument(error) }
+}
+
+/** What charts_update started from and what it changed, for the result. */
+export interface UpdateOrigin {
+  /** The source artifact's workspace path and its verified revision. */
+  readonly documentPath: string
+  readonly revision: string
+  /** The authored fields whose value changed ("title", "appearance.theme", "layout"…); empty for a no-op patch. */
+  readonly changed: readonly string[]
+  /** appearance.theme was given, so the named theme was resolved anew; `changed` when its tokens differ from the saved base. */
+  readonly theme: { readonly resolved: boolean; readonly changed: boolean }
+}
+
+/**
+ * The fonts a revision draws with. A font the source artifact captured must still have its captured bytes
+ * (DOCUMENT_DEPENDENCY_CHANGED otherwise, never a silent substitute); a font that only the patch brings in (a newly
+ * resolved theme, or font overrides) is read and captured as it is now. Every file is confined and asked for first.
+ */
+async function revisionFonts(env: DocumentEnvironment, tokens: ThemeTokens, captured: readonly FontDependencyV1[]): Promise<FontResource[]> {
+  const resources = await readCustomFonts(env.workspace, tokens.font.files, paths => env.assertFiles("read", paths))
+  const key = (family: string, weight: number, path: string) => `${family}\u0000${weight}\u0000${path}`
+  const known = new Map(captured.map(dep => [key(dep.family, dep.weight, dep.path), dep]))
+  const kept = resources.flatMap(resource => { const dep = known.get(key(resource.family, resource.weight, resource.source)); return dep ? [{ dep, resource }] : [] })
+  verifyFontDependencies(kept.map(k => k.dep), dep => `sha256:${kept.find(k => k.dep === dep)!.resource.sha256}`)
+  return resources
+}
+
+/**
+ * charts_update's resolution: the saved artifact read through the same checks as a replay (confined, read permission
+ * asserted, size bounded, envelope and document strict, the revision recomputed and compared with expectedRevision),
+ * then the presentation patch applied to the canonical document, and the result captured as a new revision with the
+ * same data, bindings, options, transforms, colour domain and provenance. Nothing is drawn or written here, and a
+ * stale revision or an invalid patch stops the call before anything is.
+ */
+export async function resolveUpdate(env: DocumentEnvironment, documentPath: string, expectedRevision: string, rawPatch: unknown): Promise<{ resolved: ResolvedDocument; origin: UpdateOrigin }> {
+  // The patch's shape first: it costs nothing and needs no file.
+  const patch = parsePatch(rawPatch)
+  const { artifact: source, path } = await readArtifact(env, documentPath, expectedRevision)
+  const themeName = patch.appearance?.theme
+  let theme: CapturedThemeV1 | undefined
+  if (themeName !== undefined) {
+    try { theme = await namedTheme(env, themeName) } catch (error) {
+      if (error instanceof ChartsError) throw new ChartsError(error.code, error.detail, error.hint, "/patch/appearance/theme")
+      throw error
+    }
+  }
+  const patched = applyPatch(source, patch, theme)
+  const tokens = effectiveTheme(patched.theme.tokens, patched.document.appearance?.overrides)
+  const fonts = await revisionFonts(env, tokens, source.captured.fonts)
+  const artifact = buildArtifact({
+    document: patched.document,
+    defaults: patched.defaults,
+    theme: patched.theme,
+    fonts: fonts.map(fontDependency),
+    ...(source.captured.categories ? { categories: source.captured.categories } : {}),
+    ...(source.provenance.data ? { provenance: source.provenance.data } : {}),
+    generator: { plugin: pluginVersion(env.packageRoot), recipeCompiler: RECIPE_COMPILER_VERSION, engines: ENGINE_VERSIONS },
+  })
+  let replay: Awaited<ReturnType<typeof replayArtifact>>
+  try { replay = await replayArtifact(artifact, transformRunner()) } catch (error) {
+    if (error instanceof DocumentInvalid) throw new DocumentInvalid(error.issues.map(i => ({ ...i, path: patchIssuePath(i.path) })))
+    if (error instanceof ChartsError && !(error instanceof SpecInvalid)) throw new ChartsError(error.code, error.detail, error.hint, patchIssuePath(error.path))
+    throw error
+  }
+  return {
+    resolved: { artifact, ...replay, fonts, input: "update", documentPath: path },
+    origin: { documentPath: path, revision: source.revision, changed: patched.changed, theme: patched.base },
+  }
 }
 
 /**
