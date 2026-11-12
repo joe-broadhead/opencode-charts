@@ -17,7 +17,8 @@ import { figureOf, markedSvg, type Figure } from "./figure.js"
 import { accessible, embedFonts, layoutFacts, normaliseIds, textBoxes, textProblems, type LayoutFacts } from "./svg.js"
 import { echartsTheme } from "./themes/adapters.js"
 import { themeContrastIssues } from "./themes/contrast.js"
-import { resolveTheme, type ThemeSources } from "./themes/store.js"
+import { resolveThemeAsked } from "./themes/chain.js"
+import type { ThemeSources } from "./themes/store.js"
 import type { ThemeOverrides, ThemeTokens } from "./themes/tokens.js"
 
 export type Format = "svg" | "png" | "html" | "spec"
@@ -160,7 +161,8 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   const dataName = request.data?.name ?? "table"
 
   // Theme and fonts.
-  const theme = request.themeTokens ?? resolveTheme({ workspace: env.workspace, configured: env.configuredThemes }, request.theme ?? env.defaults.theme)
+  // A saved theme, and every theme it extends, is asked for (by the real path read) before it is read.
+  const theme = request.themeTokens ?? await resolveThemeAsked({ workspace: env.workspace, configured: env.configuredThemes }, request.theme ?? env.defaults.theme, env.assertFiles ? paths => env.assertFiles!("read", paths) : undefined)
   let fonts: FontBook = bundledFonts(env.packageRoot)
   if (request.fontResources) { if (request.fontResources.length) fonts = withCustomFonts(fonts, request.fontResources) }
   else if (theme.font.files.length) fonts = withCustomFonts(fonts, await readCustomFonts(env.workspace, theme.font.files, env.assertFiles ? paths => env.assertFiles!("read", paths) : undefined))

@@ -11,7 +11,8 @@ import { quickSpec } from "./quick.js"
 import { recommend } from "./recommend/rank.js"
 import { figureJson, figureText } from "./figure.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, type ToolName } from "./registry.js"
-import { builtinThemes, resolveTheme, saveTheme, savedThemeNames, THEME_DIR } from "./themes/store.js"
+import { builtinThemes, saveTheme, savedThemeNames, THEME_DIR } from "./themes/store.js"
+import { approveThemeChain, resolveThemeAsked } from "./themes/chain.js"
 
 export { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, type ToolName }
 
@@ -162,7 +163,7 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
     case "themes": {
       const sources = { workspace: env.workspace, configured: env.configuredThemes }
       if (input.name) {
-        const theme = resolveTheme(sources, String(input.name))
+        const theme = await resolveThemeAsked(sources, String(input.name), paths => env.assertFiles("read", paths))
         return { output: { theme } as unknown as Json, content: [{ type: "text", text: `Theme ${theme.name}: ${theme.description ?? ""}\nTokens (copy any subset into a custom theme with "extends": "${theme.name}"):\n${JSON.stringify(theme, null, 1)}` }] }
       }
       const builtins = builtinThemes()
@@ -172,7 +173,9 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
     case "theme_save": {
       await env.assertFiles("edit", [`${THEME_DIR}/${input.name}.json`])
       const sources = { workspace: env.workspace, configured: env.configuredThemes }
-      const { file, theme } = saveTheme(sources, String(input.name), input.theme as never)
+      // The themes it extends are read with permission first; the store reads only those.
+      const approved = await approveThemeChain(sources, input.theme as never, paths => env.assertFiles("read", paths))
+      const { file, theme } = saveTheme({ ...sources, approved }, String(input.name), input.theme as never)
       const { themeContrastIssues } = await import("./themes/contrast.js")
       const issues: Issue[] = themeContrastIssues(theme)
       return { output: { file, theme: theme as unknown as Json, warnings: issues as unknown as Json }, content: [{ type: "text", text: `Saved theme "${theme.name}" to ${file}. Use it with theme: "${theme.name}".${issues.length ? `\nContrast warnings:\n${formatIssues(issues)}` : " Contrast checks pass."}` }] }

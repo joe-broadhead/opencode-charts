@@ -17,7 +17,7 @@ import type { Format, RenderRequest, RenderResult } from "./pipeline.js"
 import { quickSpec } from "./quick.js"
 import { RECIPE_COMPILER_VERSION } from "./recipes/registry.js"
 import type { RecipeCompilation } from "./recipes/types.js"
-import { builtinThemes, MAX_THEME_CHAIN, resolveTheme, THEME_NAME, themePath } from "./themes/store.js"
+import { resolveThemeAsked } from "./themes/chain.js"
 import { mergeTokens, type ThemeOverrides, type ThemeTokens } from "./themes/tokens.js"
 
 /**
@@ -122,43 +122,17 @@ function underDocument(error: unknown): never {
 }
 
 /**
- * Resolves a named theme for capture. The adapter walks the whole extends chain itself (bounded by MAX_THEME_CHAIN,
- * a repeated name refused as THEME_CYCLE), and for each saved theme asks read permission for the file's real path (a
- * link is asked as its target) before reading a byte of it. The store then resolves from exactly those approved files
- * and reads nothing itself, so no theme file is read without its own permission.
+ * Resolves a named theme for capture, through the one theme reader every tool uses: each saved theme file of the
+ * extends chain is asked for by its real path before it is read (src/themes/chain.ts). Errors point at the document.
  */
 async function namedTheme(env: DocumentEnvironment, name: string): Promise<CapturedThemeV1> {
-  const at = (error: unknown): never => {
+  try {
+    const tokens = await resolveThemeAsked({ workspace: env.workspace, configured: env.configuredThemes }, name, paths => env.assertFiles("read", paths))
+    return { name: tokens.name, tokens }
+  } catch (error) {
     if (error instanceof ChartsError) throw new ChartsError(error.code, error.detail, error.hint, "/document/appearance/theme")
     throw error
   }
-  const approved = new Map<string, ThemeOverrides | null>()
-  const chain: string[] = []
-  let next: string | undefined = name.trim().toLowerCase()
-  try {
-    while (next !== undefined && !builtinThemes()[next]) {
-      if (chain.includes(next)) throw new ChartsError("THEME_CYCLE", `The theme "${chain[0]}" extends itself: ${[...chain, next].join(" → ")}.`, "Make the last theme of the chain extend a built-in theme (light, dark, high-contrast, print or presentation).")
-      if (chain.length >= MAX_THEME_CHAIN) throw new ChartsError("THEME_CYCLE", `The theme "${chain[0]}" passes through more than ${MAX_THEME_CHAIN} named themes: ${[...chain, next].join(" → ")}.`, "Make each saved theme extend a built-in theme or one other theme.")
-      chain.push(next)
-      let overrides: ThemeOverrides | undefined
-      if (THEME_NAME.test(next)) {
-        const file = confine(env.workspace, themePath(next), "write")
-        if (existsSync(file.absolute)) {
-          // The real file: a theme that is a link is asked for, and read from, its target.
-          await env.assertFiles("read", [file.relative])
-          const text = readFileSync(file.absolute, "utf8")
-          try { overrides = JSON.parse(text) as ThemeOverrides } catch { throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not valid JSON.`, "Save it again with charts_theme_save.") }
-          if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not a JSON object.`, "Save it again with charts_theme_save.")
-        }
-        approved.set(next, overrides ?? null)
-      }
-      overrides ??= env.configuredThemes[next]
-      if (!overrides) break
-      next = typeof overrides.extends === "string" ? overrides.extends.trim().toLowerCase() : "light"
-    }
-    const tokens = resolveTheme({ workspace: env.workspace, configured: env.configuredThemes, approved }, name)
-    return { name: tokens.name, tokens }
-  } catch (error) { return at(error) }
 }
 
 /** The theme drawn: the captured base, with the document's authored token overrides on top. */

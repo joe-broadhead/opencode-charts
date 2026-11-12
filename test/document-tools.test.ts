@@ -362,6 +362,40 @@ describe("every file a document call reads is asked for first, by its real path"
     expect(t.files().filter(f => f.startsWith("outputs"))).toEqual([])
   })
 
+  /** The reviewer's probe: a.json extends b, and b.json is a link to another workspace file. */
+  const linkedParent = (t: ReturnType<typeof setup>, privateText = JSON.stringify({ extends: "light", colors: { text: "#123456" } })) => {
+    t.write(".charts/themes/a.json", theme("b", "#aaaaaa"))
+    t.write("private.json", privateText)
+    symlinkSync(join(t.dir, "private.json"), join(t.dir, ".charts/themes/b.json"))
+  }
+
+  test("legacy calls go through the same reader: render, quick, validate, themes and theme_save ask for the linked parent", async () => {
+    const t = setup()
+    linkedParent(t)
+    const reads = () => t.asserts.filter(a => a.action === "read").map(a => a.resources[0])
+    const out = await t.call("render", { spec: BAR, data: { rows: ROWS }, theme: "a", formats: ["svg"] })
+    expect(t.asserts).toEqual([{ action: "edit", resources: ["outputs/charts/*"] }, { action: "read", resources: [".charts/themes/a.json"] }, { action: "read", resources: ["private.json"] }])
+    expect(out.theme).toBe("a")
+    for (const [tool, input] of [
+      ["quick", { type: "bar", data: { rows: ROWS }, x: "region", y: "revenue", theme: "a", formats: ["svg"], name: "q" }],
+      ["validate", { spec: BAR, data: { rows: ROWS }, theme: { extends: "a", colors: { grid: "#eeeeee" } }, inspect: false }],
+      ["themes", { name: "a" }],
+      ["theme_save", { name: "child", theme: { extends: "a" } }],
+    ] as const) {
+      t.asserts.length = 0
+      await t.call(tool, input)
+      expect(reads(), tool).toEqual([".charts/themes/a.json", "private.json"])
+    }
+  }, 60_000)
+
+  test("a legacy call whose linked parent is denied stops before reading it, and writes nothing", async () => {
+    const t = setup({ deny: path => path === "private.json" })
+    linkedParent(t, "not json, and not to be read")
+    expect((await t.failed("render", { spec: BAR, data: { rows: ROWS }, theme: "a", formats: ["svg"] })).message).toBe("permission denied: read private.json")
+    expect((await t.failed("themes", { name: "a" })).message).toBe("permission denied: read private.json")
+    expect(t.files().filter(f => f.startsWith("outputs"))).toEqual([])
+  }, 60_000)
+
   test("a saved artifact, a data file and a font that are links are asked for as their targets", async () => {
     const t = setup()
     t.write("real/rows.csv", "region,revenue\nNorth,1\nSouth,2\n")
