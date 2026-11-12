@@ -98,20 +98,29 @@ export function textBoxes(svg: string, fonts: FontBook): { boxes: TextBox[]; wid
   const boxes: TextBox[] = []
   const stack: { m: Matrix; font?: string; size?: number; weight?: string; anchor?: string; hidden?: boolean }[] = [{ m: IDENTITY }]
   const tag = /<(\/?)([a-zA-Z]+)([^>]*?)(\/?)>|([^<]+)/g
-  let open: { attrs: string; m: Matrix; text: string; font?: string; size?: number; weight?: string; anchor?: string } | undefined
+  // A text element is one or more lines: Vega draws a multi-line label as tspans, each after the first moved down by
+  // its dy. Each line is measured and boxed on its own.
+  let open: { attrs: string; m: Matrix; lines: { text: string; dy: number }[]; font?: string; size?: number; weight?: string; anchor?: string } | undefined
   for (const match of svg.matchAll(tag)) {
     const [, close, name, attrs = "", selfClose, content] = match
-    if (content !== undefined) { if (open) open.text += content; continue }
+    if (content !== undefined) { if (open) open.lines[open.lines.length - 1]!.text += content; continue }
     const top = stack[stack.length - 1]!
+    if (!close && name === "tspan" && open) {
+      const current = open.lines[open.lines.length - 1]!
+      const dy = attr(attrs, "dy")
+      const shift = dy && !dy.endsWith("em") ? Number(dy) || 0 : 0
+      if (current.text.trim() || shift) open.lines.push({ text: "", dy: current.dy + shift })
+    }
     if (close) {
       if (name === "text" && open) {
-        const text = unescapeXml(open.text).trim()
-        if (text) {
+        for (const line of open.lines) {
+          const text = unescapeXml(line.text).trim()
+          if (!text) continue
           const size = open.size ?? 11
           const w = fonts.measure(text, size, open.font, open.weight)
           const x = Number(attr(open.attrs, "x") ?? 0), dy = attr(open.attrs, "dy")
           const baseline = attr(open.attrs, "dominant-baseline") ?? styleProp(open.attrs, "dominant-baseline")
-          let y = Number(attr(open.attrs, "y") ?? 0) + (dy && !dy.endsWith("em") ? Number(dy) : 0)
+          const y = Number(attr(open.attrs, "y") ?? 0) + (dy && !dy.endsWith("em") ? Number(dy) : 0) + line.dy
           const anchor = open.anchor ?? "start"
           const left = anchor === "middle" ? x - w / 2 : anchor === "end" ? x - w : x
           const topY = baseline === "central" || baseline === "middle" ? y - size / 2 : baseline === "hanging" || baseline === "text-before-edge" ? y : y - size * 0.8
@@ -130,7 +139,7 @@ export function textBoxes(svg: string, fonts: FontBook): { boxes: TextBox[]; wid
     const weight = attr(attrs, "font-weight") ?? styleProp(attrs, "font-weight") ?? top.weight
     const anchor = attr(attrs, "text-anchor") ?? styleProp(attrs, "text-anchor") ?? top.anchor
     const hidden = /(?:^|\s)(?:opacity|fill-opacity)="0(?:\.0*)?"/.test(attrs) || /display="none"|visibility="hidden"/.test(attrs)
-    if (name === "text" && !hidden && !top.hidden) open = { attrs, m, text: "", font, size, weight, anchor }
+    if (name === "text" && !hidden && !top.hidden) open = { attrs, m, lines: [{ text: "", dy: 0 }], font, size, weight, anchor }
     if (!selfClose) stack.push({ m, font, size, weight, anchor, hidden: hidden || top.hidden })
   }
   return { boxes, width, height }

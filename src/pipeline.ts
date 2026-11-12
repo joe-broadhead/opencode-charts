@@ -20,6 +20,8 @@ import { themeContrastIssues } from "./themes/contrast.js"
 import { resolveThemeAsked } from "./themes/chain.js"
 import type { ThemeSources } from "./themes/store.js"
 import type { ThemeOverrides, ThemeTokens } from "./themes/tokens.js"
+import type { RuntimePresentation } from "./layout/present.js"
+import { patchRecipeVega, plotBounds, type PlotBounds } from "./layout/vega.js"
 
 export type Format = "svg" | "png" | "html" | "spec"
 
@@ -54,6 +56,8 @@ export interface RenderRequest {
   readonly fontResources?: readonly FontResource[]
   /** A saved chart artifact's text, written as `<name>.chart.json` in the same staged publication as the other files. */
   readonly document?: string
+  /** A recipe document's layout plan and controls: the legend follows the plan's signals, and HTML can re-plan live. */
+  readonly presentation?: RuntimePresentation
 }
 
 export interface Environment {
@@ -91,6 +95,8 @@ export interface RenderResult {
   readonly resolvedSpec: Json
   /** What the drawing contains, with an id per label that the marked preview repeats. */
   readonly figure: Figure
+  /** The plot's measured bounds in the drawing (Vega and Vega-Lite): its origin and size, guides outside it. */
+  readonly plot?: PlotBounds
 }
 
 /** One engine detection rule, shared with chart documents: Vega-Lite has `mark` or a composition; Vega has `marks`; ECharts has `series`. */
@@ -174,7 +180,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   const spec = substituteThemeColours(request.spec, { ...theme.colors, font: theme.font.family, mono: theme.font.mono }) as Json
 
   // Prepare, validate, lint, compile, render.
-  let svg: string, width: number, height: number, resolvedSpec: Json, vegaSpec: Json | undefined, echartsOption: Json | undefined, profile: Profile | undefined
+  let svg: string, width: number, height: number, plot: PlotBounds | undefined, resolvedSpec: Json, vegaSpec: Json | undefined, echartsOption: Json | undefined, profile: Profile | undefined
   let description = request.description
   const title = request.title ?? (typeof request.spec.title === "string" ? request.spec.title : isObject(request.spec.title) && typeof (request.spec.title as Json).text === "string" ? String((request.spec.title as Json).text) : undefined) ?? "Chart"
   if (engine === "vega-lite") {
@@ -186,6 +192,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     for (const w of compiled.warnings) issues.push({ level: "warning", code: "VEGA_LITE_WARNING", message: w, ...(FIT_WARNING.test(w) ? { fix: FIT_FIX } : {}) })
     resolvedSpec = prepared.spec
     vegaSpec = compiled.vega
+    if (request.presentation) patchRecipeVega(vegaSpec)
     const values = isObject(prepared.spec.data) && Array.isArray(prepared.spec.data.values) ? prepared.spec.data.values as Row[] : rows
     description ??= describeVegaLite(prepared.spec, values)
     if (!prepared.spec.description) { vegaSpec.description = description }
@@ -212,6 +219,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     width = Math.round(Number(/<svg[^>]*\swidth="([\d.]+)"/.exec(svg)?.[1] ?? out.width))
     height = Math.round(Number(/<svg[^>]*\sheight="([\d.]+)"/.exec(svg)?.[1] ?? out.height))
     for (const w of out.warnings) issues.push({ level: "warning", code: "VEGA_WARNING", message: w })
+    plot = plotBounds(svg, out.width, out.height)
   }
   description ??= `${title}.${profile ? ` ${describeProfile(profile)}` : ""}`
   checkRenderedSvg(svg!)
@@ -266,7 +274,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
       step("html")
       artifacts.push({ kind: "html", file: `${name}.html`, bytes: buildHtml(env.packageRoot, engine === "echarts"
         ? { engine: "echarts", spec: serialisableOption(echartsOption!), svg, title, description, theme, echartsTheme: echartsTheme(theme), fonts: embeddable(fonts, svg, theme), compactSpec: compactSpec(locale.currency ? locale.number.currency : undefined, locale.number.decimal), localeId: locale.id }
-        : { engine: "vega", spec: vegaSpec!, svg, title, description, theme, fonts: embeddable(fonts, svg, theme), compactSpec: "", localeId: locale.id }) })
+        : { engine: "vega", spec: vegaSpec!, svg, title, description, theme, fonts: embeddable(fonts, svg, theme), compactSpec: "", localeId: locale.id, ...(request.presentation ? { presentation: request.presentation } : {}) }) })
     }
     if (formats.has("spec")) {
       step("spec")
@@ -295,7 +303,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     engine, theme: theme.name, title, description, width: width!, height: height!, files,
     ...(shown ? { markdown: `![${title.replace(/[\[\]]/g, "")}](${shown})` } : {}),
     summary: [description, profile ? `Data: ${dataSource ?? "inline"}; ${describeProfile(profile)}` : ""].filter(Boolean).join(" "),
-    issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg, resolvedSpec, figure,
+    issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg, resolvedSpec, figure, ...(plot ? { plot } : {}),
   }
 }
 
