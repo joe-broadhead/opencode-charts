@@ -10,7 +10,9 @@ import type { ThemeTokens } from "./themes/tokens.js"
 /**
  * Interactive HTML that works offline in a sandboxed frame: the chart runtime is inlined (no CDN), fonts are data
  * URLs, a Content-Security-Policy forbids every network fetch and every string-to-code evaluation (no `unsafe-eval`),
- * and the static SVG is the page's first paint, so a frame that runs no script still shows the chart.
+ * and the static SVG is the page's first paint, so a frame that runs no script still shows the chart. Only the page's
+ * own two scripts run: `script-src` lists their SHA-256 hashes and nothing else, so markup that reaches the DOM (an
+ * inline event handler, a `javascript:` URL, an injected `<script>`) cannot run.
  *
  * The live chart starts in an off-screen container once the embedded fonts have loaded, and replaces the static SVG
  * only after it has initialised; on any failure, synchronous or asynchronous, the static SVG stays and the shell says
@@ -52,6 +54,17 @@ export function htmlProblem(packageRoot: string): ChartsError | undefined {
     if (error instanceof ChartsError) return error
     throw error
   }
+}
+
+/**
+ * The page's policy, for exactly these inline scripts. `script-src` is their hashes, so no other script, inline event
+ * handler or `javascript:` URL runs. `style-src` keeps 'unsafe-inline' because the runtimes position and style the
+ * chart and its tooltip with style attributes; a style cannot run script. JSON data blocks
+ * (`<script type="application/json">`) are not executed, so they are not hashed.
+ */
+export function contentSecurityPolicy(scripts: readonly string[]): string {
+  const hashes = scripts.map(text => `'sha256-${createHash("sha256").update(text, "utf8").digest("base64")}'`)
+  return `default-src 'none'; script-src ${hashes.join(" ")}; style-src 'unsafe-inline'; font-src data:; img-src data: blob:; base-uri 'none'; form-action 'none'; object-src 'none'`
 }
 
 /** JSON that is safe inside `<script>`: no `<` (so no `</script>` or `<!--`), and no line separators. */
@@ -126,11 +139,15 @@ export function buildHtml(packageRoot: string, input: HtmlInput): string {
   const boot = input.engine === "vega" ? vegaBoot(input.theme) : echartsBoot(input)
   // [family as a CSS string, weight]: what `document.fonts.load` must resolve before the live chart measures text.
   const faceList = scriptJson(input.fonts.map(f => [cssString(f.family), String(f.weight)]))
+  const runtimeScript = code.replace(/<\/script/gi, "<\\/script")
+  const bootScript = `(function(){var ENGINE=${scriptJson(input.engine)},FACES=${faceList};
+${SHELL}
+try{${boot}}catch(e){fail("init",e)}})();`
   return `<!doctype html>
 <html lang="en" data-chart-status="initializing">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:">
+<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy([runtimeScript, bootScript])}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(input.title)}</title>
 <style>
@@ -152,10 +169,8 @@ main{padding:12px;display:flex;flex-direction:column;align-items:center}
 <div id="chart-failure" role="alert" hidden>The interactive view could not start. The static chart above is complete; hover details and selections are not available.<code id="chart-diagnostic"></code></div></main>
 <script type="application/json" id="chart-spec">${scriptJson(input.spec)}</script>
 ${input.echartsTheme ? `<script type="application/json" id="chart-theme">${scriptJson(input.echartsTheme)}</script>` : ""}
-<script>${code.replace(/<\/script/gi, "<\\/script")}</script>
-<script>(function(){var ENGINE=${scriptJson(input.engine)},FACES=${faceList};
-${SHELL}
-try{${boot}}catch(e){fail("init",e)}})();</script>
+<script>${runtimeScript}</script>
+<script>${bootScript}</script>
 </body>
 </html>
 `

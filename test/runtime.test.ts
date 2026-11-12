@@ -8,7 +8,7 @@ import { capabilities } from "../src/capabilities.ts"
 import { echartsModules } from "../src/engines/echarts-install.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { BUNDLED, bundledFonts, customFontResource, MAX_CUSTOM_FONT_BYTES, readCustomFonts, withCustomFonts } from "../src/fonts.ts"
-import { scriptJson } from "../src/html.ts"
+import { contentSecurityPolicy, scriptJson } from "../src/html.ts"
 import { ECHARTS_MODULES, ECHARTS_SERIES_TYPES, ECHARTS_UNBUNDLED, HTML_INTERACTIONS } from "../src/runtime-support.ts"
 import { checkRenderedSvg } from "../src/safety.ts"
 import { cssString, fontFaceCss } from "../src/svg.ts"
@@ -64,8 +64,13 @@ describe("the interactive page", () => {
     const r = await runTool(env, "render", { spec: BAR, data: { rows: ROWS }, title: "Page", formats: ["html"], name: "page", inspect: false })
     const html = readFileSync(join(ws.dir, (r.output.files as { html: string }).html), "utf8")
     expect(html).toContain('<html lang="en" data-chart-status="initializing">')
-    expect(html).toContain(`content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:"`)
+    expect(html).toMatch(/content="default-src 'none'; script-src 'sha256-[A-Za-z0-9+\/]{43}=' 'sha256-[A-Za-z0-9+\/]{43}='; style-src 'unsafe-inline'; font-src data:; img-src data: blob:; base-uri 'none'; form-action 'none'; object-src 'none'"/)
     expect(html).not.toContain("unsafe-eval")
+    // script-src is exactly the hashes of the page's two inline scripts: no inline handler or other script can run.
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]!)
+    expect(scripts).toHaveLength(2)
+    expect(html).toContain(`content="${contentSecurityPolicy(scripts)}"`)
+    expect(html).not.toMatch(/\son[a-z]+=/)
     expect(html).toContain("vega.parse(spec,null,{ast:true}),{expr:vegaInterpreter,")
     expect(html).toContain('id="chart-status" class="chart-sr" role="status" aria-live="polite" data-status="initializing"')
     expect(html).toContain('<div id="chart-failure" role="alert" hidden>')

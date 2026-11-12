@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { HTML_INTERACTIONS } from "../../src/runtime-support.ts"
-import { catalogueCall, closeBrowser, launch, open, renderHtml, startPlugin, workDir, type Plugin } from "./harness.ts"
+import { contentSecurityPolicy } from "../../src/html.ts"
+import { catalogueCall, closeBrowser, launch, open, renderHtml, resign, startPlugin, workDir, type Plugin } from "./harness.ts"
 
 let plugin: Plugin
 beforeAll(async () => { await launch(); plugin = await startPlugin() })
@@ -23,7 +24,8 @@ describe("Vega under the packaged CSP", () => {
   test("the harness sees a refused string evaluation (so zero violations elsewhere means something)", async () => {
     const dir = workDir()
     const file = join(dir, "eval.html")
-    writeFileSync(file, `<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:"><script>try{Function("return 1")()}catch(e){}</script>`)
+    const script = `try{Function("return 1")()}catch(e){}`
+    writeFileSync(file, `<!doctype html><meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy([script])}"><script>${script}</script>`)
     const page = await open(file, { wait: false })
     await page.page.waitForTimeout(100)
     expect(page.violations.some(v => v.startsWith("script-src") && v.endsWith("eval"))).toBe(true)
@@ -36,7 +38,7 @@ describe("Vega under the packaged CSP", () => {
     // The same page, but parsed without ASTs and run with Vega's default code generator.
     const codegen = text.replace("vega.parse(spec,null,{ast:true}),{expr:vegaInterpreter,", "vega.parse(spec),{")
     expect(codegen).not.toBe(text)
-    writeFileSync(html, codegen)
+    writeFileSync(html, resign(codegen))
     const page = await open(html)
     expect(await page.status()).toBe("failed")
     expect(page.violations.some(v => v.startsWith("script-src") && v.endsWith("eval"))).toBe(true)
@@ -168,6 +170,67 @@ describe("ECharts", () => {
   }, T)
 })
 
+describe("ECharts tooltip markup", () => {
+  const PAYLOAD = `<img src=x onerror="window.__pwned=1">{b}`
+  const BASE = { tooltip: { trigger: "item" }, legend: { data: ["2024"] }, xAxis: { type: "category", data: ["Q1", "Q2"] }, yAxis: { type: "value" }, series: [{ name: "2024", type: "bar", data: [120, 80] }] }
+  type Option = { tooltip: Record<string, unknown>; legend: Record<string, unknown>; series: { tooltip?: unknown; data: unknown[] }[] }
+  const LEVELS: [string, (o: Option) => void, "bar" | "legend"][] = [
+    ["tooltip.formatter", o => { o.tooltip.formatter = PAYLOAD }, "bar"],
+    ["series[0].tooltip.formatter", o => { o.series[0]!.tooltip = { formatter: PAYLOAD } }, "bar"],
+    ["series[0].data[0].tooltip.formatter", o => { o.series[0]!.data[0] = { value: 120, tooltip: { formatter: PAYLOAD } } }, "bar"],
+    ["legend.tooltip.formatter", o => { o.legend.tooltip = { show: true, formatter: PAYLOAD } }, "legend"],
+  ]
+  const hoverTarget = (page: import("playwright-core").Page, target: "bar" | "legend") => page.evaluate((t) => {
+    const el = t === "legend" ? [...document.querySelectorAll("#chart text")].find(e => e.textContent === "2024")! : [...document.querySelectorAll("#chart path")].find(e => (e.getAttribute("fill") ?? "").toUpperCase() === "#4477AA" && e.getBoundingClientRect().height > 30)!
+    const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+  }, target)
+
+  // The spec check refuses these (test/runtime.test.ts); here it is bypassed by editing the page's option JSON, which
+  // the CSP does not hash, so the policy is the only layer left. The markup reaches the tooltip and its handler is refused.
+  for (const [level, inject, target] of LEVELS) test(`the CSP refuses an inline handler in ${level} even when the markup reaches the DOM`, async () => {
+    const { html } = await renderHtml(plugin, { spec: BASE, title: "Tooltip markup", name: `markup-${level.replace(/\W+/g, "-")}` })
+    const text = readFileSync(html, "utf8")
+    const match = /<script type="application\/json" id="chart-spec">([\s\S]*?)<\/script>/.exec(text)!
+    const option = JSON.parse(match[1]!) as Option
+    inject(option)
+    writeFileSync(html, text.replace(match[1]!, JSON.stringify(option).replace(/</g, "\\u003c")))
+    const page = await open(html)
+    expect(await page.status()).toBe("ready")
+    const at = await hoverTarget(page.page, target)
+    await page.page.mouse.move(at.x, at.y, { steps: 4 })
+    await page.page.waitForFunction(() => !!document.querySelector("#chart div img"), undefined, { timeout: 5_000 })
+    await page.page.waitForTimeout(300)
+    expect(await page.page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned ?? null)).toBeNull()
+    expect(page.violations.some(v => v.startsWith("script-src-attr"))).toBe(true)
+    // The injected image's request is refused too (img-src allows data: and blob: only, and the harness aborts it).
+    expect(page.violations.some(v => v.startsWith("img-src"))).toBe(true)
+    await page.close()
+  }, T)
+
+  test("a {b}<br/>{c} formatter still draws a two-line tooltip, and default tooltips show names as text", async () => {
+    const { html } = await renderHtml(plugin, { spec: { ...BASE, tooltip: { trigger: "item", formatter: "{b}<br/>{c}" } }, title: "Two lines", name: "two-lines" })
+    const page = await open(html)
+    expect(await page.status()).toBe("ready")
+    const at = await hoverTarget(page.page, "bar")
+    await page.page.mouse.move(at.x, at.y, { steps: 4 })
+    await page.page.waitForFunction(() => [...document.querySelectorAll("#chart div")].some(d => d.querySelector(":scope > br") && /Q1/.test(d.textContent ?? "")), undefined, { timeout: 5_000 })
+    const lines = await page.page.evaluate(() => { const d = [...document.querySelectorAll("#chart div")].find(e => e.querySelector(":scope > br") && /Q1/.test(e.textContent ?? ""))! as HTMLElement; return d.innerText.split("\n").map(l => l.trim()).filter(Boolean) })
+    expect(lines.slice(0, 2)).toEqual(["Q1", "120"])
+    expect(page.violations).toEqual([])
+    await page.close()
+
+    const NAME = `<img src=y onerror="window.__pwned=2">`
+    const named = await renderHtml(plugin, { spec: { ...BASE, xAxis: { type: "category", data: [NAME, "Q2"] } }, title: "Names", name: "tooltip-names" })
+    const second = await open(named.html)
+    const bar = await hoverTarget(second.page, "bar")
+    await second.page.mouse.move(bar.x, bar.y, { steps: 4 })
+    await second.page.waitForFunction((n) => [...document.querySelectorAll("#chart div")].some(d => (d.textContent ?? "").includes(n)), NAME, { timeout: 5_000 })
+    expect(await second.page.evaluate(() => document.querySelectorAll("#chart div img").length)).toBe(0)
+    expect(second.violations).toEqual([])
+    await second.close()
+  }, T)
+})
+
 describe("failure keeps the static chart (A26)", () => {
   const breakRuntime = (text: string) => {
     const broken = text.replace(/<script>(?!\(function\(\)\{var ENGINE)[\s\S]*?<\/script>/, "<script>/* the runtime is missing */</script>")
@@ -185,7 +248,7 @@ describe("failure keeps the static chart (A26)", () => {
     ["echarts", { spec: { xAxis: { type: "category", data: ["a", "b"] }, yAxis: { type: "value" }, series: [{ type: "bar", data: [1, 2] }] }, title: "Broken ECharts runtime" }],
   ] as const) test(`a missing ${engine} runtime (a synchronous failure) leaves the static chart, a visible notice and a bounded diagnostic`, async () => {
     const { html } = await renderHtml(plugin, { ...input, name: `broken-${engine}` })
-    writeFileSync(html, breakRuntime(readFileSync(html, "utf8")))
+    writeFileSync(html, resign(breakRuntime(readFileSync(html, "utf8"))))
     const page = await open(html)
     expect(await page.status()).toBe("failed")
     const shell = await shellOf(page.page)

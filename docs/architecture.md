@@ -40,9 +40,10 @@ folder, then runs `runTool` (`src/tools.ts`):
    the same ids, so a finding points at one label.
 7. **Files** (`src/pipeline.ts`, `src/artifacts.ts`). SVG, PNG through resvg compiled to WebAssembly (`src/png.ts`),
    the spec, and on request a self-contained HTML page (`src/html.ts`) with its runtime inlined and a CSP that forbids
-   every fetch and every string-to-code evaluation. Vega runs with vega-interpreter (the spec parsed with
-   `{ast: true}`). The static SVG is the first paint; the live chart starts off-screen once the embedded fonts have
-   loaded and replaces it only after it initialised. The page's status (`initializing`, `ready`, `failed`) is on
+   every fetch and every string-to-code evaluation; its `script-src` is the hashes of the page's own two scripts, so
+   no inline event handler, `javascript:` URL or injected script runs. Vega runs with vega-interpreter (the spec parsed
+   with `{ast: true}`). The static SVG is the first paint; the live chart starts off-screen once the embedded fonts
+   have loaded and replaces it only after it initialised. The page's status (`initializing`, `ready`, `failed`) is on
    `<html data-chart-status>`, and a failure keeps the static chart with a visible notice and a short
    `HTML_RUNTIME_FAILED` diagnostic. Every requested file, and the preview, is made in memory before anything is
    written; a PNG over the pixel limit is refused from the drawing's size first. The files are then staged beside their

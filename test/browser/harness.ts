@@ -15,6 +15,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { chromium, type Browser, type Page } from "playwright-core"
+import { contentSecurityPolicy } from "../../src/html.ts"
 
 export const ROOT = resolve(import.meta.dir, "..", "..")
 export const INSTALL = "npx playwright-core install --only-shell chromium (on Linux add --with-deps)"
@@ -23,10 +24,11 @@ export interface ToolResult { output: Record<string, unknown>; content: { type: 
 export interface Plugin { dir: string; call: (name: string, input: unknown) => Promise<ToolResult>; close: () => Promise<void> }
 
 /** The built plugin with a fake host whose workspace is a fresh temp folder; every permission is granted and recorded. */
-export async function startPlugin(): Promise<Plugin & { asserts: { action: string; resources: string[] }[] }> {
-  if (!existsSync(join(ROOT, "dist", "index.js"))) throw new Error("dist/index.js is missing. Run npm run build first (npm run check builds before this stage).")
+/** `root` is the package to load (this checkout by default). */
+export async function startPlugin(root = ROOT): Promise<Plugin & { asserts: { action: string; resources: string[] }[] }> {
+  if (!existsSync(join(root, "dist", "index.js"))) throw new Error("dist/index.js is missing. Run npm run build first (npm run check builds before this stage).")
   const dir = mkdtempSync(join(tmpdir(), "charts-browser-"))
-  const plugin = (await import(join(ROOT, "dist", "index.js"))).default
+  const plugin = (await import(join(root, "dist", "index.js"))).default
   const tools = new Map<string, { execute: (input: unknown, ctx: unknown) => Promise<ToolResult> }>()
   const asserts: { action: string; resources: string[] }[] = []
   const agents = [{ id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] }]
@@ -84,7 +86,10 @@ export async function launch(): Promise<Browser> {
   }
   return browser
 }
-export async function closeBrowser() { await browser?.close(); browser = undefined }
+export async function closeBrowser() {
+  await browser?.close(); browser = undefined
+  for (const dir of workDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+}
 
 export interface Opened {
   readonly page: Page
@@ -138,4 +143,17 @@ export async function open(file: string, options: { wait?: boolean; viewport?: {
   }
 }
 
-export const workDir = () => mkdtempSync(join(tmpdir(), "charts-browser-file-"))
+const workDirs: string[] = []
+/** A scratch folder for a hand-written page; removed by `closeBrowser`. */
+export const workDir = () => { const dir = mkdtempSync(join(tmpdir(), "charts-browser-file-")); workDirs.push(dir); return dir }
+
+/**
+ * Test seam: after a test edits a generated page's scripts, the page's CSP is recomputed for the edited scripts, the
+ * way buildHtml computes it, so the edit runs instead of being refused by a stale hash.
+ */
+export function resign(html: string): string {
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]!)
+  const signed = html.replace(/(<meta http-equiv="Content-Security-Policy" content=")[^"]*(")/, (_m, a: string, b: string) => `${a}${contentSecurityPolicy(scripts)}${b}`)
+  if (signed === html && !html.includes(contentSecurityPolicy(scripts))) throw new Error("resign: the page has no CSP meta element")
+  return signed
+}
