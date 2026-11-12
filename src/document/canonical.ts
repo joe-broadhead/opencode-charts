@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 import { ChartsError, pointer, type ChartsCode } from "../errors.js"
-import { PROTOTYPE_KEYS } from "../safety.js"
+import { LIMITS, PROTOTYPE_KEYS } from "../safety.js"
 
 /**
  * Canonical JSON: the one serialisation a saved chart is hashed and written in. Object keys are sorted by Unicode
@@ -34,38 +34,46 @@ function refuse(path: readonly (string | number)[], what: string): never {
   throw new ChartsError("DATA_INVALID", `The value at ${pointer(path)} is ${what}, which JSON cannot store exactly.`, "Use null, a boolean, a finite number, a string, an array or a plain object there.", pointer(path))
 }
 
+/** Levels a whole document or artifact adds above a row or a spec (envelope, document, chart, data, rows, row…). */
+export const NESTING_ALLOWANCE = 8
+/** The deepest a whole document or artifact may nest: each row or spec within it is held to LIMITS.depth. */
+export const DOCUMENT_DEPTH = LIMITS.depth + NESTING_ALLOWANCE
+
 export interface ScanOptions {
   /** Path of `root` inside the document, for error pointers. */
   readonly base?: readonly (string | number)[]
+  /** The deepest nesting allowed below `root`. */
+  readonly maxDepth: number
   readonly code: ChartsCode
   /** What is being read, for the message: "The document", "The artifact", "Row 3". */
   readonly what: string
 }
 
 /**
- * Walks parsed JSON without recursion, before anything else touches it: refuses prototype keys (`__proto__`,
- * `constructor`, `prototype`) with a coded error and the key's JSON pointer.
+ * Walks parsed JSON without recursion, before anything recursive touches it: refuses prototype keys (`__proto__`,
+ * `constructor`, `prototype`) and nesting deeper than `maxDepth`, each with a coded error and its JSON pointer.
  */
 export function scanJson(root: unknown, options: ScanOptions) {
   const base = options.base ?? []
-  const stack: { node: unknown; path: (string | number)[] }[] = [{ node: root, path: [...base] }]
+  const stack: { node: unknown; path: (string | number)[]; depth: number }[] = [{ node: root, path: [...base], depth: 0 }]
   while (stack.length) {
-    const { node, path } = stack.pop()!
+    const { node, path, depth } = stack.pop()!
     if (!node || typeof node !== "object") continue
-    if (Array.isArray(node)) { for (let i = node.length - 1; i >= 0; i--) stack.push({ node: node[i], path: [...path, i] }); continue }
+    if (depth > options.maxDepth) throw new ChartsError(options.code, `${options.what} is nested deeper than ${options.maxDepth} levels (at ${pointer(path)}).`, "Flatten the nested values; chart data, specs and documents need far fewer levels.", pointer(path))
+    if (Array.isArray(node)) { for (let i = node.length - 1; i >= 0; i--) stack.push({ node: node[i], path: [...path, i], depth: depth + 1 }); continue }
     for (const key of Object.keys(node)) {
       if (PROTOTYPE_KEYS.has(key)) throw new ChartsError(options.code, `${options.what} has the key "${key}", which names an object's prototype and is not allowed.`, "Rename that key; chart data, specs and documents never need __proto__, constructor or prototype.", pointer([...path, key]))
-      stack.push({ node: (node as Record<string, unknown>)[key], path: [...path, key] })
+      stack.push({ node: (node as Record<string, unknown>)[key], path: [...path, key], depth: depth + 1 })
     }
   }
 }
 
 /**
- * A JSON-safe deep copy with sorted keys. `base` prefixes error paths. Prototype keys are refused, and every member
- * is defined as an own property, never assigned.
+ * A JSON-safe deep copy with sorted keys. `base` prefixes error paths; `maxDepth` bounds the nesting below `value`,
+ * checked before the copy recurses. Prototype keys are refused, and every member is defined, never assigned.
  */
-export function canonicalValue(value: unknown, base: readonly (string | number)[] = []): JsonValue {
-  scanJson(value, { base, code: "DATA_INVALID", what: "The value" })
+export function canonicalValue(value: unknown, base: readonly (string | number)[] = [], maxDepth = DOCUMENT_DEPTH): JsonValue {
+  scanJson(value, { base, maxDepth, code: "DATA_INVALID", what: "The value" })
   const visit = (node: unknown, path: (string | number)[]): JsonValue => {
     if (node === null || typeof node === "string" || typeof node === "boolean") return node
     if (typeof node === "number") {

@@ -4,7 +4,7 @@ import { DEFINITIONS, recipeDefinition } from "../recipes/definitions.js"
 import { RECIPE_IDS, type RecipeId } from "../recipes/types.js"
 import { checkSpec, LIMITS } from "../safety.js"
 import { ThemeTokensSchema } from "../themes/tokens.js"
-import { scanJson } from "./canonical.js"
+import { DOCUMENT_DEPTH, scanJson } from "./canonical.js"
 import { categoryKey } from "./category.js"
 import { DOCUMENT_VERSION, LAYOUT_MODES, LAYOUT_TARGETS } from "./defaults.js"
 import { detectEngine } from "./engine.js"
@@ -233,8 +233,9 @@ export function parseDocument(raw: unknown, options: ParseOptions = {}): ChartDo
   const captured = options.captured === true
   if (!isPlain(raw)) throw new ChartsError("DOCUMENT_INVALID", "The chart document must be a JSON object.", `Pass {"version": ${DOCUMENT_VERSION}, "chart": {…}}.`, "/")
   assertDocumentVersion(raw.version)
-  // Before any schema copies it: a prototype key would be dropped silently by an object copy.
-  scanJson(raw, { code: "DOCUMENT_INVALID", what: "The document" })
+  // Before any schema copies it: a prototype key would be dropped silently by an object copy, and deep nesting is
+  // bounded before anything recursive reads it.
+  scanJson(raw, { maxDepth: DOCUMENT_DEPTH, code: "DOCUMENT_INVALID", what: "The document" })
   const issues: Issue[] = []
 
   const top = check<JsonObject>(z.strictObject({ ...topShape, chart: z.unknown().optional(), layout: z.unknown().optional() }), raw, [], issues, path => (path.length === 1 ? TOP_HINTS[String(path[0])] : path[0] === "appearance" ? overrideHint(path) : undefined))

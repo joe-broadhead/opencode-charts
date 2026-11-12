@@ -4,7 +4,7 @@ import { recipeDefinition } from "../recipes/definitions.js"
 import type { RecipeId } from "../recipes/types.js"
 import { LIMITS } from "../safety.js"
 import { ThemeTokensSchema } from "../themes/tokens.js"
-import { byteLength, canonicalJson, canonicalValue, isDigest, REVISION_PATTERN, scanJson, sha256 } from "./canonical.js"
+import { byteLength, canonicalJson, canonicalValue, DOCUMENT_DEPTH, isDigest, REVISION_PATTERN, scanJson, sha256 } from "./canonical.js"
 import { categoryKey } from "./category.js"
 import { ARTIFACT_FORMAT, ARTIFACT_VERSION, DEFAULT_LAYOUT_TARGET, INTERACTION_DEFAULTS, LAYOUT_MODES, LAYOUT_PROFILE_VERSION, LAYOUT_PROFILES, LAYOUT_TARGETS } from "./defaults.js"
 import { DocumentInvalid } from "./issues.js"
@@ -50,7 +50,7 @@ export function canonicalRows(rows: readonly unknown[], base: readonly (string |
   if (rows.length > ARTIFACT_LIMITS.dataRows) throw new ChartsError("DATA_TOO_LARGE", `The data has ${rows.length} rows, over ${ARTIFACT_LIMITS.dataRows}.`, "Aggregate first (data.transform with aggregate), or sample the data.", pointer(base))
   const out = rows.map((row, i) => {
     if (!row || typeof row !== "object" || Array.isArray(row)) throw new ChartsError("DATA_INVALID", `Row ${i} is not an object.`, "Each row is an object of field: value.", pointer([...base, i]))
-    return canonicalValue(row, [...base, i]) as JsonObject
+    return canonicalValue(row, [...base, i], LIMITS.depth) as JsonObject
   })
   const bytes = byteLength(JSON.stringify(out))
   if (bytes > ARTIFACT_LIMITS.dataBytes) throw new ChartsError("DATA_TOO_LARGE", `The captured rows are ${(bytes / 1048576).toFixed(1)} MB as JSON, over ${ARTIFACT_LIMITS.dataBytes / 1048576} MB.`, "Aggregate or sample the data first, or keep fewer fields.", pointer(base))
@@ -175,6 +175,11 @@ function checkSections(envelope: JsonObject, phase: "write" | "read") {
   const chart = document && typeof document === "object" ? (document.chart as JsonObject | undefined) : undefined
   const data = chart && typeof chart === "object" ? chart.data : undefined
   const spec = chart && typeof chart === "object" ? chart.spec : undefined
+  // Depth first, per section, before anything below serialises a section.
+  const depthCode = phase === "read" ? "ARTIFACT_INVALID" : "DATA_INVALID"
+  const rowsToScan = data && typeof data === "object" ? (data as JsonObject).rows : undefined
+  if (Array.isArray(rowsToScan)) rowsToScan.forEach((row, i) => scanJson(row, { base: ["document", "chart", "data", "rows", i], maxDepth: LIMITS.depth, code: depthCode, what: `Row ${i}` }))
+  if (spec !== undefined) scanJson(spec, { base: ["document", "chart", "spec"], maxDepth: LIMITS.depth, code: phase === "read" ? "ARTIFACT_INVALID" : "SPEC_UNSAFE", what: "The spec" })
   if (data !== undefined) {
     const rows = (data as JsonObject).rows
     if (Array.isArray(rows) && rows.length > ARTIFACT_LIMITS.dataRows) throw new ChartsError("DATA_TOO_LARGE", `${which} data has ${rows.length} rows, over ${ARTIFACT_LIMITS.dataRows}.`, fix, "/document/chart/data/rows")
@@ -183,6 +188,7 @@ function checkSections(envelope: JsonObject, phase: "write" | "read") {
   }
   if (spec !== undefined && byteLength(JSON.stringify(spec)) > ARTIFACT_LIMITS.specBytes) throw new ChartsError("SPEC_TOO_LARGE", `${which} spec is over ${ARTIFACT_LIMITS.specBytes} bytes.`, phase === "read" ? fix : "Pass large data through data.rows or data.path instead of inside the spec.", "/document/chart/spec")
   const metadata = { ...envelope, document: document && typeof document === "object" ? { ...document, chart: chart && typeof chart === "object" ? { ...chart, data: null, spec: null } : chart } : document }
+  scanJson(metadata, { maxDepth: LIMITS.depth, code: phase === "read" ? "ARTIFACT_INVALID" : "DATA_INVALID", what: `${which} metadata` })
   const metadataBytes = byteLength(JSON.stringify(metadata))
   if (metadataBytes > ARTIFACT_LIMITS.metadataBytes) throw invalid(`${which} metadata (authored fields, captured defaults, theme, colour domain) is ${metadataBytes} bytes, over ${ARTIFACT_LIMITS.metadataBytes}.`, "/", phase === "read" ? "Create the chart again from its document; a saved artifact is written by the plugin and not edited by hand." : "Bind a series or category with fewer distinct values, or shorten the document's text.")
 }
@@ -203,10 +209,10 @@ export function parseArtifact(input: string | Uint8Array, options: ParseArtifact
   if (options.expectedRevision !== undefined && !isDigest(options.expectedRevision)) throw new ChartsError("DOCUMENT_INVALID", `expectedRevision ${JSON.stringify(options.expectedRevision)} is not a revision.`, "Pass the revision a previous call returned: sha256: and 64 lowercase hex digits.", "/expectedRevision")
   let raw: unknown
   try { raw = JSON.parse(typeof input === "string" ? input : Buffer.from(input.buffer, input.byteOffset, input.byteLength).toString("utf8")) }
-  catch { throw invalid("The artifact is not valid JSON.") }
+  catch (error) { throw invalid(error instanceof RangeError ? `The artifact is nested too deeply to read (the limit is ${DOCUMENT_DEPTH} levels).` : "The artifact is not valid JSON.") }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw invalid("The artifact is not a JSON object.")
   const envelope = raw as JsonObject
-  scanJson(envelope, { code: "ARTIFACT_INVALID", what: "The artifact" })
+  scanJson(envelope, { maxDepth: DOCUMENT_DEPTH, code: "ARTIFACT_INVALID", what: "The artifact" })
   if (envelope.format !== ARTIFACT_FORMAT) throw invalid(`This is not a chart artifact (format ${JSON.stringify(envelope.format)}, expected "${ARTIFACT_FORMAT}").`, "/format", "Pass a .chart.json file. A .vl.json, .vg.json or .echarts.json file is a resolved engine spec, not an editable document: render it with charts_render's spec, or create a new document.")
   if (envelope.version !== ARTIFACT_VERSION) throw new ChartsError("DOCUMENT_VERSION_UNSUPPORTED", `Chart artifact version ${JSON.stringify(envelope.version)} is not supported; this plugin reads version ${ARTIFACT_VERSION} only.`, `Use a plugin release that reads version ${JSON.stringify(envelope.version)}, or create the chart again as a version ${ARTIFACT_VERSION} document. Nothing is converted automatically.`, "/version")
 
