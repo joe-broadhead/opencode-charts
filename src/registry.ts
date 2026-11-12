@@ -217,6 +217,10 @@ const OUTPUTS: Record<string, Record<string, unknown>> = {
       tools: { type: "array", items: { type: "object", additionalProperties: true } },
       determinism: { type: "object", additionalProperties: true },
       knownLimits: { type: "array", items: STRING },
+      interactions: { type: "object", additionalProperties: true },
+      documents: { type: "object", description: "Chart document versions, the saved artifact's format, the recipe compiler version and the tools that create, replay and update a document.", additionalProperties: true },
+      recipes: { type: "array", items: { type: "object", additionalProperties: true } },
+      layouts: { type: "object", description: "Recipe layout targets with their outer size, mode and smallest label size; engine documents take native layout only.", additionalProperties: true },
       scriptable: { type: "boolean" },
     },
     required: ["version", "contract", "formats", "catalogue", "tools", "knownLimits"],
@@ -233,6 +237,7 @@ const OUTPUTS: Record<string, Record<string, unknown>> = {
       when: STRING,
       avoid: STRING,
       example: { type: "object", additionalProperties: true },
+      recipe: { type: "object", description: "When the type is also a typed recipe: its bindings, options, grouping, colour domain, interactions, layout and examples as exact charts_quick document calls.", additionalProperties: true },
     },
     additionalProperties: true,
   },
@@ -331,7 +336,7 @@ export const DECLARED: readonly DeclaredTool[] = [
   },
   {
     name: "catalogue", class: "read", readOnly: true, stability: "stable", docsAnchor: "README.md#tools",
-    description: "List every chart type this plugin draws, by family, with when to use it, its engine and a tiny example; with an id, the full working example (spec and data) to adapt.",
+    description: "List every chart type this plugin draws, by family, with when to use it and its engine; with an id, the full working example (spec and data) to adapt. The 14 types that are also typed recipes (marked recipe) come with their bindings, options, interactions and layout, and exact charts_quick document calls.",
     input: z.strictObject({
       id: z.string().max(64).optional().describe("One chart type, with its full example spec and data."),
       family: z.enum(["comparison", "trend", "distribution", "part-to-whole", "relationship", "flow", "hierarchy", "map", "text"]).optional(),

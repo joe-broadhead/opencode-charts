@@ -51,3 +51,16 @@ export function recipeContract(id: RecipeId) {
 }
 
 export const recipeContracts = () => RECIPE_IDS.map(recipeContract)
+
+/**
+ * What charts_catalogue adds to an entry that is also a typed recipe: the recipe's contract and its examples as exact
+ * charts_quick calls (`{ tool, input: { document, name } }`), each the full fixture, runnable as returned.
+ */
+export function recipeCatalogue(id: RecipeId) {
+  const { layout, examples: _names, ...contract } = recipeContract(id)
+  return {
+    ...contract,
+    layout: { targets: layout.targets, modes: layout.modes },
+    examples: recipeDefinition(id).examples().map(e => ({ name: e.name, description: e.description, call: { tool: "quick", input: { document: e.document, name: e.name } } })),
+  }
+}

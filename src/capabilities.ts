@@ -12,6 +12,8 @@ import { MAX_SERIES, paletteReport } from "./themes/palette.js"
 import { builtinThemes, savedThemeNames } from "./themes/store.js"
 import { LIMITS } from "./safety.js"
 import { CONTRACT_VERSION, DESCRIPTORS, NAMESPACE } from "./registry.js"
+import { ARTIFACT_FORMAT, ARTIFACT_VERSION, DOCUMENT_VERSION, INTERACTION_DEFAULTS, LAYOUT_PROFILE_VERSION, LAYOUT_PROFILES, DEFAULT_LAYOUT_TARGET, type InteractionDefaults, type LayoutProfile } from "./document/defaults.js"
+import { RECIPE_COMPILER_VERSION, recipeContracts } from "./recipes/registry.js"
 
 /**
  * What this build can do, computed rather than promised.
@@ -49,8 +51,41 @@ export interface CapabilityView {
    * compiled to Vega-Lite. `unsupported` names the ECharts components an option may not use, with what to do instead.
    */
   readonly interactions: { readonly html: readonly RuntimeInteraction[]; readonly presets: readonly RuntimeInteraction[]; readonly unsupported: readonly { readonly engine: "echarts"; readonly option: string; readonly instead: string }[] }
+  /**
+   * The chart document contract: the document versions this build reads and writes, the saved artifact's format, and
+   * the versions a saved artifact records so a later rerender can be explained.
+   */
+  readonly documents: {
+    readonly versions: readonly number[]
+    readonly artifact: { readonly format: string; readonly version: number; readonly file: string }
+    readonly recipeCompiler: number
+    readonly tools: { readonly create: readonly string[]; readonly replay: readonly string[]; readonly update: string }
+  }
+  /**
+   * The typed recipes of `document.chart.kind: "recipe"`, from the recipe registry: bindings, options and their
+   * defaults, grouping, the colour domain, the interaction presets each supports and the layout it takes.
+   */
+  readonly recipes: readonly RecipeCapability[]
+  /**
+   * Recipe layout: the target profiles (outer logical pixels, title, axes and legend included), the default target,
+   * and what an engine document takes instead (`native` only).
+   */
+  readonly layouts: { readonly version: number; readonly defaultTarget: string; readonly profiles: readonly LayoutProfile[]; readonly engineDocuments: readonly string[] }
   /** Every tool is a method of the tools RPC, so a script reaches all of them with no model. */
   readonly scriptable: boolean
+}
+
+export interface RecipeCapability {
+  readonly id: string
+  readonly name: string
+  readonly family: string
+  readonly bindings: readonly { readonly role: string; readonly required: string; readonly kind: string }[]
+  readonly options: Readonly<Record<string, unknown>>
+  readonly groupBy: readonly string[]
+  readonly colorDomain: string | null
+  readonly interactions: Readonly<Record<string, readonly string[]>>
+  readonly interactionDefaults: InteractionDefaults
+  readonly layout: { readonly targets: readonly string[]; readonly modes: readonly string[] }
 }
 
 const VERSION_FALLBACK = "0.0.0"
@@ -141,6 +176,25 @@ export function capabilities(env: CapabilitySources): CapabilityView {
       `A categorical palette distinguishes up to ${MAX_SERIES} series; past a theme's published colours the rest are generated and are not a tested colour-blind-safe set.`,
     ],
     interactions: { html: HTML_INTERACTIONS, presets: RECIPE_INTERACTIONS, unsupported: Object.entries(ECHARTS_UNBUNDLED).map(([option, instead]) => ({ engine: "echarts" as const, option, instead })) },
+    documents: {
+      versions: [DOCUMENT_VERSION],
+      artifact: { format: ARTIFACT_FORMAT, version: ARTIFACT_VERSION, file: "<name>.chart.json" },
+      recipeCompiler: RECIPE_COMPILER_VERSION,
+      tools: { create: ["quick", "render"], replay: ["render", "validate"], update: "update" },
+    },
+    recipes: recipeContracts().map(c => ({
+      id: c.id,
+      name: c.name,
+      family: c.family,
+      bindings: c.bindings.map(b => ({ role: b.role, required: b.required, kind: b.kind })),
+      options: c.options,
+      groupBy: c.groupBy,
+      colorDomain: c.colorDomain,
+      interactions: c.interactions,
+      interactionDefaults: INTERACTION_DEFAULTS,
+      layout: { targets: c.layout.targets, modes: c.layout.modes },
+    })),
+    layouts: { version: LAYOUT_PROFILE_VERSION, defaultTarget: DEFAULT_LAYOUT_TARGET, profiles: Object.values(LAYOUT_PROFILES), engineDocuments: ["native"] },
     scriptable: true,
   }
 }
@@ -157,6 +211,9 @@ export function describeCapabilities(view: CapabilityView): string {
     `Data: ${view.dataFormats.join(", ")}; ${view.limits.rows.toLocaleString("en-US")} rows, ${Math.round(view.limits.dataBytes / 1024 / 1024)} MB, ${view.locales} locales.`,
     `Maps: ${view.atlases.map(a => a.name).join(", ")}.`,
     `Tools: ${view.tools.map(t => `${t.name} (${t.class})`).join(", ")}.`,
+    `Documents: version ${view.documents.versions.join(", ")}, saved as ${view.documents.artifact.file} (${view.documents.artifact.format} v${view.documents.artifact.version}); create with ${view.documents.tools.create.map(t => `charts_${t}`).join(" or ")}, replay with documentPath, change presentation with charts_${view.documents.tools.update}.`,
+    `Recipes: ${view.recipes.map(r => `${r.id} (${r.bindings.map(b => `${b.role}${b.required === "always" ? "" : b.required === "optional" ? "?" : "*"}`).join(", ")})`).join("; ")}. ? optional; * required unless aggregate is count.`,
+    `Layout targets (outer px, smallest label): ${view.layouts.profiles.map(p => `${p.target} ${p.mode} ${p.width}×${p.height}, ${p.minLabelSize}px`).join("; ")}; default ${view.layouts.defaultTarget}. Engine documents: layout ${view.layouts.engineDocuments.join(", ")} only.`,
     `Interactive HTML: ${view.interactions.html.map(i => `${i.engine} ${i.id.replace(/^(?:vega-lite|vega|echarts)-/, "")}`).join(", ")}; recipe presets ${view.interactions.presets.map(i => i.id.replace(/^recipe-/, "")).join(", ")}; ECharts refuses ${view.interactions.unsupported.map(u => u.option).join(", ")}.`,
     `Determinism: ${view.determinism.exact.join(" and ")} byte-exact on one platform; ${view.determinism.tolerance}.`,
     `Known limits:\n${view.knownLimits.map(l => `- ${l}`).join("\n")}`,

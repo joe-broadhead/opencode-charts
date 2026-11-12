@@ -178,3 +178,88 @@ export function exampleDraft(id: string): Draft {
     warnings: ["The draft uses this type's own example rows; its example fields are named above, so swap in yours."],
   }
 }
+
+/** The recipe a recommended type draws through, when it has one, and the roles of the caller's columns it binds. */
+function recipeBindings(id: string, shape: Shape, encoding: Readonly<Record<string, string>>): { bindings: Record<string, string>; options: Record<string, unknown>; groups: readonly string[] } | undefined {
+  const measure = encoding.measure
+  const temporalField = encoding.temporal
+  const dimension = encoding.dimension ?? encoding.part ?? shape.categories?.name
+  const series = encoding.series
+  const measure2 = encoding.measure2 ?? shape.measures[1]
+  switch (id) {
+    case "line":
+    case "area":
+      if (!temporalField || !measure) return undefined
+      return { bindings: { x: temporalField, y: measure, ...(series ? { series } : {}) }, options: { xType: "temporal" }, groups: series ? ["x", "series"] : ["x"] }
+    case "stacked_area":
+      if (!temporalField || !measure || !series) return undefined
+      return { bindings: { x: temporalField, y: measure, series }, options: { xType: "temporal" }, groups: ["x", "series"] }
+    case "bar":
+    case "horizontal_bar":
+    case "pie":
+    case "donut":
+      if (!measure || !dimension) return undefined
+      return { bindings: { category: dimension, value: measure }, options: {}, groups: ["category"] }
+    case "grouped_bar":
+    case "stacked_bar":
+      if (!measure || !dimension || !series || series === dimension) return undefined
+      return { bindings: { category: dimension, series, value: measure }, options: {}, groups: ["category", "series"] }
+    case "scatter":
+      if (!measure || !measure2) return undefined
+      return { bindings: { x: measure, y: measure2, ...(series ? { series } : {}) }, options: {}, groups: [] }
+    case "bubble": {
+      const size = shape.measures.find(m => m !== measure && m !== measure2)
+      if (!measure || !measure2 || !size) return undefined
+      return { bindings: { x: measure, y: measure2, size, ...(series ? { series } : {}) }, options: {}, groups: [] }
+    }
+    case "histogram":
+      if (!measure) return undefined
+      return { bindings: { value: measure }, options: {}, groups: [] }
+    case "box_plot":
+      if (!measure || !dimension) return undefined
+      return { bindings: { category: dimension, value: measure }, options: {}, groups: [] }
+    case "heatmap": {
+      const second = shape.dimensions.find(d => d !== dimension && d !== series) ?? series
+      if (!measure || !dimension || !second || second === dimension) return undefined
+      return { bindings: { column: dimension, row: second, value: measure }, options: {}, groups: ["column", "row"] }
+    }
+    default: return undefined
+  }
+}
+
+export interface DocumentDraft {
+  readonly document?: Json
+  readonly warnings: readonly string[]
+}
+
+/**
+ * A typed recipe document for a recommended type that is also a recipe, on the caller's own columns: a ready
+ * `charts_quick` call (`{ tool: "quick", input: { document } }`). The data is the caller's own input (rows or the
+ * workspace path, with its transform), so the document reads what the advice read. An explicit medium becomes the
+ * layout target. When several rows share one mark, the draft is withheld with a warning: a recipe document needs
+ * options.aggregate, and which aggregate fits a measure is the caller's choice, never a guess from its name.
+ */
+export function documentDraft(id: string, shape: Shape, rows: readonly Row[], encoding: Readonly<Record<string, string>>, data: Readonly<Record<string, unknown>>, medium: string | undefined): DocumentDraft {
+  const plan = recipeBindings(id, shape, encoding)
+  if (!plan) return { warnings: [] }
+  if (plan.groups.length) {
+    const seen = new Set<string>()
+    for (const row of rows) {
+      const key = JSON.stringify(plan.groups.map(role => row[plan.bindings[role]!] ?? null))
+      if (seen.has(key)) {
+        const fields = plan.groups.map(role => plan.bindings[role]).join(" and ")
+        return { warnings: [`Several rows share one ${fields}, so the recipe document needs options.aggregate (sum, mean, median, min, max or count) for ${plan.bindings.value ?? plan.bindings.y}: choose the one that fits the measure, then call charts_quick with document.`] }
+      }
+      seen.add(key)
+    }
+  }
+  const title = titleFor(id, shape, encoding)
+  const { name: _name, ...input } = data
+  const document = {
+    version: 1,
+    chart: { kind: "recipe", recipe: id, data: input, bindings: plan.bindings, ...(Object.keys(plan.options).length ? { options: plan.options } : {}) },
+    ...(title ? { title } : {}),
+    ...(medium ? { layout: { target: medium } } : {}),
+  }
+  return { document: { tool: "quick", input: { document: document as unknown as Json } } as unknown as Json, warnings: [] }
+}
