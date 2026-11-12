@@ -17,7 +17,7 @@ import type { Format, RenderRequest, RenderResult } from "./pipeline.js"
 import { quickSpec } from "./quick.js"
 import { RECIPE_COMPILER_VERSION } from "./recipes/registry.js"
 import type { RecipeCompilation } from "./recipes/types.js"
-import { builtinThemes, resolveTheme, themePath } from "./themes/store.js"
+import { builtinThemes, MAX_THEME_CHAIN, resolveTheme, THEME_NAME, themePath } from "./themes/store.js"
 import { mergeTokens, type ThemeOverrides, type ThemeTokens } from "./themes/tokens.js"
 
 /**
@@ -120,24 +120,44 @@ function underDocument(error: unknown): never {
   throw error
 }
 
-const THEME_NAME = /^[a-z0-9][a-z0-9-]{0,47}$/
-
-/** Resolves a named theme for capture, asserting read on its workspace file first when it is a saved one. */
+/**
+ * Resolves a named theme for capture. The adapter walks the whole extends chain itself (bounded by MAX_THEME_CHAIN,
+ * a repeated name refused as THEME_CYCLE), and for each saved theme asks read permission for the file's real path (a
+ * link is asked as its target) before reading a byte of it. The store then resolves from exactly those approved files
+ * and reads nothing itself, so no theme file is read without its own permission.
+ */
 async function namedTheme(env: DocumentEnvironment, name: string): Promise<CapturedThemeV1> {
-  const key = name.trim().toLowerCase()
-  if (!builtinThemes()[key] && THEME_NAME.test(key)) {
-    const file = themePath(key)
-    let exists = false
-    try { exists = existsSync(confine(env.workspace, file, "write").absolute) } catch (error) { if (!(error instanceof ChartsError)) throw error }
-    if (exists) await env.assertFiles("read", [file])
-  }
-  try {
-    const tokens = resolveTheme({ workspace: env.workspace, configured: env.configuredThemes }, key)
-    return { name: tokens.name, tokens }
-  } catch (error) {
+  const at = (error: unknown): never => {
     if (error instanceof ChartsError) throw new ChartsError(error.code, error.detail, error.hint, "/document/appearance/theme")
     throw error
   }
+  const approved = new Map<string, ThemeOverrides | null>()
+  const chain: string[] = []
+  let next: string | undefined = name.trim().toLowerCase()
+  try {
+    while (next !== undefined && !builtinThemes()[next]) {
+      if (chain.includes(next)) throw new ChartsError("THEME_CYCLE", `The theme "${chain[0]}" extends itself: ${[...chain, next].join(" → ")}.`, "Make the last theme of the chain extend a built-in theme (light, dark, high-contrast, print or presentation).")
+      if (chain.length >= MAX_THEME_CHAIN) throw new ChartsError("THEME_CYCLE", `The theme "${chain[0]}" passes through more than ${MAX_THEME_CHAIN} named themes: ${[...chain, next].join(" → ")}.`, "Make each saved theme extend a built-in theme or one other theme.")
+      chain.push(next)
+      let overrides: ThemeOverrides | undefined
+      if (THEME_NAME.test(next)) {
+        const file = confine(env.workspace, themePath(next), "write")
+        if (existsSync(file.absolute)) {
+          // The real file: a theme that is a link is asked for, and read from, its target.
+          await env.assertFiles("read", [file.relative])
+          const text = readFileSync(file.absolute, "utf8")
+          try { overrides = JSON.parse(text) as ThemeOverrides } catch { throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not valid JSON.`, "Save it again with charts_theme_save.") }
+          if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not a JSON object.`, "Save it again with charts_theme_save.")
+        }
+        approved.set(next, overrides ?? null)
+      }
+      overrides ??= env.configuredThemes[next]
+      if (!overrides) break
+      next = typeof overrides.extends === "string" ? overrides.extends.trim().toLowerCase() : "light"
+    }
+    const tokens = resolveTheme({ workspace: env.workspace, configured: env.configuredThemes, approved }, name)
+    return { name: tokens.name, tokens }
+  } catch (error) { return at(error) }
 }
 
 /** The theme drawn: the captured base, with the document's authored token overrides on top. */
@@ -155,8 +175,7 @@ const transformRunner = (precomputed?: readonly Row[]) => async (rows: JsonObjec
 /** Reads a document's data.path: confined, read permission asserted, parsed (no transform), with its provenance. */
 async function readSource(env: DocumentEnvironment, data: { path: string; format?: "csv" | "tsv" | "json" | "jsonl" | "parquet" }, at = "/document/chart/data/path"): Promise<SourceData> {
   try {
-    confine(env.workspace, data.path, "read")
-    await env.assertFiles("read", [data.path])
+    await env.assertFiles("read", [confine(env.workspace, data.path, "read").relative])
     const parsed = await parseData(env.workspace, { path: data.path, ...(data.format ? { format: data.format } : {}) }, { provenance: true })
     return { rows: parsed.rows as JsonObject[], ...(parsed.provenance ? { provenance: parsed.provenance } : {}) }
   } catch (error) {
@@ -223,7 +242,8 @@ export async function readArtifact(env: DocumentEnvironment, documentPath: strin
   }
   let file: ReturnType<typeof confine>
   try { file = confine(env.workspace, documentPath, "read") } catch (error) { return at(error) }
-  await env.assertFiles("read", [documentPath])
+  // The real file: a link is asked for as its target, which is what is read.
+  await env.assertFiles("read", [file.relative])
   const size = statSync(file.absolute).size
   if (size > ARTIFACT_LIMITS.totalBytes) throw new ChartsError("ARTIFACT_INVALID", `${file.relative} is ${size} bytes, over the ${ARTIFACT_LIMITS.totalBytes}-byte limit for a saved chart; it was not read.`, "Use a chart artifact this plugin wrote; a larger chart needs aggregated or sampled data.", "/documentPath")
   const artifact = parseArtifact(new Uint8Array(readFileSync(file.absolute)), expectedRevision !== undefined ? { expectedRevision } : {})

@@ -19,7 +19,7 @@ const spaces: { cleanup: () => void }[] = []
 afterAll(async () => { for (const s of spaces) s.cleanup(); await closeVegaWorker() })
 
 type Assert = { action: string; resources: string[] }
-function setup(options: { packageRoot?: string; defaults?: Record<string, unknown>; probe?: (step: string, file?: string) => void } = {}) {
+function setup(options: { packageRoot?: string; defaults?: Record<string, unknown>; probe?: (step: string, file?: string) => void; deny?: (path: string) => boolean } = {}) {
   const ws = workspace()
   spaces.push(ws)
   const asserts: Assert[] = []
@@ -27,7 +27,11 @@ function setup(options: { packageRoot?: string; defaults?: Record<string, unknow
     ...ws.env,
     ...(options.packageRoot ? { packageRoot: options.packageRoot } : {}),
     defaults: { ...ws.env.defaults, ...(options.defaults ?? {}) },
-    assertFiles: async (action: string, resources: readonly string[]) => { asserts.push({ action, resources: [...resources] }) },
+    assertFiles: async (action: string, resources: readonly string[]) => {
+      asserts.push({ action, resources: [...resources] })
+      const denied = resources.find(r => options.deny?.(r))
+      if (denied) throw new Error(`permission denied: ${action} ${denied}`)
+    },
     ...(options.probe ? { probe: options.probe } : {}),
   }
   const call = async (tool: ToolName, input: Record<string, unknown>) => (await runTool(env as never, tool, input)).output as Record<string, any>
@@ -279,6 +283,71 @@ describe("formats of a document call", () => {
       expect((await t.failed("quick", { document: BAR_DOC, formats: ["svg", "spec", "document"], inspect: false })).message).toContain(`injected ${fail}`)
       expect(t.files().filter(f => !f.startsWith("outputs/charts/.")).filter(f => f.startsWith("outputs/"))).toEqual([])
     }
+  }, 60_000)
+})
+
+describe("every file a document call reads is asked for first, by its real path", () => {
+  const theme = (extendsName: string, background: string) => JSON.stringify({ extends: extendsName, colors: { background } })
+  const themed = (name: string) => ({ document: { ...BAR_DOC, appearance: { theme: name } }, formats: ["document"] })
+
+  test("a parent theme that links to another workspace file is asked for as that file before it is read", async () => {
+    const t = setup()
+    t.write(".charts/themes/a.json", theme("b", "#aaaaaa"))
+    t.write("private.json", JSON.stringify({ extends: "light", colors: { text: "#123456" } }))
+    symlinkSync(join(t.dir, "private.json"), join(t.dir, ".charts/themes/b.json"))
+    const out = await t.call("render", themed("a"))
+    expect(t.asserts).toEqual([{ action: "read", resources: [".charts/themes/a.json"] }, { action: "read", resources: ["private.json"] }, { action: "edit", resources: ["outputs/charts/*"] }])
+    expect(JSON.parse(t.read(out.files.document)).captured.theme.tokens.colors.text).toBe("#123456")
+  })
+
+  test("a denied parent stops the call before any byte of it is read, and nothing is written", async () => {
+    const t = setup({ deny: path => path === "private.json" })
+    t.write(".charts/themes/a.json", theme("b", "#aaaaaa"))
+    // Not JSON: had it been read before the ask, the call would fail as THEME_INVALID instead of the denial.
+    t.write("private.json", "not json, and not to be read")
+    symlinkSync(join(t.dir, "private.json"), join(t.dir, ".charts/themes/b.json"))
+    expect((await t.failed("render", themed("a"))).message).toBe("permission denied: read private.json")
+    expect(t.files().filter(f => f.startsWith("outputs"))).toEqual([])
+  })
+
+  test("a three-level chain asks for all three files, in order, and draws their merged tokens", async () => {
+    const t = setup()
+    t.write(".charts/themes/a.json", JSON.stringify({ extends: "b", colors: { text: "#111111" } }))
+    t.write(".charts/themes/b.json", JSON.stringify({ extends: "c", colors: { grid: "#222222" } }))
+    t.write(".charts/themes/c.json", JSON.stringify({ extends: "dark", colors: { background: "#333333" } }))
+    const out = await t.call("render", themed("a"))
+    expect(t.asserts.filter(a => a.action === "read").map(a => a.resources[0])).toEqual([".charts/themes/a.json", ".charts/themes/b.json", ".charts/themes/c.json"])
+    const colors = JSON.parse(t.read(out.files.document)).captured.theme.tokens.colors
+    expect([colors.text, colors.grid, colors.background]).toEqual(["#111111", "#222222", "#333333"])
+  })
+
+  test("a cycle is THEME_CYCLE at the document's theme, after asking for each file once", async () => {
+    const t = setup()
+    t.write(".charts/themes/a.json", theme("b", "#aaaaaa"))
+    t.write(".charts/themes/b.json", theme("a", "#bbbbbb"))
+    const error = await t.refusal("render", themed("a"))
+    expect(error).toMatchObject({ code: "THEME_CYCLE", path: "/document/appearance/theme" })
+    expect(error.detail).toContain("a → b → a")
+    expect(t.asserts.map(a => a.resources[0])).toEqual([".charts/themes/a.json", ".charts/themes/b.json"])
+    expect(t.files().filter(f => f.startsWith("outputs"))).toEqual([])
+  })
+
+  test("a saved artifact, a data file and a font that are links are asked for as their targets", async () => {
+    const t = setup()
+    t.write("real/rows.csv", "region,revenue\nNorth,1\nSouth,2\n")
+    symlinkSync(join(t.dir, "real/rows.csv"), join(t.dir, "rows.csv"))
+    mkdirSync(join(t.dir, "fonts"), { recursive: true })
+    copyFileSync(join(ROOT, "assets", "fonts", "Inter-Regular.ttf"), join(t.dir, "fonts", "real.ttf"))
+    symlinkSync(join(t.dir, "fonts", "real.ttf"), join(t.dir, "acme.ttf"))
+    t.write(".charts/themes/acme.json", JSON.stringify({ extends: "light", font: { family: "Acme", files: [{ family: "Acme", path: "acme.ttf" }] } }))
+    const doc = { ...BAR_DOC, chart: { ...BAR_DOC.chart, data: { path: "rows.csv" } }, appearance: { theme: "acme" } }
+    const out = await t.call("render", { document: doc, formats: ["document"] })
+    expect(t.asserts.filter(a => a.action === "read").map(a => a.resources[0])).toEqual(["real/rows.csv", ".charts/themes/acme.json", "fonts/real.ttf"])
+    mkdirSync(join(t.dir, "saved"), { recursive: true })
+    symlinkSync(join(t.dir, out.files.document), join(t.dir, "saved", "link.chart.json"))
+    const before = t.asserts.length
+    await t.call("render", { documentPath: "saved/link.chart.json", formats: ["svg"], name: "replay" })
+    expect(t.asserts.slice(before).filter(a => a.action === "read").map(a => a.resources[0])).toEqual([out.files.document, "fonts/real.ttf"])
   }, 60_000)
 })
 

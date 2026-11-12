@@ -265,7 +265,8 @@ export function withCustomFonts(base: FontBook, custom: readonly (FontResource |
 export async function readCustomFonts(workspace: Workspace, files: readonly { family: string; weight?: number; path: string }[], assertRead?: (paths: readonly string[]) => Promise<void>, readBytes: (absolute: string) => Uint8Array = absolute => new Uint8Array(readFileSync(absolute))): Promise<FontResource[]> {
   if (files.length === 0) return []
   const confined = files.map(file => ({ file, at: confine(workspace, file.path, "read") }))
-  await assertRead?.(files.map(file => file.path))
+  // The real files: a link is asked for as its target, which is what is read.
+  await assertRead?.(confined.map(({ at }) => at.relative))
   let total = 0
   for (const { file, at } of confined) {
     const size = statSync(at.absolute).size
