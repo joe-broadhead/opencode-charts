@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- The `jelly` settings declare their choices: `access` is drawn as Allowed, Ask before changes or Read only, with
+  Jelly's own line for each (needs a jelly that includes app#1301).
+
 ## [0.0.1] - 2026-11-12
 
 The tool contract moves from 1.0.0 to 1.1.0 (`CONTRACT_VERSION`); the change is additive. Every 1.0.0 call keeps its

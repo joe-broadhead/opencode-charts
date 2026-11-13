@@ -62,6 +62,15 @@ None. The plugin needs no account and calls no service.
 None. The standalone offline HTML page is the interactive surface; a host view for charts is not part of this
 plugin.
 
+## Settings
+
+`jelly.contributes.settings` declares one setting, `access`, the option of the same name, as a choice of three:
+**Allowed** (`all`, the default), **Ask before changes** (`ask-changes`) and **Read only** (`read-only`), with Jelly's
+own line for each. Jelly draws it as a choice, never as free text, and saves only one of the three. A Jelly that does
+not know declared choices yet refuses the whole declaration, so this needs a Jelly that does.
+
+The other options, `theme`, `locale`, `outDir` and `themes`, are not declared: they are set in `opencode.json`.
+
 ## Versions
 
 Jelly's curated catalogue pins an exact version. Publish each release under a new version, so that a review in Jelly
