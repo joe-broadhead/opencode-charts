@@ -4,7 +4,7 @@ import { ACCESS_VALUES, KNOWN_READS, defaultRules, permissionOf } from "../src/p
 import { SKILLS, options } from "../src/plugin.ts"
 import { TOOLS, type ToolName } from "../src/tools.ts"
 import { type Declaration, type DeclaredTool, declarationProblems, docProblems, effectFromRules, readPackage } from "./support/jelly-kit.ts"
-import { ACCESS_CHOICES, closedSet, type Setting, settingsProblems, settingValueIssue } from "./support/jelly-settings.ts"
+import { ACCESS_CHOICES, settingChoices, type PluginSetting, settingsProblems, settingValueIssue } from "./support/jelly-settings.ts"
 
 /**
  * The `jelly` section of package.json, which Jelly reads without loading the plugin. Jelly's agents have no base
@@ -15,7 +15,7 @@ import { ACCESS_CHOICES, closedSet, type Setting, settingsProblems, settingValue
 
 const ROOT = new URL("../", import.meta.url)
 const pkg = readPackage(ROOT)
-const jelly = pkg.jelly as Declaration & { title: string; tools: DeclaredTool[]; skills: string[]; signIns: unknown[]; rpc: unknown[]; views: unknown[]; contributes: { homeFeeds: unknown[]; homeWidgets: unknown[]; workKinds: unknown[]; settings: Setting[] } }
+const jelly = pkg.jelly as Declaration & { title: string; tools: DeclaredTool[]; skills: string[]; signIns: unknown[]; rpc: unknown[]; views: unknown[]; contributes: { homeFeeds: unknown[]; homeWidgets: unknown[]; workKinds: unknown[]; settings: PluginSetting[] } }
 const { settings } = jelly.contributes
 const doc = readFileSync(new URL("docs/jelly.md", ROOT), "utf8")
 const names = Object.keys(TOOLS) as ToolName[]
@@ -68,7 +68,7 @@ describe("the jelly declaration", () => {
 
   test("the options parser takes every declared access choice, its default included, and refuses a value outside them", () => {
     const access = settings.find(setting => setting.key === "access")!
-    const values = (closedSet(access) ?? []).map(choice => choice.value)
+    const values = (settingChoices(access) ?? []).map(choice => choice.value)
     expect(values).toEqual([...ACCESS_VALUES])
     for (const value of values) expect<string>(options({ access: value }).access).toBe(value)
     expect<string>(options({}).access).toBe(access.default as string)
