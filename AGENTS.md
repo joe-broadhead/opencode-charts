@@ -21,7 +21,7 @@ This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode 
   get green.
 - **Permissions.** Every tool is allowed by default; `src/permissions.ts` generates the block from the tool table and
   the `access` option, and `test/jelly.test.ts` keeps the Jelly declaration equal to it.
-- **Shared copies.** `test/support/jelly-kit.ts` and `scripts/check-icons.mjs` are the family's; never edit them here.
+- **Shared copies.** `test/support/jelly-kit.ts`, `test/support/jelly-settings.ts` and `scripts/check-icons.mjs` are the family's; never edit them here.
 - **Forbidden.** V1 plugin APIs and hooks (`@opencode-ai/*`, `tool.execute.*`, `permission.ask`), `@opencode/ai`
   imports, a shell, private host source, another checkout's worktree, machine-local paths, and internal wording (who
   decided something, a lead, a team lane). `scripts/check-forbidden.mjs` is the list, and it runs in `npm run check`.

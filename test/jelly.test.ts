@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
-import { KNOWN_READS, defaultRules, permissionOf } from "../src/permissions.ts"
-import { SKILLS } from "../src/plugin.ts"
+import { ACCESS_VALUES, KNOWN_READS, defaultRules, permissionOf } from "../src/permissions.ts"
+import { SKILLS, options } from "../src/plugin.ts"
 import { TOOLS, type ToolName } from "../src/tools.ts"
 import { type Declaration, type DeclaredTool, declarationProblems, docProblems, effectFromRules, readPackage } from "./support/jelly-kit.ts"
+import { ACCESS_CHOICES, settingChoices, type PluginSetting, settingsProblems, settingValueIssue } from "./support/jelly-settings.ts"
 
 /**
  * The `jelly` section of package.json, which Jelly reads without loading the plugin. Jelly's agents have no base
@@ -14,7 +15,8 @@ import { type Declaration, type DeclaredTool, declarationProblems, docProblems, 
 
 const ROOT = new URL("../", import.meta.url)
 const pkg = readPackage(ROOT)
-const jelly = pkg.jelly as Declaration & { title: string; tools: DeclaredTool[]; skills: string[]; signIns: unknown[]; rpc: unknown[]; views: unknown[]; contributes: unknown }
+const jelly = pkg.jelly as Declaration & { title: string; tools: DeclaredTool[]; skills: string[]; signIns: unknown[]; rpc: unknown[]; views: unknown[]; contributes: { homeFeeds: unknown[]; homeWidgets: unknown[]; workKinds: unknown[]; settings: PluginSetting[] } }
+const { settings } = jelly.contributes
 const doc = readFileSync(new URL("docs/jelly.md", ROOT), "utf8")
 const names = Object.keys(TOOLS) as ToolName[]
 
@@ -43,7 +45,35 @@ describe("the jelly declaration", () => {
     expect(jelly.signIns).toEqual([])
     expect(jelly.rpc).toEqual([])
     expect(jelly.views).toEqual([])
-    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", default: "all", description: expect.any(String) }] })
+    expect(jelly.contributes).toEqual({
+      homeFeeds: [],
+      homeWidgets: [],
+      workKinds: [],
+      settings: [
+        {
+          key: "access",
+          label: "Access",
+          type: "string",
+          description: "How much the plugin's tools may do. Generates default rules for agents with a base allow rule.",
+          choices: ACCESS_CHOICES,
+          default: "all",
+        },
+      ],
+    })
+  })
+
+  test("the settings follow Jelly's rules for a declared setting", () => {
+    expect(settingsProblems(settings)).toEqual([])
+  })
+
+  test("the options parser takes every declared access choice, its default included, and refuses a value outside them", () => {
+    const access = settings.find(setting => setting.key === "access")!
+    const values = (settingChoices(access) ?? []).map(choice => choice.value)
+    expect(values).toEqual([...ACCESS_VALUES])
+    for (const value of values) expect<string>(options({ access: value }).access).toBe(value)
+    expect<string>(options({}).access).toBe(access.default as string)
+    expect(settingValueIssue(access, "write")).not.toBeNull()
+    expect(() => options({ access: "write" })).toThrow("OPTIONS_INVALID")
   })
 })
 

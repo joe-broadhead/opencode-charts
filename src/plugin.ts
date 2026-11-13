@@ -32,7 +32,8 @@ export interface ChartsOptions {
   readonly access: Access
 }
 
-function options(raw: unknown): ChartsOptions {
+/** Reads the plugin options from opencode.json: `access` must be one of its three values, the rest is taken when it is a string or an object. */
+export function options(raw: unknown): ChartsOptions {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const access = o.access ?? "all"
   if (access !== "all" && access !== "ask-changes" && access !== "read-only") {
