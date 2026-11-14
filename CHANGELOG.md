@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- `package.json` is `"private": true`, so nothing can be published to npm by mistake. Installs from the GitHub release
+  tag are unaffected.
+
 ### Fixed
 
 - `docs/jelly.md` no longer says Jelly asks before the four tools that write files. All nine are declared `allow`
