@@ -17,14 +17,16 @@ default rules, which it puts after that rule, never reach them. Jelly writes eac
 tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
 `readOnly`. A declared `allow` changes nothing in Jelly.
 
-- Ask: `charts.render`, `charts.quick`, `charts.update` and `charts.theme_save`, which write files in the workspace:
-  charts under `outputs/charts/` (or the folder a call names), themes under `.charts/themes/`.
+- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode, the four that write files included:
+  `charts.render`, `charts.quick`, `charts.update` and `charts.theme_save` write charts under `outputs/charts/` (or the
+  folder a call names) and themes under `.charts/themes/`. They are declared not `readOnly`, so a read-only helper
+  never gets them, **Ask before changes** asks for them and **Read only** denies them.
 - Off: none.
-- Everything else runs: `charts.validate`, `charts.recommend`, `charts.capabilities`, `charts.catalogue` and
-  `charts.themes`, which write nothing.
+- The other five, `charts.validate`, `charts.recommend`, `charts.capabilities`, `charts.catalogue` and
+  `charts.themes`, write nothing and are declared `readOnly`.
 
-Every call asserts its own action (`charts_render`, …) first, and "Always" allows that tool for the rest of the
-session. Before it writes, a tool also asks the host for `edit` on its output folder, and before it reads a data file,
+Every call asserts its own action (`charts_render`, …) first; where that asks, "Always" allows the tool for the rest
+of the session. Before it writes, a tool also asks the host for `edit` on its output folder, and before it reads a data file,
 for `read` on that file, so the agent's own file rules apply as well.
 
 Keep `jelly.tools` in step with the plugin's tools and default rules; `test/jelly.test.ts` checks each declared tool
