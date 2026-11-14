@@ -5,14 +5,28 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 
 | Package | Version | Licence | Text |
 |---|---|---|---|
+| @observablehq/plot | 0.6.19 | ISC | licenses/packages/@observablehq__plot@0.6.19.txt |
 | @resvg/resvg-wasm | 2.6.2 | MPL-2.0 | licenses/MPL-2.0.txt (source: github.com/thx/resvg-js, tag v2.6.2) |
+| @ui-sdk/core | 0.1.0-beta.1 | Apache-2.0 | licenses/packages/@ui-sdk__core@0.1.0-beta.1.txt |
+| @ui-sdk/web | 0.1.0-beta.1 | Apache-2.0 | licenses/packages/@ui-sdk__web@0.1.0-beta.1.txt |
+| beautiful-mermaid | 1.1.3 | MIT | licenses/packages/beautiful-mermaid@1.1.3.txt |
+| boolbase | 2.0.0 | ISC | licenses/packages/boolbase@2.0.0.txt |
+| css-select | 7.0.0 | BSD-2-Clause | licenses/packages/css-select@7.0.0.txt |
+| css-what | 8.0.0 | BSD-2-Clause | licenses/packages/css-what@8.0.0.txt |
+| d3 | 7.9.2 | ISC | licenses/packages/d3@7.9.2.txt |
 | d3-array | 3.2.4 | ISC | licenses/packages/d3-array@3.2.4.txt |
 | d3-array | 3.2.5 | ISC | licenses/packages/d3-array@3.2.5.txt |
+| d3-axis | 3.0.1 | ISC | licenses/packages/d3-axis@3.0.1.txt |
+| d3-brush | 3.0.1 | ISC | licenses/packages/d3-brush@3.0.1.txt |
+| d3-chord | 3.0.2 | ISC | licenses/packages/d3-chord@3.0.2.txt |
 | d3-color | 3.1.1 | ISC | licenses/packages/d3-color@3.1.1.txt |
+| d3-contour | 4.0.3 | ISC | licenses/packages/d3-contour@4.0.3.txt |
 | d3-delaunay | 6.0.6 | ISC | licenses/packages/d3-delaunay@6.0.6.txt |
 | d3-dispatch | 3.0.2 | ISC | licenses/packages/d3-dispatch@3.0.2.txt |
+| d3-drag | 3.0.1 | ISC | licenses/packages/d3-drag@3.0.1.txt |
 | d3-dsv | 3.0.2 | ISC | licenses/packages/d3-dsv@3.0.2.txt |
 | d3-ease | 3.0.2 | BSD-3-Clause | licenses/packages/d3-ease@3.0.2.txt |
+| d3-fetch | 3.0.2 | ISC | licenses/packages/d3-fetch@3.0.2.txt |
 | d3-force | 3.0.1 | ISC | licenses/packages/d3-force@3.0.1.txt |
 | d3-format | 3.1.0 | ISC | licenses/packages/d3-format@3.1.0.txt |
 | d3-format | 3.1.3 | ISC | licenses/packages/d3-format@3.1.3.txt |
@@ -21,19 +35,41 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 | d3-hierarchy | 3.1.3 | ISC | licenses/packages/d3-hierarchy@3.1.3.txt |
 | d3-interpolate | 3.0.2 | ISC | licenses/packages/d3-interpolate@3.0.2.txt |
 | d3-path | 3.1.1 | ISC | licenses/packages/d3-path@3.1.1.txt |
+| d3-polygon | 3.0.2 | ISC | licenses/packages/d3-polygon@3.0.2.txt |
 | d3-quadtree | 3.0.2 | ISC | licenses/packages/d3-quadtree@3.0.2.txt |
+| d3-random | 3.0.2 | ISC | licenses/packages/d3-random@3.0.2.txt |
 | d3-scale | 4.0.3 | ISC | licenses/packages/d3-scale@4.0.3.txt |
 | d3-scale-chromatic | 3.1.1 | ISC | licenses/packages/d3-scale-chromatic@3.1.1.txt |
+| d3-selection | 3.0.1 | ISC | licenses/packages/d3-selection@3.0.1.txt |
 | d3-shape | 3.2.1 | ISC | licenses/packages/d3-shape@3.2.1.txt |
 | d3-time | 3.1.1 | ISC | licenses/packages/d3-time@3.1.1.txt |
 | d3-time-format | 4.1.1 | ISC | licenses/packages/d3-time-format@4.1.1.txt |
 | d3-timer | 3.0.2 | ISC | licenses/packages/d3-timer@3.0.2.txt |
+| d3-transition | 3.0.2 | ISC | licenses/packages/d3-transition@3.0.2.txt |
+| d3-zoom | 3.0.1 | ISC | licenses/packages/d3-zoom@3.0.1.txt |
+| dom-serializer | 2.0.0 | MIT | licenses/packages/dom-serializer@2.0.0.txt |
+| dom-serializer | 3.1.1 | MIT | licenses/packages/dom-serializer@3.1.1.txt |
+| domelementtype | 2.3.0 | BSD-2-Clause | licenses/packages/domelementtype@2.3.0.txt |
+| domelementtype | 3.0.0 | BSD-2-Clause | licenses/packages/domelementtype@3.0.0.txt |
+| domhandler | 5.0.3 | BSD-2-Clause | licenses/packages/domhandler@5.0.3.txt |
+| domhandler | 6.0.1 | BSD-2-Clause | licenses/packages/domhandler@6.0.1.txt |
+| domutils | 3.2.2 | BSD-2-Clause | licenses/packages/domutils@3.2.2.txt |
+| domutils | 4.0.2 | BSD-2-Clause | licenses/packages/domutils@4.0.2.txt |
 | echarts | 6.1.0 | Apache-2.0 | licenses/packages/echarts@6.1.0.txt |
+| elkjs | 0.11.1 | EPL-2.0 | licenses/packages/elkjs@0.11.1.txt |
+| entities | 4.5.0 | BSD-2-Clause | licenses/packages/entities@4.5.0.txt |
+| entities | 7.0.1 | BSD-2-Clause | licenses/packages/entities@7.0.1.txt |
+| entities | 8.1.0 | BSD-2-Clause | licenses/packages/entities@8.1.0.txt |
+| gifenc | 1.0.3 | MIT | licenses/packages/gifenc@1.0.3.txt |
+| htmlparser2 | 10.1.0 | MIT | licenses/packages/htmlparser2@10.1.0.txt |
 | hyparquet | 1.32.0 | MIT | licenses/packages/hyparquet@1.32.0.txt |
 | i18n-iso-countries | 7.14.0 | MIT | licenses/packages/i18n-iso-countries@7.14.0.txt |
 | internmap | 2.0.3 | ISC | licenses/packages/internmap@2.0.3.txt |
+| linkedom | 0.18.15 | ISC | licenses/packages/linkedom@0.18.15.txt |
+| nth-check | 3.0.1 | BSD-2-Clause | licenses/packages/nth-check@3.0.1.txt |
 | topojson-client | 3.1.0 | ISC | licenses/packages/topojson-client@3.1.0.txt |
 | tslib | 2.3.0 | 0BSD | licenses/packages/tslib@2.3.0.txt |
+| uhyphen | 0.2.0 | ISC | licenses/packages/uhyphen@0.2.0.txt |
 | us-atlas | 3.0.1 | ISC | licenses/packages/us-atlas@3.0.1.txt |
 | vega | 6.4.0 | BSD-3-Clause | licenses/packages/vega@6.4.0.txt |
 | vega-canvas | 2.0.0 | BSD-3-Clause | licenses/packages/vega-canvas@2.0.0.txt |
@@ -81,6 +117,7 @@ file names beyond the family name, as the OFL allows for unmodified-name subsets
 |---|---|---|
 | Inter 4.1 (Regular, SemiBold) | github.com/rsms/inter | OFL-1.1, assets/fonts/Inter-OFL.txt |
 | JetBrains Mono 2.304 (Regular) | github.com/JetBrains/JetBrainsMono | OFL-1.1, assets/fonts/JetBrainsMono-OFL.txt |
+| Geist & Geist Mono 1.9.2 (Regular, SemiBold) | github.com/vercel/geist-font | OFL-1.1, assets/fonts/Geist-OFL.txt |
 
 ## Data (assets/data/)
 
