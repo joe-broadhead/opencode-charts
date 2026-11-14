@@ -1,6 +1,7 @@
 {
   "name": "@joe-broadhead/opencode-charts",
   "version": "0.0.2",
+  "private": true,
   "description": "Unofficial OpenCode plugin: deterministic, themed charts from Vega-Lite, Vega and ECharts specs, rendered offline to SVG, PNG and interactive HTML",
   "keywords": [
     "opencode",
