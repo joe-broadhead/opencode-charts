@@ -16,8 +16,8 @@ const sources = { workspace: ws.env.workspace, configured: { "from-config": { ex
 
 describe("themes", () => {
   const all = builtinThemes()
-  test("five built-ins, each complete and passing its own contrast checks", () => {
-    expect(Object.keys(all).sort()).toEqual(["dark", "high-contrast", "light", "presentation", "print"])
+  test("nine built-ins, each complete and passing its own contrast checks", () => {
+    expect(Object.keys(all).sort()).toEqual(["dark", "editorial-economist", "editorial-ft", "geist", "geist-dark", "high-contrast", "light", "presentation", "print"])
     for (const theme of Object.values(all)) {
       expect(ThemeTokensSchema.safeParse(theme).success).toBe(true)
       expect(themeContrastIssues(theme)).toEqual([])

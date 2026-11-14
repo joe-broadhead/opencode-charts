@@ -1,50 +1,92 @@
-<svg role="img" aria-labelledby="cd0187fa2-0 cd0187fa2-1" width="640" height="360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 640 360"><title id="cd0187fa2-0">Where sign-ups come from and go</title><desc id="cd0187fa2-1">Where sign-ups come from and go.</desc>
+<svg role="img" aria-labelledby="c6c739842-0 c6c739842-1" width="640" height="360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 640 360"><title id="c6c739842-0">Where sign-ups come from and go</title><desc id="c6c739842-1">Where sign-ups come from and go.</desc>
 <rect width="640" height="360" x="0" y="0" fill="#FFFFFF"></rect>
-<path d="M20 0C125 0 125 9.8 230 9.8L230 142.9C125 142.9 125 133.1 20 133.1Z" transform="translate(32 64)" fill="#4477AA" fill-opacity="0.35" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="cd0187fa2-2"></path>
-<path d="M20 145.1C125 145.1 125 142.9 230 142.9L230 222.2C125 222.2 125 224.5 20 224.5Z" transform="translate(32 64)" fill="#EE6677" fill-opacity="0.35" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="cd0187fa2-3"></path>
-<path d="M20 236.5C125 236.5 125 222.2 230 222.2L230 265.8C125 265.8 125 280 20 280Z" transform="translate(32 64)" fill="#228833" fill-opacity="0.35" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="cd0187fa2-4"></path>
-<path d="M250 160.8C355 160.8 355 175 460 175L460 280C355 280 355 265.8 250 265.8Z" transform="translate(32 64)" fill="#CCBB44" fill-opacity="0.35" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="cd0187fa2-5"></path>
-<path d="M250 9.8C355 9.8 355 12 460 12L460 163C355 163 355 160.8 250 160.8Z" transform="translate(32 64)" fill="#CCBB44" fill-opacity="0.35" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="chart" class="cd0187fa2-5"></path>
-<path d="M0 0l20 0l0 133.1l-20 0Z" transform="translate(32 64)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="cd0187fa2-2"></path>
-<path d="M0 145.1l20 0l0 79.4l-20 0Z" transform="translate(32 64)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="cd0187fa2-3"></path>
-<path d="M0 236.5l20 0l0 43.5l-20 0Z" transform="translate(32 64)" fill="#228833" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="cd0187fa2-4"></path>
-<path d="M230 9.8l20 0l0 256l-20 0Z" transform="translate(32 64)" fill="#CCBB44" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="cd0187fa2-5"></path>
-<path d="M460 175l20 0l0 105l-20 0Z" transform="translate(32 64)" fill="#66CCEE" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="chart" class="cd0187fa2-6"></path>
-<path d="M460 12l20 0l0 151l-20 0Z" transform="translate(32 64)" fill="#AA3377" ecmeta_series_index="0" ecmeta_data_index="5" ecmeta_ssr_type="chart" class="cd0187fa2-7"></path>
-<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(57 130.56)" fill="#1F2328">Search</text>
-<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(57 248.8)" fill="#1F2328">Social</text>
-<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(57 322.24)" fill="#1F2328">Referral</text>
-<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(287 201.7638)" fill="#1F2328">Trial</text>
-<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(517 291.52)" fill="#1F2328">Paid</text>
-<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(517 151.52)" fill="#1F2328">Churned</text>
-<path d="M-5 -5l278.7 0l0 19.7l-278.7 0Z" transform="translate(21 13)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="cd0187fa2-8"></path>
+<path d="M14 0C115.5 0 115.5 11.4 217 11.4L217 148.7C115.5 148.7 115.5 137.3 14 137.3Z" transform="translate(96 40)" fill="url(#c6c739842-2)" fill-opacity="0.42" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c6c739842-7"></path>
+<path d="M14 151.3C115.5 151.3 115.5 148.7 217 148.7L217 230.5C115.5 230.5 115.5 233.1 14 233.1Z" transform="translate(96 40)" fill="url(#c6c739842-3)" fill-opacity="0.42" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c6c739842-8"></path>
+<path d="M14 247.1C115.5 247.1 115.5 230.5 217 230.5L217 275.4C115.5 275.4 115.5 292 14 292Z" transform="translate(96 40)" fill="url(#c6c739842-4)" fill-opacity="0.42" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="c6c739842-9"></path>
+<path d="M231 167.2C332.5 167.2 332.5 183.8 434 183.8L434 292C332.5 292 332.5 275.4 231 275.4Z" transform="translate(96 40)" fill="url(#c6c739842-5)" fill-opacity="0.42" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="c6c739842-10"></path>
+<path d="M231 11.4C332.5 11.4 332.5 14 434 14L434 169.8C332.5 169.8 332.5 167.2 231 167.2Z" transform="translate(96 40)" fill="url(#c6c739842-6)" fill-opacity="0.42" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="chart" class="c6c739842-11"></path>
+<path d="M0 0l14 0l0 137.3l-14 0Z" transform="translate(96 40)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c6c739842-12"></path>
+<path d="M0 151.3l14 0l0 81.8l-14 0Z" transform="translate(96 40)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c6c739842-13"></path>
+<path d="M0 247.1l14 0l0 44.9l-14 0Z" transform="translate(96 40)" fill="#228833" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="c6c739842-14"></path>
+<path d="M217 11.4l14 0l0 264l-14 0Z" transform="translate(96 40)" fill="#CCBB44" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="c6c739842-15"></path>
+<path d="M434 183.8l14 0l0 108.2l-14 0Z" transform="translate(96 40)" fill="#66CCEE" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="chart" class="c6c739842-16"></path>
+<path d="M434 14l14 0l0 155.8l-14 0Z" transform="translate(96 40)" fill="#AA3377" ecmeta_series_index="0" ecmeta_data_index="5" ecmeta_ssr_type="chart" class="c6c739842-17"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(91 108.64)" fill="#1F2328" stroke="#FFFFFF" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">Search</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(91 232.2)" fill="#1F2328" stroke="#FFFFFF" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">Social</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(91 309.56)" fill="#1F2328" stroke="#FFFFFF" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">Referral</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:11px;font-family:Inter, sans-serif;" y="-3.2978515625" transform="translate(320 46.3911)" fill="#1F2328" stroke="#FFFFFF" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">Trial</text>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(549 277.88)" fill="#1F2328" stroke="#FFFFFF" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">Paid</text>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" transform="translate(549 131.88)" fill="#1F2328" stroke="#FFFFFF" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">Churned</text>
+<path d="M-5 -5l278.7 0l0 19.7l-278.7 0Z" transform="translate(21 13)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="c6c739842-18"></path>
 <text dominant-baseline="central" text-anchor="start" style="font-size:16px;font-family:Inter, sans-serif;font-weight:600;" xml:space="preserve" y="4.87109375" transform="translate(21 13)" fill="#1F2328">Where sign-ups come from and go</text>
+<defs >
+<linearGradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="0" id="c6c739842-2">
+<stop offset="0%" stop-color="#4477AA"></stop>
+<stop offset="100%" stop-color="#CCBB44"></stop>
+</linearGradient>
+<linearGradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="0" id="c6c739842-3">
+<stop offset="0%" stop-color="#EE6677"></stop>
+<stop offset="100%" stop-color="#CCBB44"></stop>
+</linearGradient>
+<linearGradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="0" id="c6c739842-4">
+<stop offset="0%" stop-color="#228833"></stop>
+<stop offset="100%" stop-color="#CCBB44"></stop>
+</linearGradient>
+<linearGradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="0" id="c6c739842-5">
+<stop offset="0%" stop-color="#CCBB44"></stop>
+<stop offset="100%" stop-color="#66CCEE"></stop>
+</linearGradient>
+<linearGradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="0" id="c6c739842-6">
+<stop offset="0%" stop-color="#CCBB44"></stop>
+<stop offset="100%" stop-color="#AA3377"></stop>
+</linearGradient>
+</defs>
 <style ><![CDATA[
-.cd0187fa2-2:hover {
+.c6c739842-7:hover {
+cursor:pointer;
+fill:[object Object];
+}
+.c6c739842-8:hover {
+cursor:pointer;
+fill:[object Object];
+}
+.c6c739842-9:hover {
+cursor:pointer;
+fill:[object Object];
+}
+.c6c739842-10:hover {
+cursor:pointer;
+fill:[object Object];
+}
+.c6c739842-11:hover {
+cursor:pointer;
+fill:[object Object];
+}
+.c6c739842-12:hover {
 cursor:pointer;
 fill:rgba(74,130,187,1);
 }
-.cd0187fa2-3:hover {
+.c6c739842-13:hover {
 cursor:pointer;
 fill:rgba(255,112,130,1);
 }
-.cd0187fa2-4:hover {
+.c6c739842-14:hover {
 cursor:pointer;
 fill:rgba(37,149,56,1);
 }
-.cd0187fa2-5:hover {
+.c6c739842-15:hover {
 cursor:pointer;
 fill:rgba(224,205,74,1);
 }
-.cd0187fa2-6:hover {
+.c6c739842-16:hover {
 cursor:pointer;
 fill:rgba(112,224,255,1);
 }
-.cd0187fa2-7:hover {
+.c6c739842-17:hover {
 cursor:pointer;
 fill:rgba(187,56,130,1);
 }
-.cd0187fa2-8:hover {
+.c6c739842-18:hover {
 pointer-events:none;
 }
 

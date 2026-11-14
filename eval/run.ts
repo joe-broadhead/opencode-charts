@@ -38,36 +38,67 @@ function marksOf(spec: Record<string, unknown>): Set<string> {
   return found
 }
 
+/** The files a result names: a single path, or a format that publishes several. */
+const fileList = (value: unknown): string[] => Array.isArray(value) ? value.map(String) : typeof value === "string" ? [value] : []
+const GENERATION = /^outputs\/charts\/.+-[0-9a-f]{16}$/
+
+/**
+ * charts_update changes a saved artifact, so its case carries the document to save first (the charts_quick document
+ * call) and the patch to apply: the eval saves the source, then updates it, exactly as an agent would. An answer that
+ * names its own documentPath is run as it stands.
+ */
+async function updateArm(input: Record<string, unknown>, name: string) {
+  const { document, patch, formats, ...rest } = input
+  if (document === undefined) return runTool(env as never, "update", input)
+  const made = (await runTool(env as never, "quick", { document, formats: ["svg", "document"], name: `${name}-source` })).output as Record<string, any>
+  return runTool(env as never, "update", { ...rest, documentPath: made.files.document, expectedRevision: made.revision, patch, formats, name })
+}
+
 async function grade(c: Case) {
   const call = answers ? answers.get(c.id) : { tool: c.tool, input: { ...c.input, name: c.id } }
   const failures: string[] = []
   if (!call) return { id: c.id, request: c.request, ok: false, failures: ["no answer for this case"], ms: 0 }
   const started = performance.now()
   try {
-    const input = { ...call.input, name: c.id } as Record<string, unknown>
+    const input = { ...call.input, name: c.id } as Record<string, any>
     if (Array.isArray(input.formats) && !input.formats.includes("spec")) input.formats = [...input.formats, "spec"]
     if (Array.isArray(input.formats) && !input.formats.includes("svg")) input.formats = [...input.formats, "svg"]
-    const result = await runTool(env as never, call.tool, input)
+    const result = call.tool === "update" ? await updateArm(input, c.id) : await runTool(env as never, call.tool, input)
     const o = result.output as Record<string, any>
-    const svg = readFileSync(join(out, o.files.svg), "utf8")
-    const spec = JSON.parse(readFileSync(join(out, o.files.spec), "utf8"))
-    const marks = marksOf(spec)
+    const files = o.files ?? {}
+    // A board publishes a poster, a page and its document; a chart publishes an SVG and a spec. Grade what it wrote.
+    const svg = files.svg ? readFileSync(join(out, files.svg), "utf8") : ""
+    const spec = files.spec ? JSON.parse(readFileSync(join(out, files.spec), "utf8")) : undefined
+    const marks = spec ? marksOf(spec) : new Set<string>()
     for (const m of c.expect.marks ?? []) if (!marks.has(m)) failures.push(`mark ${m} missing (has ${[...marks].join(", ")})`)
     if (c.expect.engine && o.engine !== c.expect.engine) failures.push(`engine ${o.engine}, expected ${c.expect.engine}`)
     if (c.expect.theme && o.theme !== c.expect.theme) failures.push(`theme ${o.theme}, expected ${c.expect.theme}`)
     for (const s of c.expect.svgContains ?? []) if (!svg.includes(s)) failures.push(`SVG lacks "${s}"`)
+    const ascii = String(o.ascii ?? "")
+    for (const s of c.expect.asciiContains ?? []) if (!ascii.includes(s)) failures.push(`outline lacks "${s}"`)
     for (const path of c.expect.specHas ?? []) {
       const [p, value] = path.split("=")
       const got = get(spec, p!)
       if (got === undefined || (value !== undefined && String(got) !== value)) failures.push(`spec ${p} is ${JSON.stringify(got)}${value !== undefined ? `, expected ${value}` : ""}`)
     }
-    for (const f of c.expect.formats ?? []) if (!(f === "png" ? o.files.png.length : o.files[f])) failures.push(`no ${f} file`)
-    if (o.files.html) { const html = readFileSync(join(out, o.files.html), "utf8"); if (/<script[^>]+src=|<link\b|(src|href)=["']https?:/i.test(html)) failures.push("HTML references the network") }
-    if (o.layout.overlaps.length) failures.push(`overlapping labels: ${JSON.stringify(o.layout.overlaps.slice(0, 2))}`)
-    if (o.layout.clipped.length) failures.push(`clipped labels: ${o.layout.clipped.slice(0, 3).join(", ")}`)
+    for (const f of c.expect.formats ?? []) if (!fileList(files[f]).length) failures.push(`no ${f} file`)
+    if (c.expect.panels !== undefined && o.panels !== c.expect.panels) failures.push(`board has ${o.panels} panels, expected ${c.expect.panels}`)
+    if (c.expect.generation && !GENERATION.test(String(o.generation?.directory))) failures.push(`no generation folder (${JSON.stringify(o.generation?.directory)})`)
+    if (c.expect.update) {
+      const u = o.update as { from?: { revision?: string }; to?: { revision?: string }; changed?: string[] } | undefined
+      if (!u) failures.push("no update report")
+      else {
+        if (u.to?.revision === undefined || u.to.revision === u.from?.revision) failures.push("update kept the same revision")
+        for (const field of c.expect.update.changed ?? []) if (!(u.changed ?? []).includes(field)) failures.push(`update did not report ${field} changed (${(u.changed ?? []).join(", ")})`)
+      }
+    }
+    if (files.html) { const html = readFileSync(join(out, files.html), "utf8"); if (/<script[^>]+src=|<link\b|(src|href)=["']https?:/i.test(html)) failures.push("HTML references the network") }
+    const layout = o.layout as { overlaps?: unknown[]; clipped?: string[] } | undefined
+    if (layout?.overlaps?.length) failures.push(`overlapping labels: ${JSON.stringify(layout.overlaps.slice(0, 2))}`)
+    if (layout?.clipped?.length) failures.push(`clipped labels: ${layout.clipped.slice(0, 3).join(", ")}`)
     const unexpected = (o.warnings as { code: string; message: string }[]).filter(w => !(c.expect.allowWarnings ?? []).includes(w.code))
     if (unexpected.length) failures.push(`warnings: ${unexpected.map(w => `${w.code} (${w.message.slice(0, 80)})`).join("; ")}`)
-    return { id: c.id, request: c.request, ok: failures.length === 0, failures, ms: Math.round(performance.now() - started), png: o.files.png[0] }
+    return { id: c.id, request: c.request, ok: failures.length === 0, failures, ms: Math.round(performance.now() - started), png: fileList(files.png)[0] }
   } catch (error) {
     return { id: c.id, request: c.request, ok: false, failures: [`error: ${(error as Error).message.slice(0, 300)}`], ms: Math.round(performance.now() - started) }
   }
