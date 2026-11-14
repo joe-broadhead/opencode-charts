@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { ChartsError, formatIssues, pointer, type ChartsCode, type Issue } from "../errors.js"
+import { ChartsError, formatIssues, pointer, suggest, type ChartsCode, type Issue } from "../errors.js"
 
 /**
  * The strict schema of a board document, version 1: a title, one or more datasets, filters, KPI cards, optional tabs
@@ -114,6 +114,8 @@ const BoardQuickSchema = z.strictObject({
   aggregate: z.enum(BOARD_AGGREGATES).optional(),
   /** Sort a nominal x by the aggregated y, largest first. */
   sort: z.boolean().optional(),
+  xTitle: z.string().min(1).max(120).optional(),
+  yTitle: z.string().min(1).max(120).optional(),
 })
 
 const BoardChartSchema = z.strictObject({
@@ -211,12 +213,45 @@ export class BoardInvalid extends ChartsError {
 /** A zod issue's path as a JSON pointer: `/panels/0/chart/spec`. */
 const issuePath = (path: readonly PropertyKey[]): string => pointer(path.map(part => (typeof part === "symbol" ? String(part) : part)))
 
+const BOARD_SCOPE_KEYS: readonly { readonly pattern: RegExp; readonly keys: readonly string[] }[] = [
+  { pattern: /^$/, keys: ["version", "kind", "title", "subtitle", "kicker", "source", "theme", "locale", "currency", "width", "columns", "datasets", "filters", "kpis", "tabs", "panels"] },
+  { pattern: /^\/datasets\/[^/]+$/, keys: ["rows", "path", "format", "transform"] },
+  { pattern: /^\/filters\/\d+$/, keys: ["id", "label", "dataset", "field", "control", "options", "defaultValue"] },
+  { pattern: /^\/kpis\/\d+$/, keys: ["id", "label", "dataset", "field", "aggregate", "format", "decimals", "prefix", "suffix", "delta", "sparkline"] },
+  { pattern: /^\/tabs\/\d+$/, keys: ["id", "label"] },
+  { pattern: /^\/panels\/\d+$/, keys: ["id", "title", "subtitle", "dataset", "tab", "span", "height", "chart"] },
+  { pattern: /^\/panels\/\d+\/chart$/, keys: ["kind", "engine", "spec", "quick", "columns", "limit"] },
+  { pattern: /^\/panels\/\d+\/chart\/quick$/, keys: ["type", "x", "y", "color", "size", "aggregate", "sort", "xTitle", "yTitle"] },
+  { pattern: /^\/panels\/\d+\/chart\/columns\/\d+$/, keys: ["field", "label", "format", "align"] },
+]
+
+function unknownKeyFix(at: string, key: string): string | undefined {
+  if (/^\/filters\/\d+$/.test(at) && key === "kind") return `Use "control" (${BOARD_CONTROLS.map(c => `"${c}"`).join(", ")}), not "kind".`
+  if (/^\/panels\/\d+$/.test(at) && key === "table") return 'Put a table inside "chart": {"kind": "table", "columns": [...], "limit"?: number}.'
+  const scope = BOARD_SCOPE_KEYS.find(entry => entry.pattern.test(at))
+  if (!scope) return undefined
+  const close = suggest(key, scope.keys)
+  return close.length ? `Did you mean ${close.map(c => `"${c}"`).join(" or ")}? Allowed here: ${scope.keys.join(", ")}.` : `Allowed here: ${scope.keys.join(", ")}.`
+}
+
+const issueFix = (issue: z.core.$ZodIssue, at: string): string | undefined => {
+  if ("values" in issue && Array.isArray((issue as { values?: unknown[] }).values)) {
+    const values = (issue as { values: unknown[] }).values
+    if (values.length) return `Use one of: ${values.map(v => JSON.stringify(v)).join(", ")}.`
+  }
+  if (issue.code === "invalid_union" && /^\/panels\/\d+\/chart$/.test(at)) {
+    return 'Pass chart: {"quick": {"type": "bar", "x": "...", "y": "..."}}, chart: {"spec": {...}}, or chart: {"kind": "table", "columns": [...]}.'
+  }
+  return undefined
+}
+
 const issueMessage = (issue: z.core.$ZodIssue): string => {
   if (issue.code === "unrecognized_keys" && "keys" in issue) {
     const keys = (issue as { keys: string[] }).keys
     return `"${keys.join('", "')}" ${keys.length === 1 ? "is not a property here" : "are not properties here"}.`
   }
   if (issue.code === "invalid_type") return `Expected ${issue.expected}, received ${issue.input === undefined ? "nothing" : typeof issue.input}.`
+  if (issue.code === "invalid_union") return "Invalid panel chart definition."
   return issue.message
 }
 
@@ -226,19 +261,26 @@ export function boardDocumentIssues(input: unknown): Issue[] {
   if (parsed.success) return []
   // A strict object reports every unknown key at once, at its own path; one issue per key names each of them.
   const issues: Issue[] = parsed.error.issues.flatMap((issue): Issue[] => {
+    const at = issuePath(issue.path)
     if (issue.code === "unrecognized_keys" && "keys" in issue) {
-      return (issue as { keys: string[] }).keys.map(key => ({
-        level: "error" as const,
-        code: "UNKNOWN_PROPERTY" as const,
-        message: `"${key}" is not a property of a board document${issue.path.length ? ` at ${issuePath(issue.path)}` : ""}.`,
-        path: issuePath([...issue.path, key]),
-      }))
+      return (issue as { keys: string[] }).keys.map(key => {
+        const fix = unknownKeyFix(at, key)
+        return {
+          level: "error" as const,
+          code: "UNKNOWN_PROPERTY" as const,
+          message: `"${key}" is not a property of a board document${issue.path.length ? ` at ${at}` : ""}.`,
+          path: issuePath([...issue.path, key]),
+          ...(fix ? { fix } : {}),
+        }
+      })
     }
+    const fix = issueFix(issue, at)
     return [{
       level: "error" as const,
       code: "DOCUMENT_INVALID" as const,
       message: issueMessage(issue),
-      path: issuePath(issue.path),
+      path: at,
+      ...(fix ? { fix } : {}),
     }]
   })
   // A version this build does not read is its own code: the document is well formed, the plugin is old.

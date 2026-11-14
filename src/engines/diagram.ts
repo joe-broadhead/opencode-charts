@@ -78,11 +78,12 @@ export const DiagramSpecSchema = z
     edges: z.array(DiagramEdgeSchema).max(400).optional(),
     /** Architecture groups, drawn as Mermaid subgraphs. */
     groups: z.array(DiagramGroupSchema).max(30).optional(),
-    /** Fishbone categories, each with its causes. */
+    /** Fishbone categories, each with its causes (`causes` is accepted as an alias). */
+    categories: z.array(FishboneCategorySchema).max(12).optional(),
     causes: z.array(FishboneCategorySchema).max(12).optional(),
     /** The drawn width in px; the height follows the content's aspect. */
-    width: z.number().min(120).max(4000).optional(),
-    height: z.number().min(120).max(4000).optional(),
+    width: z.number().min(20).max(4000).optional(),
+    height: z.number().min(20).max(4000).optional(),
   })
   .refine(spec => Boolean(spec.dsl) !== Boolean(spec.kind), {
     message: "Give either dsl (Mermaid source) or kind (a diagram recipe), and not both.",
@@ -796,8 +797,8 @@ function layoutOrgChart(spec: DiagramSpec, theme: ThemeTokens, fonts: FontBook):
  * underlined and no rule crosses the bone; the category's pill sits on the bone's outer tip.
  */
 function layoutFishbone(spec: DiagramSpec, theme: ThemeTokens, fonts: FontBook): TreeLayout {
-  const categories = spec.causes ?? []
-  if (!categories.length) throw new ChartsError("SPEC_INVALID", "A fishbone needs causes.", "Give at least one category with its causes.", pointer(["causes"]))
+  const categories = spec.categories ?? spec.causes ?? []
+  if (!categories.length) throw new ChartsError("SPEC_INVALID", "A fishbone needs categories.", "Give at least one category with its causes.", pointer(["categories"]))
   const effect = plainLabel(spec.effect ?? spec.title ?? "Effect")
   const m = frameMetrics(theme, fonts)
   const body = m.body

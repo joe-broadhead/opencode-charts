@@ -231,7 +231,7 @@ const diagramSpecOf = (input: Record<string, unknown>): Json => ({
   ...(input.nodes !== undefined ? { nodes: input.nodes } : {}),
   ...(input.edges !== undefined ? { edges: input.edges } : {}),
   ...(input.groups !== undefined ? { groups: input.groups } : {}),
-  ...(input.categories !== undefined ? { causes: input.categories } : {}),
+  ...(input.categories !== undefined ? { categories: input.categories } : {}),
   ...(input.title !== undefined ? { title: input.title } : {}),
   ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
   ...(input.kicker !== undefined ? { kicker: input.kicker } : {}),

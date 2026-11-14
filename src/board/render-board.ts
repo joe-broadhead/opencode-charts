@@ -140,8 +140,8 @@ function quickSpec(panel: BoardPanel, rows: readonly Row[]): Json {
     if (color) encoding.color = { field: color.field, aggregate: aggregate ?? "sum", type: "quantitative" }
     else if (quick.y !== undefined) encoding.color = { field: quick.y, aggregate: aggregate ?? "sum", type: "quantitative" }
   } else {
-    if (x) encoding.x = x
-    if (y) encoding.y = y
+    if (x) encoding.x = quick.xTitle !== undefined ? { ...x, title: quick.xTitle } : x
+    if (y) encoding.y = quick.yTitle !== undefined ? { ...y, title: quick.yTitle } : y
     if (color) encoding.color = color
     if (size) encoding.size = size
   }

@@ -44,10 +44,11 @@ an optional `format` and Vega-Lite `transform` list. Bindings name fields after 
 with their path (`DOCUMENT_INVALID`); a version other than 1 is `DOCUMENT_VERSION_UNSUPPORTED`. Nothing is stripped or
 downgraded.
 
-The editorial frame (`kicker`, `subtitle`, `source`, `notes`), `annotations`, `motion` and `fps` are **call-level
-rendering inputs**, not fields of `ChartDocumentV1`: they change how one call draws and are not part of the saved
-document's meaning or its revision. A saved artifact replays with the document it captured; pass the frame and
-annotations again on the replay call if you want them.
+`motion` and `fps` are **call-level delivery inputs** (alongside `formats`, `scales`, `name`, `outDir`, `inspect`,
+`marks` and `svgText`), so a document call can also emit a CSS-animated `.svg` or `.gif` without changing its saved
+`.chart.json`. The five-part editorial frame (`kicker`, `subtitle`, `source`, `notes`) and `annotations` belong to the
+`spec`, `charts_table` and `charts_diagram` arms (which measure the frame around the drawing), and are refused with
+`INPUT_CONFLICT` alongside `document` so a saved document's outer `layout` size and `documentPath` replay stay exact.
 
 A recommended call:
 
