@@ -3,9 +3,9 @@ import { NAMESPACE, TOOLS, type ToolName } from "./tools.js"
 
 /**
  * The default permission block. `ctx.agent.transform` inserts it right after each agent's base `* * allow`: every tool
- * is allowed by default, the five that only read and the four that write files in the workspace (`charts_render`,
- * `charts_quick`, `charts_update`, `charts_theme_save`) alike, and so is `charts_*`, so a tool a later version adds runs at once. The
- * `access` option narrows that from each tool's class.
+ * is allowed by default, the reads and the writers (`charts_render`, `charts_quick`, `charts_update`, `charts_board`,
+ * `charts_table`, `charts_diagram`, `charts_theme_save`) alike, and so is `charts_*`, so a tool a later version adds
+ * runs at once. The `access` option narrows that from each tool's class.
  * Every later rule (agent denies, the user's `permissions`, saved approvals) still wins, because the last match wins.
  * Each tool also asserts its own action on every call, so an `ask` rule prompts: the host itself only hides a plugin
  * tool on a deny. The file rules (`read` on a data file, `edit` on the output folder) are asserted as well.
@@ -23,6 +23,10 @@ export const permissionOf = (name: ToolName) => `${NAMESPACE}_${name}`
 /** The tools that write nothing anywhere. */
 export const READ_TOOLS = (Object.keys(TOOLS) as ToolName[]).filter(name => TOOLS[name].readOnly)
 export const KNOWN_READS: readonly string[] = READ_TOOLS.map(permissionOf)
+
+/** The tools that write files in the workspace: denied by `read-only`, asked for by `ask-changes`. */
+export const WRITE_TOOLS = (Object.keys(TOOLS) as ToolName[]).filter(name => !TOOLS[name].readOnly)
+export const KNOWN_WRITES: readonly string[] = WRITE_TOOLS.map(permissionOf)
 
 /** How much the plugin's own tools may do without asking. A user's later rules always win. */
 export type Access = "all" | "ask-changes" | "read-only"

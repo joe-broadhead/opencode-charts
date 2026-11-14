@@ -38,8 +38,8 @@ export type ChartTool = "render" | "quick" | "validate"
 export type Arm = "legacy" | "document" | "artifact"
 
 /** Shared delivery fields: how the files are made and where they go. Allowed with every arm. */
-export const DELIVERY_FIELDS = ["formats", "scales", "name", "outDir", "inspect", "marks", "svgText"] as const
-const AUTHORING = ["theme", "locale", "currency", "currencyFields", "title", "description", "seed", "width", "height"] as const
+export const DELIVERY_FIELDS = ["formats", "scales", "name", "outDir", "inspect", "marks", "svgText", "motion", "fps"] as const
+const AUTHORING = ["theme", "locale", "currency", "currencyFields", "title", "description", "seed", "width", "height", "kicker", "subtitle", "source", "notes", "annotations"] as const
 /** The legacy authoring fields of each tool: everything a chart document says in its own terms. */
 export const LEGACY_FIELDS: Readonly<Record<ChartTool, readonly string[]>> = {
   render: ["spec", "engine", "data", ...AUTHORING],
@@ -399,6 +399,8 @@ export interface Delivery {
   readonly inspect?: boolean
   readonly marks?: "problems" | "all" | "none"
   readonly svgText?: "text" | "paths" | "embed"
+  readonly motion?: "none" | "entrance" | "draw" | "stagger" | "pulse"
+  readonly fps?: number
 }
 
 export const pickDelivery = (input: Readonly<Record<string, unknown>>): Delivery => Object.fromEntries(DELIVERY_FIELDS.filter(k => input[k] !== undefined).map(k => [k, input[k]])) as Delivery
@@ -425,11 +427,13 @@ export function documentRequest(resolved: ResolvedDocument, delivery: Delivery, 
     ...(delivery.outDir !== undefined ? { outDir: delivery.outDir } : {}),
     ...(delivery.svgText ? { svgText: delivery.svgText } : {}),
     ...(delivery.marks ? { marks: delivery.marks } : {}),
+    ...(delivery.motion ? { motion: delivery.motion } : {}),
+    ...(delivery.fps !== undefined ? { fps: delivery.fps } : {}),
     ...(write && formats.includes("document") ? { document: serializeArtifact(artifact) } : {}),
   }
 }
 
-const TOOL_PATHS = ["/formats", "/scales", "/outDir", "/inspect", "/marks", "/svgText", "/name", "/document", "/documentPath", "/expectedRevision"]
+const TOOL_PATHS = ["/formats", "/scales", "/outDir", "/inspect", "/marks", "/svgText", "/motion", "/fps", "/name", "/document", "/documentPath", "/expectedRevision"]
 /**
  * An issue of the render, pointed into the call: tool-level paths stay; a theme token path becomes the document's
  * override path; a spec path points into an engine document's spec, or into the compiled spec of a recipe (the

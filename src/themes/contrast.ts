@@ -30,6 +30,31 @@ export function contrast(a: string, b: string): number | undefined {
 }
 
 /**
+ * APCA-W3 lightness contrast (the Lc value, roughly -108..106) of `textHex` on `bgHex`: positive for dark text on a
+ * light ground, negative for light text on a dark one. WCAG's ratio is a pass/fail gate; Lc says how a line of type
+ * actually holds up, and it is what the editorial themes are tuned with. Deterministic: pure arithmetic on the two
+ * colours, no font, no size, no clock.
+ *
+ * Constants and the soft black clamp are APCA 0.98G-4g W3 (the published reference algorithm).
+ */
+export function apcaContrast(textHex: string, bgHex: string): number {
+  const text = parseColor(textHex), background = parseColor(bgHex)
+  if (!text || !background) return 0
+  // APCA weighs sRGB (not IEC-linearised) channels raised to 2.4: the reference use of mainTRC.
+  const luminance = ([r, g, b]: [number, number, number]) => 0.2126729 * (r / 255) ** 2.4 + 0.7151522 * (g / 255) ** 2.4 + 0.072175 * (b / 255) ** 2.4
+  // Soft-clamp near-black: a very dark colour keeps a little luminance, so black on black is not a false maximum.
+  const soft = (value: number) => (value < 0.022 ? value + (0.022 - value) ** 1.414 : value)
+  const yText = soft(luminance(text)), yBackground = soft(luminance(background))
+  if (Math.abs(yBackground - yText) < 0.0005) return 0
+  const polarity = yBackground > yText
+  const raw = polarity
+    ? (yBackground ** 0.56 - yText ** 0.57) * 1.14
+    : (yBackground ** 0.65 - yText ** 0.62) * 1.14
+  const lc = polarity ? (raw < 0.1 ? 0 : raw - 0.027) : raw > -0.1 ? 0 : raw + 0.027
+  return Math.round(lc * 1000) / 10
+}
+
+/**
  * Checks a theme's text and marks against its background: text needs 4.5:1 (WCAG 1.4.3), secondary text and axes
  * 3:1 (1.4.11); a categorical colour under 1.5:1 is nearly invisible and is named.
  */

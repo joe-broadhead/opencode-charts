@@ -1,0 +1,62 @@
+<svg role="img" aria-labelledby="c786fe06d-0 c786fe06d-1" xmlns="http://www.w3.org/2000/svg" width="820" height="267" viewBox="0 0 820 267"><title id="c786fe06d-0">Invoice triage</title><desc id="c786fe06d-1">Invoice triage. A diagram: ┌──────────────────┐     ◇────────────◇        ┌────────────────┐     ◇───────────◇        ┌──────────────┐.</desc><title id="c786fe06d-2">Invoice triage</title><desc id="c786fe06d-3">Invoice triage, drawn at 820×267 pixels.</desc><style>text{font-family:"Inter",sans-serif}.mono{font-family:"JetBrains Mono",monospace}</style><rect x="0" y="0" width="820" height="267" fill="#FFFFFF"/><text x="16" y="29" font-family="Inter" font-size="11" font-weight="600" fill="#EE6677" letter-spacing="1.1">FINANCE OPERATIONS</text><text x="16" y="50" font-family="Inter" font-size="16" font-weight="600" fill="#1F2328">Invoice triage</text><g transform="translate(16,62) scale(0.83)">
+
+<defs>
+  <marker id="c786fe06d-4" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="#4477AA" stroke="#4477AA" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="c786fe06d-5" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="#4477AA" stroke="#4477AA" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="A" data-to="B" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="160.503,130.68008333333333 182.503,130.68008333333333 182.503,87.4315 194.503,87.4315" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c786fe06d-4)" />
+<polyline class="edge" data-from="B" data-to="C" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="yes" points="306.8888333333333,64.95433333333332 360.98699999999997,64.95433333333332 360.98699999999997,58.98149999999998 426.6764999999999,58.9815" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c786fe06d-4)" />
+<polyline class="edge" data-from="B" data-to="D" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="no" points="306.8888333333333,109.90866666666666 351.366,109.90866666666666 351.366,115.8815 426.6764999999999,115.8815" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c786fe06d-4)" />
+<polyline class="edge" data-from="D" data-to="E" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="564.9564999999999,115.8815 591.1759999999999,115.8815" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c786fe06d-4)" />
+<polyline class="edge" data-from="E" data-to="F" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="yes" points="701.7093333333332,93.77483333333333 816.3159999999999,93.77483333333335" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c786fe06d-4)" />
+<polyline class="edge" data-from="E" data-to="G" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="no" points="701.7093333333332,137.98816666666667 745.8159999999999,137.98816666666667 745.8159999999999,141.25650000000002 801.3459999999999,141.25650000000002 801.3459999999999,162.21316666666667 816.3159999999999,162.21316666666667" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c786fe06d-4)" />
+<polyline class="edge" data-from="G" data-to="A" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="816.3159999999999,174.51316666666668 801.3459999999999,174.51316666666668 801.3459999999999,192.20149999999998 182.503,192.20149999999998 182.503,142.9800833333333 160.503,142.9800833333333" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c786fe06d-4)" />
+<g class="edge-label" data-from="B" data-to="C" data-label="yes">
+  <rect x="368.98699999999997" y="42.98149999999998" width="35.47" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="386.722" y="58.13149999999998" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">yes</text>
+</g>
+<g class="edge-label" data-from="B" data-to="D" data-label="no">
+  <rect x="359.366" y="99.8815" width="29.53" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="374.131" y="115.03150000000001" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">no</text>
+</g>
+<g class="edge-label" data-from="E" data-to="F" data-label="yes">
+  <rect x="753.8159999999999" y="77.77483333333333" width="35.47" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="771.5509999999999" y="92.92483333333334" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">yes</text>
+</g>
+<g class="edge-label" data-from="E" data-to="G" data-label="no">
+  <rect x="753.8159999999999" y="125.25650000000002" width="29.53" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="768.5809999999999" y="140.40650000000002" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">no</text>
+</g>
+<g class="node" data-id="A" data-label="Invoice received" data-shape="rectangle">
+  <rect x="20" y="118.38008333333332" width="140.503" height="36.900000000000006" rx="0" ry="0" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="90.2515" y="136.83008333333333" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Invoice received</text>
+</g>
+<g class="node" data-id="B" data-label="Under 500?" data-shape="diamond">
+  <polygon points="261.93449999999996,20 329.366,87.4315 261.93449999999996,154.863 194.50299999999996,87.4315" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="261.93449999999996" y="87.4315" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Under 500?</text>
+</g>
+<g class="node" data-id="C" data-label="Auto-approve" data-shape="rectangle">
+  <rect x="426.6764999999999" y="40.531499999999994" width="122.719" height="36.900000000000006" rx="0" ry="0" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="488.03599999999994" y="58.9815" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Auto-approve</text>
+</g>
+<g class="node" data-id="D" data-label="Manager review" data-shape="rectangle">
+  <rect x="426.6764999999999" y="97.4315" width="138.28" height="36.900000000000006" rx="0" ry="0" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="495.8164999999999" y="115.8815" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Manager review</text>
+</g>
+<g class="node" data-id="E" data-label="Approved?" data-shape="diamond">
+  <polygon points="657.4959999999999,49.56150000000001 723.8159999999998,115.8815 657.4959999999999,182.2015 591.1759999999999,115.8815" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="657.4959999999999" y="115.8815" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Approved?</text>
+</g>
+<g class="node" data-id="F" data-label="Pay run" data-shape="rectangle">
+  <rect x="816.3159999999999" y="75.32483333333334" width="88.633" height="36.900000000000006" rx="0" ry="0" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="860.6324999999999" y="93.77483333333335" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Pay run</text>
+</g>
+<g class="node" data-id="G" data-label="Query raised" data-shape="rectangle">
+  <rect x="816.3159999999999" y="149.91316666666665" width="119.755" height="36.900000000000006" rx="0" ry="0" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="876.1934999999999" y="168.36316666666664" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Query raised</text>
+</g>
+</g><text x="16" y="250.97" font-family="Inter" font-size="11" fill="#9AA1A9">Process owner: accounts payable</text></svg>

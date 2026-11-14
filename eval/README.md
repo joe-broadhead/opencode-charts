@@ -3,7 +3,7 @@
 Two suites, both deterministic and both runnable with no model:
 
 ```
-bun eval/run.ts <dir>                      # 28 render cases: does the right call draw the right chart?
+bun eval/run.ts <dir>                      # 42 render cases: does the right call draw the right chart?
 bun eval/recommend.ts <dir>                # 21 advice cases: does the right chart win, and what must not?
 bun eval/recommend.ts <dir> --update-baseline
 bun eval/perf.ts                           # warm medians per chart
@@ -24,7 +24,10 @@ deterministic suites.
 
 A natural-language request with a scripted call and the properties the result must have: the marks, the engine, the
 theme, formatting such as `€` and `%`, spec paths, no overlapping or clipped labels, and no warning the case did not
-allow. `--answers model.jsonl` grades a real model's calls against the same expectations.
+allow. A case names one of the tools — `render`, `quick`, `table`, `diagram`, `board` or `update` — and grades what that
+tool wrote: a board's panels, poster and `.board.html`; a diagram's Unicode outline; a saved generation and the `.chart.json`
+in it; an update's new revision and the fields it reports changed. The `update` arm saves the case's document first, then
+patches it, exactly as an agent would. `--answers model.jsonl` grades a real model's calls against the same expectations.
 
 ## The advice suite (`eval/recommend.ts`, `eval/recommend.cases.ts`)
 

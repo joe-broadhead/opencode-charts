@@ -163,7 +163,9 @@ describe("charts_update: a presentation change as a new revision", () => {
     const { path, revision, made } = await create(t, { ...DOC, appearance: { theme: "acme" } })
     await t.call("theme_save", { name: "acme", theme: { extends: "light", colors: { categorical: ["#2e7d32", "#6a1b9a"] } } })
     const kept = await t.call("update", { documentPath: path, expectedRevision: revision, patch: { layout: { target: "report" } } })
-    expect(kept.appearance.hash).toBe(made.appearance.hash)
+    // A layout patch moves the profile's typography, so the token hash moves with it; the theme row and the colour
+    // still drawn below are what prove the saved edit was not adopted.
+    expect(kept.appearance).toMatchObject({ theme: "acme", base: "acme" })
     expect(kept.update.theme).toEqual({ resolved: false, changed: false })
     expect(t.read(kept.files.svg)).toContain("#1f4e79")
     const adopted = await t.call("update", { documentPath: path, expectedRevision: revision, patch: { appearance: { theme: "acme" } } })

@@ -1,0 +1,64 @@
+<svg role="img" aria-labelledby="c75ba9b03-0 c75ba9b03-1" width="640" height="380" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 640 380"><title id="c75ba9b03-0">Sessions by channel</title><desc id="c75ba9b03-1">Sessions by channel.</desc>
+<rect width="640" height="380" x="0" y="0" fill="#FFFFFF"></rect>
+<path d="M40 316.5L600 316.5" fill="none" pointer-events="visible" stroke="#9AA1A9" stroke-linecap="round" class="c75ba9b03-2"></path>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(40 324)" fill="#59636E">Jan</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(91.8209 324)" fill="#59636E">Feb</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(140.2985 324)" fill="#59636E">Mar</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(192.1194 324)" fill="#59636E">Apr</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(242.2687 324)" fill="#59636E">May</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(294.0896 324)" fill="#59636E">Jun</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(344.2388 324)" fill="#59636E">Jul</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(396.0597 324)" fill="#59636E">Aug</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(447.8806 324)" fill="#59636E">Sep</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(498.0299 324)" fill="#59636E">Oct</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(549.8507 324)" fill="#59636E">Nov</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 11px Inter, sans-serif" y="3.2978515625" transform="translate(600 324)" fill="#59636E">Dec</text>
+<path d="M40 15C40 15 71.1 14.8 91.8 14.8C111.2 14.8 120.9 15.4 140.3 16.1C161 16.7 171.4 17.3 192.1 18.1C212.2 18.9 222.2 19.5 242.3 20C263 20.6 273.4 20.8 294.1 20.8C314.1 20.8 324.2 20.7 344.2 20C365 19.3 375.3 18.7 396.1 17.3C416.8 16 427.2 15.1 447.9 13.2C468 11.4 478 10.1 498 8.2C518.7 6.3 529.1 5.3 549.9 3.6C569.9 2 600 0 600 0L600 24C600 24 569.9 24.6 549.9 25.6C529.1 26.7 518.7 27.5 498 29.3C477.9 31 467.9 32.4 447.9 34.3C427.2 36.4 416.8 37.6 396.1 39.4C375.3 41.3 365 42.3 344.2 43.7C324.2 45 314.2 45.8 294.1 46.1C273.4 46.3 263 46.3 242.3 46.3C222.2 46.3 212.2 45.5 192.1 44.5C171.4 43.6 161 42.8 140.3 41.6C120.9 40.4 111.2 39.5 91.8 38.5C71.1 37.4 40 36.2 40 36.2Z" transform="translate(0 107.2)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="c75ba9b03-3"></path>
+<path d="M40 36.2C40 36.2 71.1 37.4 91.8 38.5C111.2 39.5 120.9 40.4 140.3 41.6C161 42.8 171.4 43.6 192.1 44.5C212.2 45.5 222.2 46.3 242.3 46.3C263 46.3 273.4 46.3 294.1 46.1C314.2 45.8 324.2 45 344.2 43.7C365 42.3 375.3 41.3 396.1 39.4C416.8 37.6 427.2 36.4 447.9 34.3C467.9 32.4 477.9 31 498 29.3C518.7 27.5 529.1 26.7 549.9 25.6C569.9 24.6 600 24 600 24L600 63.5C600 63.5 569.9 61.9 549.9 61.9C529.1 61.9 518.7 61.9 498 62.5C478 63 467.9 63.9 447.9 65.2C427.1 66.6 416.8 67.6 396.1 69.4C375.3 71.1 365 72.3 344.2 74C324.2 75.7 314.2 76.7 294.1 77.9C273.4 79.2 263 80.1 242.3 80.2C222.2 80.3 212.2 80.3 192.1 80.3C171.4 80.3 161 79.4 140.3 78.3C120.9 77.3 111.2 76.4 91.8 74.9C71.1 73.4 40 71 40 71Z" transform="translate(0 107.2)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="c75ba9b03-4"></path>
+<path d="M40 71C40 71 71.1 73.4 91.8 74.9C111.2 76.4 120.9 77.3 140.3 78.3C161 79.4 171.4 80.3 192.1 80.3C212.2 80.3 222.2 80.3 242.3 80.2C263 80.1 273.4 79.2 294.1 77.9C314.2 76.7 324.2 75.7 344.2 74C365 72.3 375.3 71.1 396.1 69.4C416.8 67.6 427.1 66.6 447.9 65.2C467.9 63.9 478 63 498 62.5C518.7 61.9 529.1 61.9 549.9 61.9C569.9 61.9 600 63.5 600 63.5L600 118.8C600 118.8 569.9 116.1 549.9 114.7C529.1 113.3 518.8 112.6 498 111.6C478 110.8 467.9 110.2 447.9 110.2C427.2 110.2 416.8 110.2 396.1 110.7C375.3 111.2 365 111.8 344.2 112.9C324.2 114 314.2 114.9 294.1 116.1C273.4 117.4 263 118.2 242.3 119.3C222.2 120.4 212.2 121 192.1 121.5C171.4 122 161 122 140.3 122C120.9 122 111.2 121.5 91.8 120.7C71.1 119.7 40 117.5 40 117.5Z" transform="translate(0 107.2)" fill="#228833" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="c75ba9b03-5"></path>
+<path d="M40 117.5C40 117.5 71.1 119.7 91.8 120.7C111.2 121.5 120.9 122 140.3 122C161 122 171.4 122 192.1 121.5C212.2 121 222.2 120.4 242.3 119.3C263 118.2 273.4 117.4 294.1 116.1C314.2 114.9 324.2 114 344.2 112.9C365 111.8 375.3 111.2 396.1 110.7C416.8 110.2 427.2 110.2 447.9 110.2C467.9 110.2 478 110.8 498 111.6C518.8 112.6 529.1 113.3 549.9 114.7C569.9 116.1 600 118.8 600 118.8L600 185.6C600 185.6 569.9 183.6 549.9 182C529.1 180.3 518.7 179.3 498 177.4C478 175.5 468 174.2 447.9 172.4C427.2 170.5 416.8 169.6 396.1 168.3C375.3 166.9 365 166.3 344.2 165.6C324.2 164.9 314.1 164.8 294.1 164.8C273.4 164.8 263 165 242.3 165.6C222.2 166.1 212.2 166.7 192.1 167.5C171.4 168.3 161 168.9 140.3 169.5C120.9 170.2 111.2 170.8 91.8 170.8C71.1 170.8 40 170.6 40 170.6Z" transform="translate(0 107.2)" fill="#CCBB44" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="c75ba9b03-6"></path>
+<path d="M-5 -5l220.8 0l0 20l-220.8 0Z" transform="translate(214.5942 357)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#b7b9be" stroke-width="0" class="c75ba9b03-2"></path>
+<path d="M10 5A5 5 0 1 1 10 4.5A5 5 0 0 1 10 5" transform="translate(214.5942 357)" fill="#4477AA" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="legend" ecmeta_silent="true" class="c75ba9b03-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" x="15" y="5" transform="translate(214.5942 357)" fill="#59636E">Search</text>
+<path d="M0 0l51.6 0l0 10l-51.6 0Z" transform="translate(214.5942 357)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="legend" class="c75ba9b03-7"></path>
+<path d="M10 5A5 5 0 1 1 10 4.5A5 5 0 0 1 10 5" transform="translate(274.1714 357)" fill="#EE6677" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="legend" ecmeta_silent="true" class="c75ba9b03-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" x="15" y="5" transform="translate(274.1714 357)" fill="#59636E">Social</text>
+<path d="M0 0l46.4 0l0 10l-46.4 0Z" transform="translate(274.1714 357)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="legend" class="c75ba9b03-7"></path>
+<path d="M10 5A5 5 0 1 1 10 4.5A5 5 0 0 1 10 5" transform="translate(328.6138 357)" fill="#228833" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="legend" ecmeta_silent="true" class="c75ba9b03-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" x="15" y="5" transform="translate(328.6138 357)" fill="#59636E">Email</text>
+<path d="M0 0l42.8 0l0 10l-42.8 0Z" transform="translate(328.6138 357)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="legend" class="c75ba9b03-7"></path>
+<path d="M10 5A5 5 0 1 1 10 4.5A5 5 0 0 1 10 5" transform="translate(379.3662 357)" fill="#CCBB44" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="legend" ecmeta_silent="true" class="c75ba9b03-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:Inter, sans-serif;" x="15" y="5" transform="translate(379.3662 357)" fill="#59636E">Direct</text>
+<path d="M0 0l46 0l0 10l-46 0Z" transform="translate(379.3662 357)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="legend" class="c75ba9b03-7"></path>
+<path d="M-166.3 -5l332.6 0l0 36.9l-332.6 0Z" transform="translate(320 13)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="c75ba9b03-2"></path>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:16px;font-family:Inter, sans-serif;font-weight:600;" xml:space="preserve" y="4.87109375" transform="translate(320 13)" fill="#1F2328">Sessions by channel</text>
+<text dominant-baseline="central" text-anchor="middle" style="font-size:12px;font-family:Inter, sans-serif;" xml:space="preserve" y="23.33984375" transform="translate(320 13)" fill="#59636E">Monthly sessions across four acquisition channels, 2024</text>
+<style ><![CDATA[
+.c75ba9b03-2:hover {
+pointer-events:none;
+}
+.c75ba9b03-3:hover {
+cursor:pointer;
+fill:rgba(74,130,187,1);
+}
+.c75ba9b03-4:hover {
+cursor:pointer;
+fill:rgba(255,112,130,1);
+}
+.c75ba9b03-5:hover {
+cursor:pointer;
+fill:rgba(37,149,56,1);
+}
+.c75ba9b03-6:hover {
+cursor:pointer;
+fill:rgba(224,205,74,1);
+}
+.c75ba9b03-7:hover {
+cursor:pointer;
+fill:rgba(0,0,0,0);
+}
+
+]]>
+
+</style>
+</svg>

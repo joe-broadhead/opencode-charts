@@ -1,0 +1,46 @@
+<svg role="img" aria-labelledby="c3b7b6389-0 c3b7b6389-1" xmlns="http://www.w3.org/2000/svg" width="496" height="414" viewBox="0 0 496 414"><title id="c3b7b6389-0">Card payment</title><desc id="c3b7b6389-1">Card payment. A diagram: ┌──────────┐        ┌──────┐  ┌──────────────────┐.</desc><title id="c3b7b6389-2">Card payment</title><desc id="c3b7b6389-3">Authorisation, then settlement, drawn at 496×414 pixels.</desc><style>text{font-family:"Inter",sans-serif}.mono{font-family:"JetBrains Mono",monospace}</style><rect x="0" y="0" width="496" height="414" fill="#FFFFFF"/><text x="16" y="33" font-family="Inter" font-size="16" font-weight="600" fill="#1F2328">Card payment</text><text x="16" y="54" font-family="Inter" font-size="12" font-weight="400" fill="#59636E">Authorisation, then settlement</text><g transform="translate(16,61)">
+
+<defs>
+  <marker id="c3b7b6389-4" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="#4477AA" />
+  </marker>
+  <marker id="c3b7b6389-5" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="#4477AA" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="C" x1="75.133" y1="70" x2="75.133" y2="290" stroke="#9AA1A9" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="S" x1="215.13299999999998" y1="70" x2="215.13299999999998" y2="290" stroke="#9AA1A9" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="P" x1="364.3485" y1="70" x2="364.3485" y2="290" stroke="#9AA1A9" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="C" data-to="S" data-label="Place order" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="75.133" y1="90" x2="215.13299999999998" y2="90" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c3b7b6389-4)" />
+  <text x="145.13299999999998" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="#7a828b" dy="3.8499999999999996">Place order</text>
+</g>
+<g class="message" data-from="S" data-to="P" data-label="Authorise" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="215.13299999999998" y1="130" x2="364.3485" y2="130" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c3b7b6389-4)" />
+  <text x="289.74075" y="120" font-size="11" text-anchor="middle" font-weight="400" fill="#7a828b" dy="3.8499999999999996">Authorise</text>
+</g>
+<g class="message" data-from="P" data-to="S" data-label="Approved" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="364.3485" y1="170" x2="215.13299999999998" y2="170" stroke="#9AA1A9" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#c3b7b6389-4)" />
+  <text x="289.74075" y="160" font-size="11" text-anchor="middle" font-weight="400" fill="#7a828b" dy="3.8499999999999996">Approved</text>
+</g>
+<g class="message" data-from="S" data-to="C" data-label="Confirmation" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="215.13299999999998" y1="210" x2="75.133" y2="210" stroke="#9AA1A9" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#c3b7b6389-4)" />
+  <text x="145.13299999999998" y="200" font-size="11" text-anchor="middle" font-weight="400" fill="#7a828b" dy="3.8499999999999996">Confirmation</text>
+</g>
+<g class="message" data-from="P" data-to="S" data-label="Settlement" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="364.3485" y1="250" x2="215.13299999999998" y2="250" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c3b7b6389-4)" />
+  <text x="289.74075" y="240" font-size="11" text-anchor="middle" font-weight="400" fill="#7a828b" dy="3.8499999999999996">Settlement</text>
+</g>
+<g class="actor" data-id="C" data-label="Customer" data-type="participant">
+  <rect x="30" y="30" width="90.26599999999999" height="40" rx="4" ry="4" fill="#f5f5f5" stroke="#E8EAED" stroke-width="1" />
+  <text x="75.133" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="#1F2328" dy="4.55">Customer</text>
+</g>
+<g class="actor" data-id="S" data-label="Shop" data-type="participant">
+  <rect x="175.13299999999998" y="30" width="80" height="40" rx="4" ry="4" fill="#f5f5f5" stroke="#E8EAED" stroke-width="1" />
+  <text x="215.13299999999998" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="#1F2328" dy="4.55">Shop</text>
+</g>
+<g class="actor" data-id="P" data-label="Payment provider" data-type="participant">
+  <rect x="295.133" y="30" width="138.431" height="40" rx="4" ry="4" fill="#f5f5f5" stroke="#E8EAED" stroke-width="1" />
+  <text x="364.3485" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="#1F2328" dy="4.55">Payment provider</text>
+</g>
+</g><text x="16" y="398" font-family="Inter" font-size="11" fill="#9AA1A9">Protocol: 3-D Secure</text></svg>

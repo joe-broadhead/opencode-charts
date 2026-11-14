@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { runTool, type ToolName } from "../src/tools.ts"
-import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
+import { BAR, portable, ROOT, ROWS, workspace } from "./helpers.ts"
 
 /**
  * Compatibility fixtures: representative legacy calls through the public tool path (`runTool`, the function the
@@ -13,10 +13,6 @@ import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
  * diff: geometry, engine, theme, files and the drawing itself (a hash of the portable SVG) must not drift; a new
  * warning is a deliberate, documented change.
  */
-const portable = (svg: string) =>
-  svg
-    .replace(/\bc[0-9a-f]{8}-(\d+)/g, "c-$1")
-    .replace(/-?\d+\.\d+(?:e[-+]?\d+)?/g, n => String(Number(Number(n).toPrecision(10))))
 const sha = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 16)
 
 const ws = workspace()

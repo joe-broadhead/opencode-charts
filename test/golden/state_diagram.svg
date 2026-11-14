@@ -1,0 +1,70 @@
+<svg role="img" aria-labelledby="c8bd95717-0 c8bd95717-1" xmlns="http://www.w3.org/2000/svg" width="382" height="547" viewBox="0 0 382 547"><title id="c8bd95717-0">Subscription lifecycle</title><desc id="c8bd95717-1">Subscription lifecycle. A diagram: ●─────────●.</desc><title id="c8bd95717-2">Subscription lifecycle</title><desc id="c8bd95717-3">Subscription lifecycle, drawn at 382×547 pixels.</desc><style>text{font-family:"Inter",sans-serif}.mono{font-family:"JetBrains Mono",monospace}</style><rect x="0" y="0" width="382" height="547" fill="#FFFFFF"/><text x="16" y="29" font-family="Inter" font-size="11" font-weight="600" fill="#EE6677" letter-spacing="1.1">BILLING</text><text x="16" y="50" font-family="Inter" font-size="16" font-weight="600" fill="#1F2328">Subscription lifecycle</text><g transform="translate(16,62)">
+
+<defs>
+  <marker id="c8bd95717-4" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="#4477AA" stroke="#4477AA" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="c8bd95717-5" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="#4477AA" stroke="#4477AA" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="_start" data-to="Trial" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="97.66116666666666,48 97.66116666666666,82" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<polyline class="edge" data-from="Trial" data-to="Active" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="payment" points="109.34583333333333,118.9 109.34583333333333,140.9 132.203,140.9 132.203,195.20000000000007 172.30700000000002,195.20000000000007 172.30700000000002,207.20000000000007" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<polyline class="edge" data-from="Trial" data-to="Expired" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="no payment" points="85.97649999999999,118.9 85.97649999999999,140.9 64.68700000000001,140.9 64.687,207.20000000000002" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<polyline class="edge" data-from="Active" data-to="Paused" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="request" points="192.05700000000002,207.20000000000007 192.05700000000002,140.90000000000006 214.074,140.90000000000006 214.074,118.90000000000006" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<polyline class="edge" data-from="Paused" data-to="Active" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="resume" points="243.37133333333333,118.90000000000006 243.37133333333333,140.90000000000006 250.03500000000003,140.90000000000006 250.03500000000003,195.20000000000007 211.80700000000002,195.20000000000007 211.80700000000002,207.20000000000007" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<polyline class="edge" data-from="Active" data-to="Cancelled" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="cancel" points="192.05700000000002,244.10000000000008 192.05700000000002,332.4000000000001" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<polyline class="edge" data-from="Cancelled" data-to="_end" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="192.05700000000002,369.30000000000007 192.05700000000002,403.30000000000007" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<polyline class="edge" data-from="Expired" data-to="_end2" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="64.687,244.10000000000002 64.68700000000001,278.1" fill="none" stroke="#9AA1A9" stroke-width="1" marker-end="url(#c8bd95717-4)" />
+<g class="edge-label" data-from="Trial" data-to="Active" data-label="payment">
+  <rect x="103.70299999999999" y="147.9" width="56.854000000000006" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="132.13" y="163.05" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">payment</text>
+</g>
+<g class="edge-label" data-from="Trial" data-to="Expired" data-label="no payment">
+  <rect x="29.187000000000005" y="147.9" width="70.516" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="64.44500000000001" y="163.05" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">no payment</text>
+</g>
+<g class="edge-label" data-from="Active" data-to="Paused" data-label="request">
+  <rect x="164.55700000000002" y="147.90000000000006" width="54.478" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="191.79600000000002" y="163.05000000000007" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">request</text>
+</g>
+<g class="edge-label" data-from="Paused" data-to="Active" data-label="resume">
+  <rect x="223.03500000000003" y="147.90000000000006" width="53.29" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="249.68000000000004" y="163.05000000000007" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">resume</text>
+</g>
+<g class="edge-label" data-from="Active" data-to="Cancelled" data-label="cancel">
+  <rect x="167.05700000000002" y="273.1000000000001" width="49.726000000000006" height="30.3" rx="2" ry="2" fill="#FFFFFF" stroke="#e4e5e5" stroke-width="1" />
+  <text x="191.92000000000002" y="288.25000000000006" text-anchor="middle" font-size="11" font-weight="400" fill="#59636E" dy="3.8499999999999996">cancel</text>
+</g>
+<g class="node" data-id="_start" data-label="" data-shape="state-start">
+  <circle cx="97.66116666666666" cy="34" r="12" fill="#1F2328" stroke="none" />
+</g>
+<g class="node" data-id="Trial" data-label="Trial" data-shape="rounded">
+  <rect x="62.60716666666666" y="82" width="70.108" height="36.900000000000006" rx="6" ry="6" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="97.66116666666666" y="100.45" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Trial</text>
+</g>
+<g class="node" data-id="Active" data-label="Active" data-shape="rounded">
+  <rect x="152.55700000000002" y="207.20000000000007" width="79" height="36.900000000000006" rx="6" ry="6" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="192.05700000000002" y="225.6500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Active</text>
+</g>
+<g class="node" data-id="Expired" data-label="Expired" data-shape="rounded">
+  <rect x="20" y="207.20000000000002" width="89.374" height="36.900000000000006" rx="6" ry="6" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="64.687" y="225.65000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Expired</text>
+</g>
+<g class="node" data-id="Paused" data-label="Paused" data-shape="rounded">
+  <rect x="184.7766666666667" y="82.00000000000006" width="87.892" height="36.900000000000006" rx="6" ry="6" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="228.7226666666667" y="100.45000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Paused</text>
+</g>
+<g class="node" data-id="Cancelled" data-label="Cancelled" data-shape="rounded">
+  <rect x="141.442" y="332.4000000000001" width="101.22999999999999" height="36.900000000000006" rx="6" ry="6" fill="#f5f5f5" stroke="#E8EAED" stroke-width="0.75" />
+  <text x="192.05700000000002" y="350.8500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="#1F2328" dy="4.55">Cancelled</text>
+</g>
+<g class="node" data-id="_end" data-label="" data-shape="state-end">
+  <circle cx="192.05700000000002" cy="417.30000000000007" r="12" fill="none" stroke="#1F2328" stroke-width="1.5" />
+  <circle cx="192.05700000000002" cy="417.30000000000007" r="8" fill="#1F2328" stroke="none" />
+</g>
+<g class="node" data-id="_end2" data-label="" data-shape="state-end">
+  <circle cx="64.68700000000001" cy="292.1" r="12" fill="none" stroke="#1F2328" stroke-width="1.5" />
+  <circle cx="64.68700000000001" cy="292.1" r="8" fill="#1F2328" stroke="none" />
+</g>
+</g><text x="16" y="530.3" font-family="Inter" font-size="11" fill="#9AA1A9">States as at November 2026</text></svg>

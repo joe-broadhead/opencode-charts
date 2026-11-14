@@ -608,7 +608,7 @@ describe("typed theme tokens through the one theme reader", () => {
     const { inputSchema } = await import("../src/registry.ts")
     const theme = (inputSchema("theme_save").properties as Record<string, any>).theme
     expect(theme.additionalProperties).toBe(false)
-    expect(Object.keys(theme.properties).sort()).toEqual(["axis", "colors", "description", "extends", "font", "layout", "legend", "marks", "mode", "name"])
+    expect(Object.keys(theme.properties).sort()).toEqual(["axis", "colors", "description", "extends", "font", "layout", "legend", "marks", "mode", "name", "seed", "variants"])
     expect(theme.properties.colors.additionalProperties).toBe(false)
     expect(theme.properties.colors.properties.categorical.type).toBe("array")
   })

@@ -314,10 +314,15 @@ describe("the theme definition projection (charts_theme_save and legacy theme ob
     return s instanceof z.ZodObject ? Object.entries(s.shape).flatMap(([k, v]) => leaves(v as z.ZodType, [...path, k])) : [path.join(".")]
   }
 
-  test("every canonical token, plus extends; nothing else", () => {
+  test("every canonical token, plus extends, seed and variants; nothing else", () => {
     const tokens = leaves(ThemeTokensSchema)
     const definition = leaves(ThemeDefinitionOverridesSchema)
-    expect(definition.filter(t => !tokens.includes(t))).toEqual(["extends"])
+    const extra = definition.filter(t => !tokens.includes(t))
+    expect(extra.every(t => t === "extends" || t.startsWith("seed.") || t.startsWith("variants."))).toBe(true)
+    expect(extra).toContain("extends")
+    expect(extra).toContain("seed.background")
+    expect(extra).toContain("variants.light.colors.background")
+    expect(extra).toContain("variants.dark.colors.background")
     expect(tokens.filter(t => !definition.includes(t))).toEqual([])
   })
 

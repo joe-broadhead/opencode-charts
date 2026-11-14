@@ -18,10 +18,14 @@ export interface RuntimeInteraction {
 
 export interface EChartsModule {
   readonly name: string
-  readonly kind: "chart" | "component" | "renderer"
+  readonly kind: "chart" | "component" | "feature" | "renderer"
   /** Series types a chart module draws. */
   readonly series?: readonly string[]
-  /** Top-level option keys a component module reads. */
+  /**
+   * Top-level option keys a component module reads. A key listed here is supported in an authored option; a module
+   * registered without `options` is there for the generated options of `engines/echarts-custom.ts`, and an authored
+   * option that names its key is still refused with what to do instead.
+   */
   readonly options?: readonly string[]
   /** Registered for the static SVG (server-side rendering, no DOM). */
   readonly server: boolean
@@ -51,7 +55,9 @@ export const ECHARTS_MODULES = [
   { name: "TreeChart", kind: "chart", series: ["tree"], server: true, browser: true },
   { name: "TreemapChart", kind: "chart", series: ["treemap"], server: true, browser: true },
   { name: "AriaComponent", kind: "component", options: ["aria"], server: true, browser: true },
+  { name: "BrushComponent", kind: "component", server: true, browser: true },
   { name: "CalendarComponent", kind: "component", options: ["calendar"], server: true, browser: true },
+  { name: "DataZoomComponent", kind: "component", server: true, browser: true },
   { name: "DatasetComponent", kind: "component", options: ["dataset"], server: true, browser: true },
   { name: "GraphicComponent", kind: "component", options: ["graphic"], server: true, browser: true },
   { name: "GridComponent", kind: "component", options: ["grid", "xAxis", "yAxis"], server: true, browser: true },
@@ -59,15 +65,21 @@ export const ECHARTS_MODULES = [
   { name: "MarkAreaComponent", kind: "component", server: true, browser: true },
   { name: "MarkLineComponent", kind: "component", server: true, browser: true },
   { name: "MarkPointComponent", kind: "component", server: true, browser: true },
+  { name: "MatrixComponent", kind: "component", options: ["matrix"], server: true, browser: true },
   { name: "ParallelComponent", kind: "component", options: ["parallel", "parallelAxis"], server: true, browser: true },
   { name: "PolarComponent", kind: "component", options: ["polar", "angleAxis", "radiusAxis"], server: true, browser: true },
   { name: "RadarComponent", kind: "component", options: ["radar"], server: true, browser: true },
   { name: "SingleAxisComponent", kind: "component", options: ["singleAxis"], server: true, browser: true },
+  { name: "TimelineComponent", kind: "component", server: true, browser: true },
   { name: "TitleComponent", kind: "component", options: ["title"], server: true, browser: true },
   // Hover only exists in a browser; the static SVG has no tooltip to draw.
   { name: "TooltipComponent", kind: "component", options: ["tooltip"], server: false, browser: true },
   { name: "TransformComponent", kind: "component", server: true, browser: true },
   { name: "VisualMapComponent", kind: "component", options: ["visualMap"], server: true, browser: true },
+  // Features rather than components: the beeswarm jitter layout, and the transition that morphs marks between frames.
+  { name: "LabelLayout", kind: "feature", server: true, browser: true },
+  { name: "ScatterJitter", kind: "feature", server: true, browser: true },
+  { name: "UniversalTransition", kind: "feature", server: true, browser: true },
   { name: "SVGRenderer", kind: "renderer", server: true, browser: true },
 ] as const satisfies readonly EChartsModule[]
 
@@ -77,17 +89,20 @@ export type EChartsModuleName = (typeof ECHARTS_MODULES)[number]["name"]
 export const ECHARTS_SERIES_TYPES: ReadonlySet<string> = new Set(ECHARTS_MODULES.flatMap(m => ("series" in m ? [...m.series] : [])))
 
 /**
- * Top-level ECharts option keys that name a component neither runtime bundles, with what to do instead. An option
- * that uses one is refused (`ECHARTS_COMPONENT_UNSUPPORTED`) rather than drawn without it. `geo` and `bmap` are
- * refused earlier by the safety checks, as map components.
+ * Top-level ECharts option keys an authored option may not use, with what to do instead. An option that uses one is
+ * refused (`ECHARTS_COMPONENT_UNSUPPORTED`) rather than drawn without it: a static SVG has no zoom window to drag, no
+ * brush handle to move and no scrubber to click, so an option that asks for one would draw a control nobody can use.
+ * The `matrix` coordinate system is fully supported (a matrix draws without interaction), and the components behind
+ * `dataZoom`, `brush` and `timeline` are registered so the generated options of `engines/echarts-custom.ts` — a bar
+ * chart race and a bubble story, each frame also rendered to SVG — can use them. `geo` and `bmap` are refused earlier
+ * by the safety checks, as map components.
  */
 export const ECHARTS_UNBUNDLED: Readonly<Record<string, string>> = {
-  dataZoom: "Remove dataZoom: zooming and panning are not in this build's ECharts runtime. Draw the full range, or filter the rows to the period to show.",
-  brush: "Remove brush: brushing is not in this build's ECharts runtime. For a brushable chart use Vega-Lite with params: [{\"name\": \"brush\", \"select\": \"interval\"}] (charts_catalogue id interactive_brush).",
-  toolbox: "Remove toolbox: its zoom, brush, restore and save tools are not in this build's ECharts runtime; ask for png or svg output to save the chart.",
-  timeline: "Remove timeline: animated timelines are not in this build's ECharts runtime. Draw one chart per period, or use small multiples.",
-  matrix: "Remove matrix: the matrix coordinate system is not in this build's ECharts runtime. Use a heatmap on xAxis and yAxis instead.",
-  thumbnail: "Remove thumbnail: the overview thumbnail is not in this build's ECharts runtime.",
+  dataZoom: "Remove dataZoom: the output is a static SVG, so there is no zoom window to drag. Draw the full range, or filter the rows to the period to show.",
+  brush: "Remove brush: a static SVG has no brush handles to drag. For a brushable chart use Vega-Lite with params: [{\"name\": \"brush\", \"select\": \"interval\"}] (charts_catalogue id interactive_brush).",
+  toolbox: "Remove toolbox: its zoom, brush, restore and save tools are not part of a static output; ask for png or svg output to save the chart.",
+  timeline: "Remove timeline: a static SVG shows one frame of a timeline, so an authored timeline has no scrubber to click. Draw one chart per period, or build a bar chart race or a bubble story, which renders each frame for you.",
+  thumbnail: "Remove thumbnail: the overview thumbnail is not part of a static output.",
 }
 
 /** The interactions the ECharts runtime provides in interactive HTML. */

@@ -8,15 +8,24 @@ import { registerChartsRpc } from "./host/rpc.js"
 import { formatFailure, isChartsError } from "./errors.js"
 import type { Access } from "./permissions.js"
 import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
+import type { Json } from "./engines/common.js"
 import { registerStatusRpc } from "./status-rpc.js"
 import { buildStatus, commandTransform, formatStatus } from "./status.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, runTool, type ToolName } from "./tools.js"
 import { descriptor } from "./registry.js"
+import { publishHtmlArtifact } from "./artifact-bridge.js"
+import { createHostThemeStore, effectiveThemeInput, registerThemeRpc } from "./theme-rpc.js"
 import type { ThemeOverrides } from "./themes/tokens.js"
 
 export { PLUGIN_ID } from "./constants.js"
 import { PLUGIN_ID } from "./constants.js"
 export const SKILLS = ["charts", "charts-cookbook"] as const
+
+/**
+ * The creation tools Code Mode shows in its top-level catalog: draw a chart, draw a standard chart, draw a dashboard,
+ * a table or a diagram. The other tools (validate, update, recommend, capabilities, catalogue, themes) stay searchable.
+ */
+export const PINNED: ReadonlySet<ToolName> = new Set<ToolName>(["quick", "render", "board", "table", "diagram"])
 
 /** Plugin options (opencode.json `plugin` entry options). */
 export interface ChartsOptions {
@@ -77,6 +86,13 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
       const workspace = { directory: ctx.location.directory, projectDirectory: ctx.location.project.directory }
       const defaults = { ...(opts.theme ? { theme: opts.theme } : {}), ...(opts.locale ? { locale: opts.locale } : {}), outDir: opts.outDir ?? "outputs/charts" }
       const location = { location: { directory: ctx.location.directory } }
+      const hostThemes = createHostThemeStore()
+      const envForSession = (sessionID: string) => {
+        const synced = effectiveThemeInput(undefined, sessionID, hostThemes, defaults.theme)
+        if (synced === undefined) return toolEnv
+        if (typeof synced === "string") return { ...toolEnv, defaults: { ...defaults, theme: synced } }
+        return { ...toolEnv, configuredThemes: { ...toolEnv.configuredThemes, "host-synced": synced as ThemeOverrides }, defaults: { ...defaults, theme: "host-synced" } }
+      }
       // The environment every tool runs with, whether the model calls it or a script reaches it over the tools RPC.
       const toolEnv = { workspace, packageRoot, configuredThemes: opts.themes ?? {}, defaults }
       const status = () => buildStatus({
@@ -99,17 +115,26 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
             // that carries `output` from a tool that declares none. The schema is the registry's, which the tools RPC
             // validates the same result against.
             output: descriptor(name).output,
-            options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}` },
+            options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}`, ...(PINNED.has(name) ? { pinned: true } : {}) },
             execute: async (input: unknown, context: { sessionID: string; agent: string; messageID: string; id: string }) => {
               const assert = (action: string, resources: readonly string[]) =>
                 ctx.permission.assert({ sessionID: context.sessionID, agent: context.agent, source: { type: "tool", messageID: context.messageID, id: context.id }, action, resources: [...resources], save: ["*"] } as never)
               const assertFiles = async (action: "read" | "edit", resources: readonly string[]) => { await assert(action, resources) }
-              const env = { ...toolEnv, assertFiles }
+              const env = { ...envForSession(context.sessionID), assertFiles }
               // The tool's own action first, on every call: every tool is allowed by default, and access or a rule can narrow it.
               await assert(permissionOf(name), ["*"])
               try {
                 const result = await runTool(env, name, input)
-                return { output: result.output, content: result.content }
+                // A written HTML page is offered to the host's artifact surface when this release has one; the file is
+                // already on disk, so a host without it, or a publish that fails, changes nothing the caller sees.
+                let output = result.output
+                if (result.artifact) {
+                  try {
+                    const published = await publishHtmlArtifact(ctx, result.artifact)
+                    if (published?.url) output = { ...(output as Record<string, unknown>), artifactUrl: published.url } as Json
+                  } catch { /* the page stays a file */ }
+                }
+                return { output, content: result.content }
               } catch (error) {
                 if (isChartsError(error)) throw new ToolError({ message: error.message, metadata: { code: error.code, hint: error.hint, ...(error.path ? { path: error.path } : {}) } })
                 if (error && typeof error === "object" && "issues" in error && (error as { name?: string }).name === "ZodError") throw new ToolError({ message: formatFailure("INPUT_INVALID", `The input does not match the tool's parameters: ${(error as unknown as Error).message}`, "Check the tool's parameters and call it again."), metadata: { code: "INPUT_INVALID" } })
@@ -120,12 +145,14 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
         }
       })
       // The tools RPC: every tool, callable by a script with no model, with each method's class from the registry.
-      const stopRpc = await registerChartsRpc(ctx as never, { ctx, env: toolEnv, version })
+      const stopRpc = await registerChartsRpc(ctx as never, { ctx, env: toolEnv, envForSession, version })
       await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), status }))
       // The status RPC: the same model the command prints, so the dialog and a script read one source.
       const stopStatus = await registerStatusRpc(ctx.rpc, status, formatStatus)
+      const stopThemeRpc = await registerThemeRpc(ctx.rpc, hostThemes, { workspace, configured: opts.themes ?? {} })
       await ctx.skill.transform(editor => { for (const skill of skills) editor.add(skill as never) })
       return async () => {
+        await stopThemeRpc()
         await stopStatus()
         await stopRpc()
         await closeVegaWorker()

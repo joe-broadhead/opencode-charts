@@ -1,5 +1,8 @@
 # Chart reliability: engineering report
 
+> Historical record: this page is the v1 WP0–WP5 closure snapshot. Current v2 figures are in
+> [docs/status.md](../status.md).
+
 This report closes the chart reliability work (WP0–WP5). It records what changed and why, the public contract, the
 compatibility decisions, every acceptance item (A01–A34) with its status and evidence, the definition of done, the
 open product decisions, and what is known not to work. "Met" means a test that exercises the public path passes in

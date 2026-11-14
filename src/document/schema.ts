@@ -78,10 +78,50 @@ export const PresentationTokenOverridesSchema = partialTokens(ThemeTokensSchema,
  * keys: `extends` names the base theme, `name` and `description` are the saved theme's own. Layout width and height
  * stay, because a legacy chart is still sized by its theme.
  */
-export const ThemeDefinitionOverridesSchema = (partialTokens(ThemeTokensSchema, [], {}) as z.ZodObject)
-  // null is "no parent", as before the typed projection: the tokens apply over light, like an omitted extends.
-  .extend({ extends: z.string().trim().min(1).max(64).nullable().optional().describe("The theme these tokens change: a built-in or a saved one. Default (or null): light.") })
-  .describe("Theme tokens over a base theme: extends, name, description, colors, font, layout, axis, marks, legend. Every token optional; arrays replace whole; unknown keys are refused.")
+const SeedValueSchema = z.union([z.string().min(1).max(200), z.strictObject({ colorSpace: z.string().min(1).max(40), components: z.array(z.union([z.number(), z.literal("none")])).min(3).max(4), alpha: z.number().min(0).max(1).optional(), hex: z.string().max(16).optional() }), z.strictObject({ $type: z.literal("color").optional(), $value: z.record(z.string(), z.unknown()) })])
+
+export const StrictThemeSeedSchema = z.strictObject({
+  mode: z.enum(["light", "dark"]).optional(),
+  scheme: z.enum(["light", "dark"]).optional(),
+  background: SeedValueSchema.optional(),
+  surface: SeedValueSchema.optional(),
+  ground: SeedValueSchema.optional(),
+   raised: SeedValueSchema.optional(),
+  foreground: SeedValueSchema.optional(),
+  text: SeedValueSchema.optional(),
+  accent: SeedValueSchema.optional(),
+  primary: SeedValueSchema.optional(),
+  muted: SeedValueSchema.optional(),
+  border: SeedValueSchema.optional(),
+  grid: SeedValueSchema.optional(),
+  axis: SeedValueSchema.optional(),
+  series: z.array(SeedValueSchema).min(1).max(20).optional(),
+  positive: SeedValueSchema.optional(),
+  success: SeedValueSchema.optional(),
+  negative: SeedValueSchema.optional(),
+  danger: SeedValueSchema.optional(),
+  destructive: SeedValueSchema.optional(),
+  warning: SeedValueSchema.optional(),
+  neutral: SeedValueSchema.optional(),
+  highlight: SeedValueSchema.optional(),
+  font: z.string().min(1).max(200).optional(),
+  mono: z.string().min(1).max(200).optional(),
+  radius: z.union([z.number().min(0).max(40), z.string().min(1).max(32)]).optional(),
+})
+
+const BaseThemeVariantSchema = (partialTokens(ThemeTokensSchema, [], {}) as z.ZodObject).extend({
+  extends: z.string().trim().min(1).max(64).nullable().optional().describe("The theme these tokens change: a built-in or a saved one. Default (or null): light."),
+  seed: StrictThemeSeedSchema.optional().describe("UI host seed colours from which a complete OKLCH/CVD chart theme is synthesised."),
+})
+
+export const ThemeDefinitionOverridesSchema = BaseThemeVariantSchema
+  .extend({
+    variants: z.strictObject({
+      light: BaseThemeVariantSchema.optional(),
+      dark: BaseThemeVariantSchema.optional(),
+    }).optional().describe("Paired light and dark definitions for adaptive SVG and HTML surfaces."),
+  })
+  .describe("Theme tokens over a base theme: extends, name, description, colors, font, layout, axis, marks, legend, or a UI seed and paired light/dark variants. Every token optional; arrays replace whole; unknown keys are refused.")
 
 // ---------------------------------------------------------------------------------------------------------------
 // Pieces.

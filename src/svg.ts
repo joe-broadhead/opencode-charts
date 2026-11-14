@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import type { FontBook, FontResource } from "./fonts.js"
+import { parseFontStack, type FontBook, type FontResource } from "./fonts.js"
 
 const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 const unescapeXml = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d))).replace(/&amp;/g, "&")
@@ -42,6 +42,19 @@ export function accessible(svg: string, title: string, description: string): str
  */
 export function cssString(value: string): string {
   return `"${value.replace(/[\\"'<>&\u0000-\u001f\u007f\u2028\u2029]/g, ch => `\\${ch.codePointAt(0)!.toString(16)} `)}"`
+}
+
+/**
+ * A `font-family` value from a CSS font stack (`"Geist, Inter, sans-serif"`): the families are read with
+ * `parseFontStack`, every named one is quoted and escaped with `cssString`, and the stack ends on a generic keyword —
+ * the stack's own first generic, else `fallback` — so a hostile family name can never close the string, the
+ * declaration, the rule or the `<style>` element it sits in.
+ */
+export function cssFontStack(stack: string, fallback: "sans-serif" | "monospace" = "sans-serif"): string {
+  const { named, generic } = parseFontStack(stack)
+  const families = named.map(name => cssString(name))
+  families.push(generic === "mono" ? "monospace" : generic === "serif" ? "serif" : generic === "sans" ? "sans-serif" : fallback)
+  return families.join(",")
 }
 
 /** `@font-face` rules for approved font resources: each face's web bytes, with its own MIME type and `format()`. */

@@ -86,4 +86,11 @@ describe("docs/jelly.md", () => {
     for (const tool of jelly.tools) expect(doc).toContain(`\`${tool.name}\``)
     expect(doc).toContain("/charts-status")
   })
+
+  test("says each tool runs as declared at Allowed", () => {
+    expect(jelly.tools.every((tool) => tool.effect === "allow")).toBe(true)
+    expect(doc).toContain("- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode")
+    expect(jelly.tools).toHaveLength(12)
+    expect(doc).not.toMatch(/^- (Ask|Off): `/m)
+  })
 })

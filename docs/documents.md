@@ -44,6 +44,12 @@ an optional `format` and Vega-Lite `transform` list. Bindings name fields after 
 with their path (`DOCUMENT_INVALID`); a version other than 1 is `DOCUMENT_VERSION_UNSUPPORTED`. Nothing is stripped or
 downgraded.
 
+`motion` and `fps` are **call-level delivery inputs** (alongside `formats`, `scales`, `name`, `outDir`, `inspect`,
+`marks` and `svgText`), so a document call can also emit a CSS-animated `.svg` or `.gif` without changing its saved
+`.chart.json`. The five-part editorial frame (`kicker`, `subtitle`, `source`, `notes`) and `annotations` belong to the
+`spec`, `charts_table` and `charts_diagram` arms (which measure the frame around the drawing), and are refused with
+`INPUT_CONFLICT` alongside `document` so a saved document's outer `layout` size and `documentPath` replay stay exact.
+
 A recommended call:
 
 ```json
@@ -220,6 +226,28 @@ A document call (inline `document`, `documentPath`, or `charts_update`) publishe
 staged on the same file system, and the folder appears only when complete; a failure publishes nothing and removes
 its staging. An existing folder with the same name is verified file by file and reused, or refused if it differs.
 The result returns the exact paths.
+
+## BoardDocumentV1
+
+`charts_board` takes a second document, `BoardDocumentV1` (version 1), for a multi-panel dashboard:
+
+```json
+{
+  "version": 1,
+  "title": "Revenue, 2024",
+  "datasets": { "sales": { "path": "data/sales.csv" } },
+  "filters": [{ "id": "region", "label": "Region", "dataset": "sales", "field": "region", "control": "segmented" }],
+  "kpis": [{ "id": "revenue", "label": "Revenue", "dataset": "sales", "field": "revenue_eur", "aggregate": "sum", "format": "currency", "delta": { "value": 12.4, "label": "year on year" } }],
+  "panels": [{ "id": "trend", "title": "Revenue by month", "dataset": "sales", "span": 12, "chart": { "quick": { "type": "line", "x": "month", "y": "revenue_eur", "aggregate": "sum" } } }]
+}
+```
+
+It has strict, path-checked panels on a 12-column grid: `datasets` (inline rows or a workspace file), `filters`
+(`segmented`, `select`, `chips`, `range`, `search`), `kpis` with optional sparklines and deltas, optional `tabs`, and
+`panels` of charts or tables. The call writes a 2× static poster as `<name>.svg` and `<name>.png`, and one
+self-contained `<name>.board.html` with `@ui-sdk` chrome and cross-filtering; the filters narrow every panel from one
+in-memory cube, with no file re-read and no network access. A board is a document in its own right: it is not a
+`ChartDocumentV1` and it is not updated by `charts_update`.
 
 ## Compatibility
 

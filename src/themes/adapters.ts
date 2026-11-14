@@ -4,6 +4,15 @@ import type { ThemeTokens } from "./tokens.js"
 type Json = Record<string, unknown>
 const family = (name: string, fallback: string) => `${name}, ${fallback}`
 
+/**
+ * The one CSS rule that makes figures read as figures: tabular figures, so a column of numbers lines up and a label
+ * does not shift as a value changes. A frame injects it with a `<style>` element (`src/figure-frame.ts`), which resvg
+ * and every browser honour; the engines' own configs are left as they are, so a drawn chart's bytes do not change.
+ */
+export function tabularNumsCss(): string {
+  return "svg text, .chart-tabular { font-variant-numeric: tabular-nums; }"
+}
+
 /** Vega-Lite `config` from tokens. A spec's own `config` is merged over it, so a spec can still override anything. */
 export function vegaLiteConfig(t: ThemeTokens): Json {
   const sans = family(t.font.family, "sans-serif"), c = t.colors

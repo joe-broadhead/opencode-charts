@@ -8,7 +8,7 @@ import type { FigureNode } from "../figure.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "../pipeline.js"
 import { resolveAppearance } from "./appearance.js"
 import { PLANNER_LIMITS, type Conflict } from "./planner.js"
-import { LayoutUnsatisfiable, presentRecipe, refusalIssue, unsatisfiable, type Alternatives, type RecipePresentation } from "./present.js"
+import { LayoutUnsatisfiable, presentRecipe, refusalIssue, swapTurnsAxes, unsatisfiable, type Alternatives, type RecipePresentation } from "./present.js"
 import { LIMITS } from "../safety.js"
 import { compileRecipe } from "../recipes/compile.js"
 import type { CapturedRecipeChartV1 } from "../document/types.js"
@@ -118,23 +118,45 @@ export async function fitRecipe(prepared: Prepared, env: Environment, options: F
 const VERIFY_TRIES = 6
 
 /**
+ * The most drawings one refusal may make while restating its alternatives. A refusal is answered with sizes that were
+ * fitted and drawn, so the work grows with how far each estimate is from a size that draws; this keeps it bounded even
+ * for a canvas no chart could use (a 60 × 60 px panel), where every step of the search would fail. A realistic refusal
+ * needs a handful of drawings, well inside the budget; a pathological one stops early and names only what it proved.
+ */
+export const REFUSAL_RENDERS = 20
+
+/** Whether a size draws, or `undefined` when the budget for checking is spent (so nothing is claimed about it). */
+type Check = boolean | undefined
+
+/**
  * A refusal restated with alternatives that draw: the planner's estimate of each size is a starting point, and each is
  * fitted and drawn there (growing in steps when the drawing still refuses) before it is named. The planner can miss
- * part of a chart (a bubble's size key, say), so its estimate alone is never offered as a size that fits.
+ * part of a chart (a bubble's size key, say), so its estimate alone is never offered as a size that fits. Every claim
+ * the restated refusal makes was checked by drawing; a claim the budget could not check is left out.
  */
 async function verifiedRefusal(error: LayoutUnsatisfiable, prepared: Prepared, env: Environment, options: FitOptions): Promise<LayoutUnsatisfiable> {
   const found = error.basis.alternatives
   const settings = prepared.settings
   const layout = settings.layout!
   if (!found || !prepared.compilation) return error
-  const at = (p: Prepared, width: number, height: number) => fitOnce({ ...p, settings: { ...p.settings, layout: { ...p.settings.layout!, width, height } } }, env, { ...options, unverified: true }).then(() => true, (e: unknown) => { if (e instanceof LayoutUnsatisfiable) return false; throw e })
+  // Fast path: nothing the planner can offer, so there is nothing to draw and the refusal stands as it is.
+  const offered = found.own.w !== undefined || found.own.h !== undefined || found.swap !== undefined
+  if (!offered) return error
+  let budget = REFUSAL_RENDERS
+  const at = (p: Prepared, width: number, height: number): Promise<Check> => {
+    if (budget <= 0) return Promise.resolve(undefined)
+    budget -= 1
+    return fitOnce({ ...p, settings: { ...p.settings, layout: { ...p.settings.layout!, width, height } } }, env, { ...options, unverified: true }).then((): Check => true, (e: unknown): Check => { if (e instanceof LayoutUnsatisfiable) return false; throw e })
+  }
   // From the estimate, grow by doubling steps until a size draws, then bisect back (in 10 px) to the smallest that does.
-  const grow = async (fits: (size: number) => Promise<boolean>, start: number | undefined) => {
+  const grow = async (fits: (size: number) => Promise<Check>, start: number | undefined) => {
     if (start === undefined) return undefined
     let failed = start - 10, found: number | undefined
     for (let i = 0; i < VERIFY_TRIES && found === undefined; i++) {
       const size = Math.min(LIMITS.dimension, start + 10 * (2 ** i - 1))
-      if (await fits(size)) found = size
+      const drawn = await fits(size)
+      if (drawn === undefined) return undefined
+      if (drawn) found = size
       else if (size >= LIMITS.dimension) break
       else failed = size
     }
@@ -142,7 +164,9 @@ async function verifiedRefusal(error: LayoutUnsatisfiable, prepared: Prepared, e
     let best: number = found
     while (best - failed > 10) {
       const mid: number = failed + Math.ceil((best - failed) / 20) * 10
-      if (await fits(mid)) best = mid; else failed = mid
+      const drawn = await fits(mid)
+      if (drawn === undefined) return best
+      if (drawn) best = mid; else failed = mid
     }
     return best
   }
@@ -154,25 +178,34 @@ async function verifiedRefusal(error: LayoutUnsatisfiable, prepared: Prepared, e
   const swapped = found.swap ? swappedRecipe(prepared, found.swap.recipe) : undefined
   if (found.swap && !swapped) swap = undefined
   else if (found.swap && swapped) {
-    const here = found.swap.here && await at(swapped, layout.width, layout.height)
-    const need = here ? {} : {
-      w: await grow(w => at(swapped, w, layout.height), found.swap.need.w ?? layout.width),
-      h: await grow(h => at(swapped, layout.width, h), found.swap.need.h ?? layout.height),
+    // Drawn here first whatever the planner estimated: a different recipe can fit a size the planner refused for this
+    // one. An unverified "does not fit here" would be a claim the refusal could not stand behind: leave the swap out.
+    const here = await at(swapped, layout.width, layout.height)
+    if (here === undefined) swap = undefined
+    else {
+      const need = here ? {} : {
+        w: await grow(w => at(swapped, w, layout.height), found.swap.need.w ?? layout.width),
+        h: await grow(h => at(swapped, layout.width, h), found.swap.need.h ?? layout.height),
+      }
+      swap = { recipe: found.swap.recipe, here, need: { ...(need.w !== undefined ? { w: need.w } : {}), ...(need.h !== undefined ? { h: need.h } : {}) } }
     }
-    swap = { recipe: found.swap.recipe, here, need: { ...(need.w !== undefined ? { w: need.w } : {}), ...(need.h !== undefined ? { h: need.h } : {}) } }
   }
+  // A swap that needs exactly what the chart itself needs tells the reader nothing: leave it out.
+  if (swap && !swap.here && swap.need.w === own.w && swap.need.h === own.h && (swap.need.w !== undefined || swap.need.h !== undefined)) swap = undefined
   const verified: Alternatives = { ...(swap ? { swap } : {}), own: { ...(own.w !== undefined ? { w: own.w } : {}), ...(own.h !== undefined ? { h: own.h } : {}) } }
   return new LayoutUnsatisfiable([refusalIssue(settings, error.basis.conflicts, error.basis.measured, { found: verified, recipe: prepared.compilation.recipe })], { ...error.basis, alternatives: verified })
 }
 
-/** The same prepared chart as the other recipe of its family (its axis titles swapped, since they name physical axes). */
+/** The same prepared chart as the other recipe of its family (its axis titles swapped when the swap turns the axes). */
 function swappedRecipe(prepared: Prepared, recipe: string): Prepared | undefined {
   const chart = prepared.artifact.document.chart as CapturedRecipeChartV1
   const options = { ...(chart.options ?? {}) } as Record<string, unknown>
-  const [x, y] = [options.xTitle, options.yTitle]
-  delete options.xTitle; delete options.yTitle
-  if (typeof y === "string") options.xTitle = y
-  if (typeof x === "string") options.yTitle = x
+  if (swapTurnsAxes(prepared.compilation!.recipe)) {
+    const [x, y] = [options.xTitle, options.yTitle]
+    delete options.xTitle; delete options.yTitle
+    if (typeof y === "string") options.xTitle = y
+    if (typeof x === "string") options.yTitle = x
+  }
   try {
     const compilation = compileRecipe({ ...chart, recipe, options } as never, (prepared.rows ?? []) as Record<string, unknown>[], prepared.artifact.captured.categories ? { categoryDomain: prepared.artifact.captured.categories.domain } : {})
     return { ...prepared, compilation }

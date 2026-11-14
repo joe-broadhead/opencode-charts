@@ -1,5 +1,8 @@
 # Chart reliability: baseline and regression targets
 
+> Historical record: this page is the v1 WP0–WP5 baseline snapshot. Current v2 figures are in
+> [docs/status.md](../status.md).
+
 The reliability work starts from commit `5400172bc4b603f3cb6d0552f7a525dbc3674009` (`origin/master`). This file
 records the state of that commit, and maps each source finding (F1–F10) to the test that holds it and the work package
 that owns the fix.

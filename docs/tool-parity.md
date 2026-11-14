@@ -14,12 +14,19 @@ to hide a writer from a read-only agent.
 | `quick` | model | export | yes | yes |
 | `validate` | model | read | yes | yes |
 | `update` | model | export | yes | yes |
+| `board` | model | export | yes | yes |
+| `table` | model | export | yes | yes |
+| `diagram` | model | export | yes | yes |
 | `recommend` | model | read | yes | yes |
 | `capabilities` | model | read | yes | yes |
 | `catalogue` | model | read | yes | yes |
 | `themes` | model | read | yes | yes |
 | `theme_save` | model | export | yes | yes |
 
-There is no host audience: every tool here is for the model, and the two that a script most often wants
-(`validate`, `catalogue`) are `read`, so a script runs them with no prompt. `render`, `quick`, `update` and `theme_save` are
-`export`, so a script needs an agent rule that allows them (`docs/scripting.md`).
+There is no host audience: every tool here is for the model, and the reads a script most often wants (`validate`,
+`catalogue`, `themes`, `recommend`, `capabilities`) run with no prompt. `render`, `quick`, `update`, `board`, `table`,
+`diagram` and `theme_save` are the seven `export` tools, so a script needs an agent rule that allows any of them
+(`docs/scripting.md`).
+
+`charts.theme` is not a registry tool: it is a separate host-theme RPC contract (`docs/scripting.md`), so it has no
+row here and no class.

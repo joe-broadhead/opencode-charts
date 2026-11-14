@@ -61,7 +61,7 @@ describe("the tools RPC", () => {
   test("is registered as charts.tools, with one method per tool and no MCP method", () => {
     expect(registration?.contract.id).toBe("charts.tools")
     const methods = Object.keys(registration!.contract.methods).sort()
-    expect(methods).toEqual(["capabilities", "catalogue", "describe", "quick", "recommend", "render", "theme_save", "themes", "update", "validate"])
+    expect(methods).toEqual(["board", "capabilities", "catalogue", "describe", "diagram", "quick", "recommend", "render", "table", "theme_save", "themes", "update", "validate"])
   })
 
   test("describe reports each method's class, so a script can see what writes", async () => {

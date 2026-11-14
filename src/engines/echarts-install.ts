@@ -1,12 +1,14 @@
 import { BarChart, BoxplotChart, CandlestickChart, ChordChart, EffectScatterChart, FunnelChart, GaugeChart, GraphChart, HeatmapChart, LineChart, ParallelChart, PictorialBarChart, PieChart, RadarChart, SankeyChart, ScatterChart, SunburstChart, ThemeRiverChart, TreeChart, TreemapChart } from "echarts/charts"
-import { AriaComponent, CalendarComponent, DatasetComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, ParallelComponent, PolarComponent, RadarComponent, SingleAxisComponent, TitleComponent, TooltipComponent, TransformComponent, VisualMapComponent } from "echarts/components"
+import { AriaComponent, BrushComponent, CalendarComponent, DataZoomComponent, DatasetComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, MatrixComponent, ParallelComponent, PolarComponent, RadarComponent, SingleAxisComponent, TimelineComponent, TitleComponent, TooltipComponent, TransformComponent, VisualMapComponent } from "echarts/components"
+import { LabelLayout, ScatterJitter, UniversalTransition } from "echarts/features"
 import { SVGRenderer } from "echarts/renderers"
 import { ECHARTS_MODULES, type EChartsModuleName } from "../runtime-support.js"
 
 /** The class behind each module `runtime-support.ts` names: exactly those, no more, no fewer. */
 const CLASSES: Readonly<Record<EChartsModuleName, unknown>> = {
   BarChart, BoxplotChart, CandlestickChart, ChordChart, EffectScatterChart, FunnelChart, GaugeChart, GraphChart, HeatmapChart, LineChart, ParallelChart, PictorialBarChart, PieChart, RadarChart, SankeyChart, ScatterChart, SunburstChart, ThemeRiverChart, TreeChart, TreemapChart,
-  AriaComponent, CalendarComponent, DatasetComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, ParallelComponent, PolarComponent, RadarComponent, SingleAxisComponent, TitleComponent, TooltipComponent, TransformComponent, VisualMapComponent,
+  AriaComponent, BrushComponent, CalendarComponent, DataZoomComponent, DatasetComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, MatrixComponent, ParallelComponent, PolarComponent, RadarComponent, SingleAxisComponent, TimelineComponent, TitleComponent, TooltipComponent, TransformComponent, VisualMapComponent,
+  LabelLayout, ScatterJitter, UniversalTransition,
   SVGRenderer,
 }
 

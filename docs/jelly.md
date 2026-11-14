@@ -12,15 +12,16 @@ because that schema accepts no unknown keys.
 
 ## Tools and permissions
 
-9 tools are declared (5 read-only). Jelly's agents have no base "allow everything" rule, so this plugin's own
+12 tools are declared (5 read-only). Jelly's agents have no base "allow everywhere" rule, so this plugin's own
 default rules, which it puts after that rule, never reach them. Jelly writes each declared `ask` or `deny` as that
 tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
-`readOnly`. A declared `allow` changes nothing in Jelly.
+`readOnly`.
 
-- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode, the four that write files included:
-  `charts.render`, `charts.quick`, `charts.update` and `charts.theme_save` write charts under `outputs/charts/` (or the
-  folder a call names) and themes under `.charts/themes/`. They are declared not `readOnly`, so a read-only helper
-  never gets them, **Ask before changes** asks for them and **Read only** denies them.
+- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode, the seven that write files included:
+  `charts.render`, `charts.quick`, `charts.update`, `charts.board`, `charts.table`, `charts.diagram` and
+  `charts.theme_save` write charts, tables, diagrams and dashboards under `outputs/charts/` (or the folder a call names)
+  and themes under `.charts/themes/`. They are declared not `readOnly`, so a read-only helper never gets them,
+  **Ask before changes** asks for them and **Read only** denies them.
 - Off: none.
 - The other five, `charts.validate`, `charts.recommend`, `charts.capabilities`, `charts.catalogue` and
   `charts.themes`, write nothing and are declared `readOnly`.

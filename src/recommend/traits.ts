@@ -82,11 +82,11 @@ const funnelStages = (shape: Shape): string | undefined => {
 const TRAITS: readonly Trait[] = [
   // ---- comparison
   { id: "bar", tasks: ["compare_magnitude", "rank"], need: ["measure", "dimension"], want: ["part"], reads: 0.92, dropsSeries: true, aliases: ["bar", "column", "compare", "comparison", "vs", "versus"] },
-  { id: "horizontal_bar", tasks: ["rank", "compare_magnitude"], need: ["measure", "dimension"], reads: 0.94, dropsSeries: true, aliases: ["rank", "ranking", "top", "most", "least", "leaderboard", "sorted"], budget: { categories: 60 } },
+  { id: "horizontal_bar", tasks: ["rank", "compare_magnitude"], need: ["measure", "dimension"], reads: 0.94, dropsSeries: true, aliases: ["rank", "ranking", "top", "most", "least", "leaderboard", "sorted", "league table", "ranked"], budget: { categories: 60 } },
   { id: "grouped_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name && s.temporals.length === 0 ? "needs a second category to split by; the data has one" : undefined), tasks: ["compare_magnitude"], need: ["measure", "dimension", "series"], reads: 0.86, aliases: ["side by side", "grouped", "by subgroup", "compare groups"], budget: { series: 4, categories: 10 } },
   { id: "stacked_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name && s.temporals.length === 0 ? "needs a second category to split by; the data has one" : undefined), tasks: ["part_to_whole", "change_over_time"], need: ["measure", "dimension", "series"], reads: 0.8, aliases: ["stacked", "stack", "composition", "mix", "breakdown"], budget: { series: 5, categories: 12 } },
   { id: "normalized_bar", anti: s => (s.series && s.categories && s.series.name === s.categories.name && s.temporals.length === 0 ? "needs a second category to split by; the data has one" : undefined), tasks: ["part_to_whole"], need: ["measure", "dimension", "series"], reads: 0.78, aliases: ["share", "percent", "proportion", "100%", "normalized"], budget: { series: 5, categories: 12 } },
-  { id: "diverging_bar", tasks: ["compare_magnitude"], need: ["measure"], want: ["dimension"], reads: 0.84, aliases: ["gain", "loss", "change", "delta", "increase", "decrease", "positive negative"] },
+  { id: "diverging_bar", tasks: ["compare_magnitude"], need: ["measure"], want: ["dimension"], reads: 0.84, aliases: ["gain", "loss", "change", "delta", "increase", "decrease", "positive negative", "deviation", "variance", "diverging", "surplus", "deficit"] },
   { id: "lollipop", tasks: ["rank", "compare_magnitude"], need: ["measure", "dimension"], reads: 0.8, aliases: ["lollipop", "dot and stem"], budget: { categories: 30 } },
   { id: "dumbbell", tasks: ["compare_magnitude"], need: ["measure", "dimension", "series"], reads: 0.82, aliases: ["before and after", "dumbbell", "two values", "difference between"], budget: { series: 2, categories: 12 }, anti: s => (s.series && s.series.distinct === 2 ? undefined : "a dumbbell needs exactly two states per category") },
   { id: "dot_plot", tasks: ["compare_magnitude", "distribution"], need: ["measure", "dimension"], reads: 0.85, aliases: ["dot plot", "cleveland"], budget: { categories: 40 } },
@@ -133,7 +133,7 @@ const TRAITS: readonly Trait[] = [
   { id: "interactive_brush", tasks: ["relationship"], need: ["measure", "measure2"], reads: 0.9, aliases: ["select", "brush", "filter by selection", "interactive"] },
 
   // ---- flow, hierarchy
-  { id: "sankey", tasks: ["flow"], need: ["source", "target", "measure"], reads: 0.9, aliases: ["sankey", "flow", "where do they go", "movement between", "from and to"] },
+  { id: "sankey", tasks: ["flow"], need: ["source", "target", "measure"], reads: 0.9, aliases: ["sankey", "flow", "where do they go", "movement between", "from and to", "flussdiagramm"] },
   { id: "chord", tasks: ["flow"], need: ["source", "target", "measure"], reads: 0.72, aliases: ["chord", "mutual", "between groups both ways"] },
   { id: "network", tasks: ["relationship", "flow"], need: ["source", "target"], reads: 0.7, aliases: ["network", "graph", "connections", "who links to"] },
   { id: "tree", tasks: ["hierarchy"], need: ["key", "parent"], reads: 0.86, aliases: ["tree", "dendrogram", "org chart", "reports to", "structure"] },
@@ -143,25 +143,70 @@ const TRAITS: readonly Trait[] = [
   // ---- maps, text, finance
   { id: "choropleth_world", tasks: ["location", "compare_magnitude"], need: ["measure", "location"], reads: 0.86, anti: s => (s.location && s.location.kind === "us-state" ? "the data names US states, so the US map draws it" : undefined), aliases: ["world", "map", "by country", "countries", "geography"] },
   { id: "choropleth_us", tasks: ["location", "compare_magnitude"], need: ["measure", "location"], reads: 0.86, anti: s => (s.location && s.location.kind === "country" && /country|countries|nation|iso/i.test(s.location.name) ? "the data names countries, so the world map draws it" : undefined), aliases: ["us states", "united states", "state map", "america"] },
-  { id: "point_map", tasks: ["location", "relationship"], need: ["measure"], want: ["location"], reads: 0.8, aliases: ["locations", "on a map", "cities", "points on"] },
+  { id: "point_map", tasks: ["location", "relationship"], need: ["measure", "location"], reads: 0.8, aliases: ["locations", "on a map", "cities", "points on"] },
   { id: "word_cloud", tasks: ["distribution"], need: ["dimension"], reads: 0.4, aliases: ["word cloud", "most mentioned", "keywords", "text frequency"], anti: s => (s.measures.length > 0 ? "a word cloud needs text, not a measure; a bar chart ranks words exactly" : undefined) },
   { id: "candlestick", tasks: ["change_over_time", "distribution"], need: ["temporal", "open", "close"], reads: 0.88, aliases: ["candlestick", "ohlc", "open high low close", "stock", "price range"] },
+
+  // ---- the second wave: Plot statistics, cartograms, ECharts 6, tables and diagrams
+  { id: "hexbin", tasks: ["relationship", "distribution"], need: ["measure", "measure2"], reads: 0.84, aliases: ["hexbin", "hexagonal bin", "hexagon density", "2d density"], anti: s => (s.rows < 200 ? `${s.rows} points: a scatter plot keeps every value; hexagons are for hundreds of rows` : undefined) },
+  { id: "contour", tasks: ["distribution", "relationship"], need: ["measure", "measure2"], reads: 0.8, aliases: ["contour", "density contours", "isolines", "kde"], anti: s => (s.rows < 100 ? `${s.rows} points: too few for a density to have a shape; use a scatter plot` : undefined) },
+  { id: "beeswarm", tasks: ["distribution"], need: ["measure"], want: ["series"], reads: 0.87, aliases: ["beeswarm", "swarm", "one dot per", "dodged points"], budget: { categories: 30 } },
+  { id: "bollinger", tasks: ["change_over_time"], need: ["temporal", "measure"], reads: 0.84, aliases: ["bollinger", "moving average", "rolling average", "volatility band", "normal range"] },
+  { id: "difference_area", tasks: ["change_over_time", "compare_magnitude"], need: ["temporal", "measure", "measure2"], reads: 0.82, aliases: ["difference chart", "above and below", "actual vs plan", "surplus and deficit area"], anti: s => (s.columns.some(c => /(^|_)(plan|target|budget|forecast|expected|actual)($|_)/i.test(c.name)) ? undefined : "needs two series to shade between, such as plan and actual") },
+  { id: "waffle", tasks: ["part_to_whole"], need: ["measure"], want: ["part"], reads: 0.6, aliases: ["waffle", "unit chart", "square grid", "100 squares"], budget: { categories: 8 } },
+  { id: "arrow_change", tasks: ["compare_magnitude", "relationship"], need: ["measure", "measure2"], reads: 0.72, aliases: ["arrow change", "arrow chart", "vectors", "before and after arrows", "movement arrows"], budget: { categories: 12 } },
+  { id: "voronoi", tasks: ["relationship", "distribution"], need: ["measure", "measure2"], reads: 0.68, aliases: ["voronoi", "tessellation", "nearest neighbour"] },
+  { id: "ridgeline", tasks: ["distribution", "change_over_time"], need: ["measure"], want: ["series"], reads: 0.87, aliases: ["ridgeline", "ridge plot", "joyplot", "stacked density"], budget: { series: 8 } },
+  { id: "horizon", tasks: ["change_over_time"], need: ["temporal", "measure"], reads: 0.7, aliases: ["horizon chart", "folded time series", "compact trend"], budget: { series: 4 } },
+  { id: "cartogram_us_hex", tasks: ["location", "compare_magnitude"], need: ["measure"], want: ["location"], reads: 0.82, aliases: ["cartogram", "hex map", "state grid", "us hex"], anti: s => (s.columns.some(c => /postal|fips|state|abbr/i.test(c.name)) || (s.location?.kind === "us-state") ? undefined : "needs two-letter state codes (postal) to place each state on the grid") },
+  { id: "cartogram_eu_tile", tasks: ["location", "compare_magnitude"], need: ["measure"], want: ["location"], reads: 0.8, aliases: ["tile map", "tile grid", "europe tiles", "grid map"], anti: s => (s.columns.some(c => /iso_?3/i.test(c.name)) ? undefined : "needs ISO 3166 alpha-3 codes (iso3) to place each country on the grid") },
+  { id: "flow_map", tasks: ["flow", "location"], need: ["measure"], want: ["source", "target"], reads: 0.78, aliases: ["flow map", "great circle", "arc map", "flight map", "route map"] },
+  { id: "violin", tasks: ["distribution"], need: ["measure"], want: ["dimension"], reads: 0.88, aliases: ["violin", "violin plot", "kernel density", "density by group"], anti: s => (s.rows < 20 ? `${s.rows} values: a density needs more to take a shape; use a strip plot` : undefined) },
+  { id: "sparkline_matrix", tasks: ["change_over_time", "compare_magnitude"], need: ["measure"], want: ["dimension"], reads: 0.72, aliases: ["sparkline matrix", "kpi grid", "sparkline grid", "indicator grid"] },
+  { id: "pictorial_bar", tasks: ["compare_magnitude", "rank"], need: ["measure", "dimension"], reads: 0.84, aliases: ["pictorial bar", "icon bar", "picture bar", "symbol bar", "capped bar"], budget: { categories: 12 } },
+  { id: "theme_river", tasks: ["change_over_time", "flow"], need: ["temporal", "measure", "series"], reads: 0.8, aliases: ["theme river", "river chart", "flowing stream", "composition over time"], budget: { series: 8 } },
+  { id: "data_table", tasks: ["compare_magnitude", "rank"], need: ["measure"], want: ["dimension"], reads: 0.8, aliases: ["table", "data table", "data graphic", "numbers table", "publication table"], budget: { categories: 40 } },
+  { id: "kpi_table", tasks: ["compare_magnitude"], need: ["measure"], want: ["dimension"], reads: 0.78, aliases: ["kpi table", "scorecard", "target table", "balanced scorecard"], budget: { categories: 16 } },
+  { id: "flowchart", tasks: ["flow", "hierarchy"], need: [], want: ["source", "target"], reads: 0.78, aliases: ["flowchart", "flow chart", "process flow", "workflow", "decision tree"], budget: { categories: 20 } },
+  { id: "sequence_diagram", tasks: ["flow"], need: [], want: ["source", "target"], reads: 0.76, aliases: ["sequence diagram", "sequence chart", "interaction diagram", "protocol diagram", "call sequence"], budget: { categories: 12 } },
+  { id: "state_diagram", tasks: ["flow"], need: [], want: ["source", "target"], reads: 0.74, aliases: ["state diagram", "state machine", "lifecycle", "status transitions"], budget: { categories: 12 } },
+  { id: "er_diagram", tasks: ["hierarchy", "relationship"], need: [], reads: 0.76, aliases: ["er diagram", "entity relationship", "schema diagram", "erd"], budget: { categories: 16 } },
+  { id: "mindmap", tasks: ["hierarchy"], need: [], want: ["key", "parent"], reads: 0.66, aliases: ["mindmap", "mind map", "brainstorm map", "topic tree"], budget: { categories: 16 } },
+  { id: "org_chart", tasks: ["hierarchy"], need: [], want: ["key", "parent"], reads: 0.88, aliases: ["org chart", "organisation chart", "organization chart", "reporting line", "who reports to"], budget: { categories: 20 } },
+  { id: "fishbone", tasks: ["relationship", "hierarchy"], need: [], want: ["key", "parent"], reads: 0.7, aliases: ["fishbone", "ishikawa", "cause and effect", "root cause", "why did"], budget: { categories: 8 } },
 ]
 
 export const TRAITS_BY_ID: ReadonlyMap<string, Trait> = new Map(TRAITS.map(t => [t.id, t]))
 
-/** Words that mean a task, for a request written in English. The chart's own aliases are matched too. */
+/**
+ * Words that mean a task. The chart's own aliases are matched too.
+ *
+ * The list follows the Financial Times' Visual Vocabulary, which names what a figure is *for*: deviation, correlation,
+ * ranking, distribution, change over time, part-to-whole, magnitude, spatial and flow (plus hierarchy) are all here,
+ * in the words people use for them ("surplus/deficit", "league table", "spread", "journey"). Non-English requests are
+ * covered too: the common German, French and Spanish words for these tasks are listed with their accents folded, so
+ * "évolution", "evolución" and "evolution" are one word and none of them is reported as not understood.
+ */
 export const TASK_WORDS: Readonly<Record<Task, readonly string[]>> = {
-  change_over_time: ["trend", "over time", "time series", "timeline", "by month", "by week", "by day", "by year", "by quarter", "each month", "each week", "growth", "history", "since", "monthly", "weekly", "daily", "yearly", "trajectory", "change over"],
-  compare_magnitude: ["compare", "comparison", "versus", "vs", "against", "difference", "higher", "lower", "bigger", "smaller", "more than", "relative"],
-  rank: ["rank", "ranking", "top", "bottom", "most", "least", "best", "worst", "leaderboard", "order", "sorted", "which has the"],
-  part_to_whole: ["share", "proportion", "percent", "percentage", "split", "breakdown", "composition", "mix", "make up", "of the total", "part of"],
-  distribution: ["distribution", "spread", "histogram", "how many", "frequency", "range", "latency", "response time", "outliers", "shape of"],
+  // change over time (FT: "change over time", "evolution")
+  change_over_time: ["trend", "over time", "time series", "timeline", "by month", "by week", "by day", "by year", "by quarter", "each month", "each week", "growth", "history", "since", "monthly", "weekly", "daily", "yearly", "trajectory", "change over", "evolution", "evolve", "pace of change", "verlauf", "entwicklung", "tendance", "evolucion", "tendencia"],
+  // comparison and magnitude (FT: "magnitude", "deviation")
+  compare_magnitude: ["compare", "comparison", "versus", "vs", "against", "difference", "higher", "lower", "bigger", "smaller", "more than", "relative", "magnitude", "deviation", "variance", "surplus", "deficit", "surplus and deficit", "diverging", "variation", "upside", "downside", "umsatz", "vergleich", "abweichung", "comparaison", "comparacion", "variacion", "desviacion"],
+  // ranking (FT: "ranking", "league table")
+  rank: ["rank", "ranking", "top", "bottom", "most", "least", "best", "worst", "leaderboard", "order", "sorted", "which has the", "league table", "ranked", "ordering", "rangliste", "rangfolge", "classement", "clasificacion"],
+  // part to whole (FT: "part-to-whole", "composition")
+  part_to_whole: ["share", "proportion", "percent", "percentage", "split", "breakdown", "composition", "mix", "make up", "of the total", "part of", "part to whole", "share of the whole", "anteil", "zusammensetzung", "repartition", "composicion", "participacion", "reparto"],
+  // distribution and spread (FT: "distribution")
+  distribution: ["distribution", "spread", "histogram", "how many", "frequency", "range", "latency", "response time", "outliers", "shape of", "dispersion", "verteilung", "distribucion"],
+  // relationship and correlation (FT: "correlation")
   relationship: ["relationship", "related", "correlat", "affect", "depend", "drives", "predict", "scatter", "associated"],
-  correlation: ["correlat", "which fields", "move together", "matrix", "covary"],
-  flow: ["flow", "funnel", "conversion", "sankey", "where do", "come from", "go to", "movement", "drop off", "journey", "path through"],
-  hierarchy: ["hierarchy", "nested", "tree", "org", "reports to", "parent", "break down", "breakdown", "break it down", "structure", "department", "team"],
-  location: ["map", "geo", "country", "countries", "state", "states", "region on a", "location", "where in the world", "choropleth"],
+  correlation: ["correlat", "which fields", "move together", "matrix", "covary", "covariance", "correlation matrix", "korrelation", "correlacion"],
+  // flow and journey (FT: "flow")
+  flow: ["flow", "funnel", "conversion", "sankey", "where do", "come from", "go to", "movement", "drop off", "drop-off", "journey", "path through", "attrition", "pass through", "fluss", "flux", "flujo", "recorrido"],
+  // hierarchy (FT's "part-to-whole" charts, drawn as trees)
+  hierarchy: ["hierarchy", "nested", "tree", "org", "reports to", "parent", "break down", "breakdown", "break it down", "structure", "department", "team", "org chart", "org structure", "organisation structure", "hierarchie", "jerarquia"],
+  // spatial (FT: "spatial")
+  location: ["map", "geo", "country", "countries", "state", "states", "region on a", "location", "where in the world", "choropleth", "spatial", "geographic", "geography", "cartogram", "geografie", "geographie", "geografia"],
 }
 
 /** Mediums and how much they let a figure carry. A blank bound is unbounded. */

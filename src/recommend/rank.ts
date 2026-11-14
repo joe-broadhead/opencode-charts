@@ -26,7 +26,7 @@ export interface RecommendInput {
   readonly medium?: Medium
   readonly limit?: number
   readonly detail?: "standard" | "compact"
-  readonly engine?: "vega-lite" | "vega" | "echarts"
+  readonly engine?: "vega-lite" | "vega" | "echarts" | "plot" | "table" | "diagram"
 }
 
 export interface Suggestion {
@@ -64,20 +64,28 @@ const STOP = new Set(["the", "a", "an", "of", "by", "for", "and", "or", "to", "i
 const round = (n: number) => Number(n.toFixed(SCORING.scoreDecimals))
 
 /**
- * A stem, so "distributed" matches "distribution" and "trending" matches "trend". English only, deliberately: the
- * lexicon is English and says so; a stemmer that guessed at other languages would be worse than not trying.
+ * A stem, so "distributed" matches "distribution" and "trending" matches "trend". English morphology, applied to the
+ * folded word (see `fold`): the lexicon carries the other languages' task words whole, and a stemmer that guessed at
+ * their grammar would be worse than not trying.
  */
 const stem = (word: string) => word.toLowerCase().replace(/(ations|ation|ing|ed|es|s|ly)$/u, "").slice(0, 7)
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 
-/** The words of a request, lowercased, with stop words removed. */
+/**
+ * Lowercase, with the diacritics taken off: "évolution", "evolución" and "evolution" read as one word, and a request in
+ * French, Spanish or German is matched by the same lexicon as an English one. Only Latin letters are folded, so a
+ * column named with an accent still compares equal to the word a request used.
+ */
+const fold = (text: string) => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/gu, "")
+
+/** The words of a request, lowercased and folded, with stop words removed. */
 function words(text: string): string[] {
-  return text.toLowerCase().split(/[^a-z0-9_%€$£¥+.-]+/).filter(w => w.length > 1 && !STOP.has(w))
+  return fold(text).split(/[^a-z0-9_%€$£¥+.-]+/).filter(w => w.length > 1 && !STOP.has(w))
 }
 
 /** Which tasks the request names, and why. */
 export function inferTasks(request: string, known: readonly string[] = []): { tasks: { task: Task; evidence: string[] }[]; unmatched: string[]; ambiguous: string[] } {
-  const text = request.toLowerCase()
+  const text = fold(request)
   const tokens = words(request)
   const tasks: { task: Task; evidence: string[] }[] = []
   for (const [task, vocabulary] of Object.entries(TASK_WORDS) as [Task, readonly string[]][]) {
@@ -98,7 +106,7 @@ export function inferTasks(request: string, known: readonly string[] = []): { ta
 
 /** Which catalogue entries the request names outright. */
 function namedEntries(request: string): { id: string; word: string }[] {
-  const text = request.toLowerCase()
+  const text = fold(request)
   const found: { id: string; word: string }[] = []
   for (const [id, trait] of TRAITS_BY_ID) {
     for (const alias of trait.aliases ?? []) {

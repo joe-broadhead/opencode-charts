@@ -6,7 +6,7 @@ import { CATALOGUE, exampleCall } from "../src/catalogue.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { bundledFonts } from "../src/fonts.ts"
 import { renderChart } from "../src/pipeline.ts"
-import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
+import { BAR, portable, ROOT, ROWS, workspace } from "./helpers.ts"
 
 /**
  * Golden SVGs: every catalogue chart, in the default theme. A change in output is a reviewed change: run
@@ -16,12 +16,8 @@ import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
  * arcs, a map projection) can differ in its last digits, because the runtime's Math.sin and Math.atan2 come from the
  * platform; CI showed it on Linux and Intel macOS (66.29585392720165 against 66.29585392720162). So a golden that is
  * not byte-equal must still be equal with every number to 10 significant digits, and with the id prefix, which hashes
- * the content, set aside.
+ * the content, set aside: `portable` in helpers.ts.
  */
-const portable = (svg: string) =>
-  svg
-    .replace(/\bc[0-9a-f]{8}-(\d+)/g, "c-$1")
-    .replace(/-?\d+\.\d+(?:e[-+]?\d+)?/g, n => String(Number(Number(n).toPrecision(10))))
 const ws = workspace()
 afterAll(async () => { ws.cleanup(); await closeVegaWorker() })
 const GOLDEN = join(ROOT, "test", "golden")

@@ -54,7 +54,7 @@ describe("the registry", () => {
       for (const key of ["spec", "document", "documentPath", "expectedRevision"]) expect(Object.keys(schema.properties)).toContain(key)
       // One of three arms per call, so no arm is required by the transport schema; the tool refuses a mixture.
       expect(schema.required ?? []).not.toContain("spec")
-      expect(schema.properties.formats.items.enum).toEqual(["svg", "png", "html", "spec", "document"])
+      expect(schema.properties.formats.items.enum).toEqual(["svg", "png", "gif", "html", "spec", "document"])
     }
     const quick = inputSchema("quick") as { properties: Record<string, any>; required?: string[] }
     expect(Object.keys(quick.properties)).toContain("document")

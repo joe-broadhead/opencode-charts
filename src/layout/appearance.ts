@@ -27,19 +27,45 @@ type FontSizeToken = (typeof FONT_SIZE_TOKENS)[number]
 
 const half = (n: number) => Math.round(n * 2) / 2
 
+/** The canvas the type scale is designed on: the responsive inline panel every theme's sizes are drawn for. */
+const TYPE_REFERENCE_AREA = 720 * 420
+/** The most a larger canvas enlarges the heading, the subtitle and the axis titles. */
+const MAX_DISPLAY_SCALE = 1.4
+
+/**
+ * The typographic step a profile's canvas earns over the reference panel: 1 for a canvas of the reference size or
+ * smaller (so `inline` returns a theme unchanged), rising with the square root of the canvas's area and capped, so a
+ * report's 900 × 540 gets 1.27 and paper's 1000 × 650 the full 1.4.
+ */
+export function displayScale(profile: LayoutProfile): number {
+  const ratio = Math.sqrt((profile.width * profile.height) / TYPE_REFERENCE_AREA)
+  return ratio <= 1 ? 1 : Math.min(MAX_DISPLAY_SCALE, Math.round(ratio * 100) / 100)
+}
+
 /**
  * The profile's presentation defaults over a theme: every font size scaled by the same factor, so the smallest (the
  * label size) meets the floor and the theme's proportions stay; any size still under the floor is raised to it.
- * A theme that already meets the floor is returned unchanged.
+ * A theme that already meets the floor is returned unchanged on a canvas of the reference size.
+ *
+ * Once the label size meets the floor, a larger canvas also gets a proportional display step: the title, subtitle and
+ * axis title grow (never the labels, which sit at the readable floor where paper and screens want them) and the inner
+ * padding opens up, so a report or a print page is not an inline panel with more white around it.
  */
 export function profileTypography(base: ThemeTokens, profile: LayoutProfile): ThemeTokens {
   const floor = profile.minLabelSize
   const smallest = Math.min(...FONT_SIZE_TOKENS.map(k => base.font[k]))
-  if (smallest >= floor) return base
-  const factor = floor / smallest
+  const floorMet = smallest >= floor
+  const display = floorMet ? displayScale(profile) : 1
+  if (floorMet && display === 1) return base
+  const factor = floorMet ? 1 : floor / smallest
   const font = { ...base.font }
-  for (const k of FONT_SIZE_TOKENS) font[k] = Math.max(floor, half(base.font[k] * factor))
-  return { ...base, font }
+  for (const k of FONT_SIZE_TOKENS) {
+    const raised = base.font[k] * factor
+    // A label keeps to the floor; the heading, subtitle and axis title take the display step too.
+    font[k] = Math.max(floor, half(k === "labelSize" ? raised : raised * display))
+  }
+  const layout = display > 1 ? { ...base.layout, padding: half(base.layout.padding * (1 + (display - 1) / 2)) } : base.layout
+  return { ...base, font, layout }
 }
 
 export interface AppearanceInput {
