@@ -1813,8 +1813,16 @@ describe("the kit tests, whatever the ambient GITHUB_REPOSITORY and GIT_ variabl
     // A decoy repository that git would use if the tests inherited GIT_DIR and friends (as under `git rebase --exec`).
     const decoy = folder()
     const decoyGit = (...args) => spawnSync("git", args, { cwd: decoy, encoding: "utf8", env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" } })
+    // The decoy's one commit is made with plumbing: a porcelain `git commit` starts git's background auto-maintenance
+    // (detached, in newer git), which could write into the decoy's .git after the digest below and fail this test with
+    // nothing leaking. Auto-maintenance and auto-gc are off in the decoy as well.
     decoyGit("init", "-q", "-b", "master")
-    decoyGit("-c", "user.name=decoy", "-c", "user.email=decoy@example.invalid", "commit", "-q", "--allow-empty", "-m", "decoy")
+    decoyGit("config", "maintenance.auto", "false")
+    decoyGit("config", "gc.auto", "0")
+    const tree = decoyGit("write-tree").stdout.trim()
+    const commit = spawnSync("git", ["commit-tree", tree, "-m", "decoy"], { cwd: decoy, encoding: "utf8", env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_AUTHOR_NAME: "decoy", GIT_AUTHOR_EMAIL: "decoy@example.invalid", GIT_COMMITTER_NAME: "decoy", GIT_COMMITTER_EMAIL: "decoy@example.invalid" } }).stdout.trim()
+    assert.match(commit, /^[0-9a-f]{40}$/, "the decoy has a commit")
+    decoyGit("update-ref", "refs/heads/master", commit)
     const digestOf = (dir) => {
       const hash = createHash("sha256")
       const walk = (at) => {
