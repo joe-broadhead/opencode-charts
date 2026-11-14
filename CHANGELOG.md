@@ -3,6 +3,14 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- The Jelly page (`docs/jelly.md`) matches the declaration: every tool is declared `allow`, so at Allowed (the default)
+  the four tools that write files run without a prompt, as the README says. Ask before changes asks for them and Read
+  only denies them; the five reads run at every level. A test keeps the page from listing a tool as asked or off.
+
 ## [0.0.2] - 2026-11-13
 
 ### Added
