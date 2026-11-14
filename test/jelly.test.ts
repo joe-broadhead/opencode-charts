@@ -86,4 +86,12 @@ describe("docs/jelly.md", () => {
     for (const tool of jelly.tools) expect(doc).toContain(`\`${tool.name}\``)
     expect(doc).toContain("/charts-status")
   })
+
+  test("says each tool runs as declared at Allowed", () => {
+    // Every tool is declared allow, so the page lists no tool as asked or off at the default access.
+    expect(jelly.tools.every((tool) => tool.effect === "allow")).toBe(true)
+    expect(doc).toContain("All nine are declared `allow`")
+    expect(jelly.tools).toHaveLength(9)
+    expect(doc).not.toMatch(/^- (Ask|Off): `/m)
+  })
 })

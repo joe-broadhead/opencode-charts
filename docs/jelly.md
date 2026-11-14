@@ -17,11 +17,15 @@ default rules, which it puts after that rule, never reach them. Jelly writes eac
 tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
 `readOnly`. A declared `allow` changes nothing in Jelly.
 
-- Ask: `charts.render`, `charts.quick`, `charts.update` and `charts.theme_save`, which write files in the workspace:
-  charts under `outputs/charts/` (or the folder a call names), themes under `.charts/themes/`.
+All nine are declared `allow`, so at **Allowed** (`access: "all"`, the default) every tool runs without a prompt,
+the four that write files included:
+
+- Writers (`readOnly: false`): `charts.render`, `charts.quick`, `charts.update` and `charts.theme_save`, which write
+  files in the workspace: charts under `outputs/charts/` (or the folder a call names), themes under
+  `.charts/themes/`. At **Ask before changes** they ask, and at **Read only** they are denied.
+- Reads (`readOnly: true`): `charts.validate`, `charts.recommend`, `charts.capabilities`, `charts.catalogue` and
+  `charts.themes`, which write nothing. They run at every access level.
 - Off: none.
-- Everything else runs: `charts.validate`, `charts.recommend`, `charts.capabilities`, `charts.catalogue` and
-  `charts.themes`, which write nothing.
 
 Every call asserts its own action (`charts_render`, …) first, and "Always" allows that tool for the rest of the
 session. Before it writes, a tool also asks the host for `edit` on its output folder, and before it reads a data file,
