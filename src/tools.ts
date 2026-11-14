@@ -1,22 +1,26 @@
 import { basename } from "node:path"
 import { CATALOGUE, catalogueEntry, exampleCall } from "./catalogue.js"
 import { loadData } from "./data.js"
-import { ATLASES, type Json } from "./engines/common.js"
+import { ATLASES, isObject, type Json } from "./engines/common.js"
 import { ChartsError, SpecInvalid, formatIssues, suggest, type Issue } from "./errors.js"
 import { DocumentInvalid } from "./document/issues.js"
 import { documentFields, documentFormats, documentRequest, fitDocument, fittedIssues, issueMapper, legacyDocument, pickDelivery, resolveArtifact, resolveFresh, resolveUpdate, selectArm, type Arm, type ChartTool, type ResolvedDocument } from "./document-tool.js"
 import { PATCH_FIELDS } from "./document/patch.js"
 import type { FittedRecipe } from "./layout/fit.js"
 import { capabilities, describeCapabilities } from "./capabilities.js"
+import { parseBoardDocument } from "./board/schema.js"
+import { renderBoard } from "./board/render-board.js"
+import { bundledFonts } from "./fonts.js"
 import { localeIds } from "./locale.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "./pipeline.js"
+import { svgToPng } from "./png.js"
 import { quickSpec } from "./quick.js"
 import { recommend } from "./recommend/rank.js"
 import { isRecipeId, recipeCatalogue } from "./recipes/registry.js"
 import { figureJson, figureText } from "./figure.js"
 import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, type ToolName } from "./registry.js"
 import { builtinThemes, saveTheme, savedThemeNames, THEME_DIR } from "./themes/store.js"
-import { approveThemeChain, resolveThemeAsked } from "./themes/chain.js"
+import { approveThemeChain, resolveThemeAsked, resolveThemePairAsked } from "./themes/chain.js"
 
 export { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, type ToolName }
 
@@ -27,7 +31,12 @@ export interface ToolEnvironment extends Environment {
   readonly assertFiles: (action: "read" | "edit", resources: readonly string[]) => Promise<void>
 }
 export type Content = { type: "text"; text: string } | { type: "file"; uri: string; mime: string; name?: string }
-export interface ToolOutput { readonly output: Json; readonly content: Content[] }
+export interface ToolOutput {
+  readonly output: Json
+  readonly content: Content[]
+  /** The HTML page a render wrote, so the plugin can publish it to the host's artifact surface without reading the file. */
+  readonly artifact?: { readonly id: string; readonly title: string; readonly html: string; readonly svg?: string }
+}
 
 const SAVE_HINT = "To hand a file to the person, save it with your host's file-saving tool (in Jelly: jelly_file_save with the path); files under outputs/ are also kept when the turn ends."
 
@@ -36,8 +45,9 @@ function describeResult(r: RenderResult, wrote: boolean, issues: readonly Issue[
   const lines = [
     `${wrote ? "Rendered" : "Checked"} "${r.title}" (${r.engine}, theme ${r.theme}, ${r.width}×${r.height}px) in ${r.ms} ms.`,
     ...(r.markdown ? [`Show it inline: ${r.markdown}`] : []),
-    ...(wrote ? [`Files: ${[r.files.svg, ...r.files.png, r.files.html, r.files.spec, r.files.document].filter(Boolean).join(", ")}`] : []),
+    ...(wrote ? [`Files: ${[r.files.svg, ...r.files.png, r.files.gif, r.files.html, r.files.spec, r.files.document].filter(Boolean).join(", ")}`] : []),
     `What it shows: ${r.summary}`,
+    ...(r.ascii ? [`Structure:\n${r.ascii}`] : []),
     ...(r.notes.length ? [`Defaults applied: ${r.notes.join(" ")}`] : []),
     warnings.length ? `Warnings (${warnings.length}) — fix these before showing it:\n${formatIssues(warnings)}` : "No warnings.",
     `Layout: ${r.layout.texts} labels; ${r.layout.overlaps.length ? `${r.layout.overlaps.length} overlapping` : "none overlapping"}; ${r.layout.clipped.length ? `${r.layout.clipped.length} clipped` : "none clipped"}.`,
@@ -76,11 +86,14 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
       engine: result.engine, theme: result.theme, title: result.title, description: result.description, width: result.width, height: result.height,
       files: result.files, ...(result.markdown ? { markdown: result.markdown } : {}), summary: result.summary,
       warnings: issues.filter(i => i.level === "warning"), notes: result.notes, layout: result.layout,
+      ...(result.ascii ? { ascii: result.ascii } : {}),
       figure: figureJson(result.figure), ms: result.ms, ...extra, ...(shape.decorate?.(result, issues) ?? {}),
     }
     const content: Content[] = [{ type: "text", text: describeResult(result, write, issues) + (shape.note ? `\n${shape.note}` : "") + (extra.spec ? `\nSpec used (refine it with charts_render):\n${JSON.stringify(extra.spec)}` : "") }]
     if (show && result.preview) content.push(image(result.preview, `${result.title}.png`))
-    return { output, content }
+    // The page a render just wrote is offered to the host's artifact surface; a host without one publishes nothing.
+    const artifact = write && result.html && result.files.html ? { id: `charts-${result.files.html.replace(/[^\w.-]+/g, "-")}`, title: result.title, html: result.html, svg: result.svg } : undefined
+    return { output, content, ...(artifact ? { artifact } : {}) }
   } catch (error) {
     // A preflight issue of the shared pipeline already carries a tool path; spec issues are pointed into the call.
     if (error instanceof SpecInvalid && !write) return invalid([...(shape.preflight ?? []), ...error.issues.map(map)])
@@ -187,8 +200,99 @@ async function runUpdate(env: ToolEnvironment, input: Record<string, unknown>): 
 const generationNote = (formats: readonly string[]) => formats.includes("document") ? "The new generation holds its own .chart.json: update that one next, with the new revision." : "No .chart.json was written (document is not in formats), so this revision cannot be updated again."
 
 const pickOutputs = (input: Record<string, unknown>): Partial<RenderRequest> => {
-  const keys = ["theme", "locale", "currency", "currencyFields", "formats", "scales", "name", "title", "description", "outDir", "svgText", "seed", "width", "height", "marks"] as const
+  const keys = ["theme", "locale", "currency", "currencyFields", "formats", "scales", "name", "title", "description", "outDir", "svgText", "seed", "width", "height", "marks", "kicker", "subtitle", "source", "notes", "annotations", "motion", "fps"] as const
   return Object.fromEntries(keys.filter(k => input[k] !== undefined).map(k => [k, input[k]])) as Partial<RenderRequest>
+}
+
+/** The table spec a charts_table call describes: its columns and presentation, with the rows kept out of the spec. */
+const tableSpecOf = (input: Record<string, unknown>): Json => ({
+  columns: input.columns,
+  ...(input.title !== undefined ? { title: input.title } : {}),
+  ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
+  ...(input.kicker !== undefined ? { kicker: input.kicker } : {}),
+  ...(input.source !== undefined ? { source: input.source } : {}),
+  ...(input.notes !== undefined ? { notes: input.notes } : {}),
+  ...(input.rowGroupField !== undefined ? { rowGroupField: input.rowGroupField } : {}),
+  ...(input.summaryRow !== undefined ? { summaryRow: input.summaryRow } : {}),
+  ...(input.sortBy !== undefined ? { sortBy: input.sortBy } : {}),
+  ...(input.limit !== undefined ? { limit: input.limit } : {}),
+  ...(input.zebra !== undefined ? { zebra: input.zebra } : {}),
+  ...(input.highlightRows !== undefined ? { highlightRows: input.highlightRows } : {}),
+}) as Json
+
+/** The diagram spec a charts_diagram call describes: Mermaid source or a structured kind, never both. */
+const diagramSpecOf = (input: Record<string, unknown>): Json => ({
+  ...(input.dsl !== undefined ? { dsl: input.dsl } : {}),
+  ...(input.kind !== undefined ? { kind: input.kind } : {}),
+  ...(input.layout !== undefined ? { layout: input.layout } : {}),
+  ...(input.direction !== undefined ? { direction: input.direction } : {}),
+  ...(input.effect !== undefined ? { effect: input.effect } : {}),
+  ...(input.root !== undefined ? { root: input.root } : {}),
+  ...(input.nodes !== undefined ? { nodes: input.nodes } : {}),
+  ...(input.edges !== undefined ? { edges: input.edges } : {}),
+  ...(input.groups !== undefined ? { groups: input.groups } : {}),
+  ...(input.categories !== undefined ? { causes: input.categories } : {}),
+  ...(input.title !== undefined ? { title: input.title } : {}),
+  ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
+  ...(input.kicker !== undefined ? { kicker: input.kicker } : {}),
+  ...(input.source !== undefined ? { source: input.source } : {}),
+  ...(input.notes !== undefined ? { notes: input.notes } : {}),
+  ...(input.width !== undefined ? { width: input.width } : {}),
+  ...(input.height !== undefined ? { height: input.height } : {}),
+}) as Json
+
+/**
+ * charts_board: the document parsed with its JSON paths, every dataset file read with permission, and the four files
+ * published together. The poster PNG is the preview the model looks at, so it is rasterised from the same SVG the
+ * board wrote.
+ */
+async function runBoard(env: ToolEnvironment, input: Record<string, unknown>): Promise<ToolOutput> {
+  const given = isObject(input.board) ? input.board as Record<string, unknown> : {}
+  const board = parseBoardDocument({
+    ...given,
+    ...(input.theme !== undefined ? { theme: input.theme } : {}),
+    ...(input.locale !== undefined ? { locale: input.locale } : {}),
+    ...(input.currency !== undefined ? { currency: input.currency } : {}),
+  })
+  const paths = Object.values(board.datasets).map(dataset => dataset.path).filter((path): path is string => typeof path === "string")
+  if (paths.length) await env.assertFiles("read", paths)
+  const outDir = String(input.outDir ?? env.defaults.outDir)
+  await env.assertFiles("edit", [`${outDir}/*`])
+  const requested = Array.isArray(input.scales) ? input.scales as number[] : []
+  const scale = (requested[0] ?? 2) as 1 | 2 | 3
+  const result = await renderBoard(board, env, true, { ...(input.name !== undefined ? { name: String(input.name) } : {}), outDir, scale })
+  const warnings = result.issues.filter(issue => issue.level === "warning")
+  const output: Json = {
+    engine: "board", theme: result.theme, title: result.title, description: result.summary, width: result.width, height: result.height,
+    files: result.files, ...(result.markdown ? { markdown: result.markdown } : {}), summary: result.summary,
+    warnings, issues: result.issues as unknown as Json, panels: result.panels, rows: result.rows, ms: result.ms,
+  }
+  const text = [
+    `Rendered the board "${result.title}" (theme ${result.theme}, ${result.width}×${result.height}px, ${result.panels} panels, ${result.rows.toLocaleString("en-US")} rows) in ${result.ms} ms.`,
+    ...(result.markdown ? [`Show it inline: ${result.markdown}`] : []),
+    ...(result.files.board ? [`Files: ${[result.files.svg, result.files.png, result.files.html, result.files.board].filter(Boolean).join(", ")}`] : []),
+    ...(result.files.html ? [`Interactive dashboard (offline, self-contained): ${result.files.html}`] : []),
+    `What it shows: ${result.summary}`,
+    warnings.length ? `Warnings (${warnings.length}) — fix these before showing it:\n${formatIssues(warnings)}` : "No warnings.",
+    SAVE_HINT,
+  ].join("\n")
+  const content: Content[] = [{ type: "text", text }]
+  const show = input.inspect === true || ((input.inspect as boolean | undefined) === undefined && warnings.length > 0)
+  if (show) {
+    try {
+      const fonts = bundledFonts(env.packageRoot)
+      const { png } = await svgToPng(env.packageRoot, result.svg, fonts, 1, "Inter")
+      content.push(image(png, `${result.title}.png`))
+    } catch { /* a preview the host cannot rasterise leaves the files as they are */ }
+  }
+  return { output, content }
+}
+
+/** Delivery fields without the frame's own text, which a table or a diagram draws inside its spec. */
+const pickFrameless = (input: Record<string, unknown>): Partial<RenderRequest> => {
+  const picked = pickOutputs(input) as Record<string, unknown>
+  for (const key of ["kicker", "subtitle", "source", "notes"] as const) delete picked[key]
+  return picked as Partial<RenderRequest>
 }
 
 export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown): Promise<ToolOutput> {
@@ -200,6 +304,13 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
   }
   switch (name) {
     case "update": return runUpdate(env, input)
+    case "board": return runBoard(env, input)
+    case "table": return run(env, { spec: tableSpecOf(input), engine: "table", ...(input.data ? { data: input.data } : {}), ...pickFrameless(input) }, true, input.inspect as boolean | undefined)
+    case "diagram": {
+      // A diagram's name comes from its title, or from the effect a fishbone explains when it has no title.
+      const named = input.name === undefined && input.title === undefined && typeof input.effect === "string" ? { name: input.effect } : {}
+      return run(env, { spec: diagramSpecOf(input), engine: "diagram", ...named, ...pickFrameless(input) }, true, input.inspect as boolean | undefined)
+    }
     case "render": return run(env, { spec: input.spec as Json, ...(input.engine ? { engine: input.engine as RenderRequest["engine"] } : {}), ...(input.data ? { data: input.data } : {}), ...pickOutputs(input) }, true, input.inspect as boolean | undefined)
     case "validate": return run(env, { spec: input.spec as Json, ...(input.engine ? { engine: input.engine as RenderRequest["engine"] } : {}), ...(input.data ? { data: input.data } : {}), ...pickOutputs(input) }, false, (input.inspect as boolean | undefined) ?? true)
     case "quick": {
@@ -234,13 +345,22 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
     }
     case "themes": {
       const sources = { workspace: env.workspace, configured: env.configuredThemes }
+      if (input.seed !== undefined) {
+        const resolved = await resolveThemePairAsked(sources, { seed: input.seed as never }, paths => env.assertFiles("read", paths))
+        const { themeContrastIssues } = await import("./themes/contrast.js")
+        const warnings = themeContrastIssues(resolved.active)
+        return {
+          output: { theme: resolved.active as unknown as Json, ...(resolved.paired ? { paired: resolved.paired as unknown as Json } : {}), warnings: warnings as unknown as Json },
+          content: [{ type: "text", text: `Synthesised ${resolved.active.mode} theme from seed (${warnings.length ? `${warnings.length} contrast warnings` : "contrast checks pass"}):\n${JSON.stringify(resolved.active, null, 1)}` }],
+        }
+      }
       if (input.name) {
         const theme = await resolveThemeAsked(sources, String(input.name), paths => env.assertFiles("read", paths))
         return { output: { theme } as unknown as Json, content: [{ type: "text", text: `Theme ${theme.name}: ${theme.description ?? ""}\nTokens (copy any subset into a custom theme with "extends": "${theme.name}"):\n${JSON.stringify(theme, null, 1)}` }] }
       }
       const builtins = builtinThemes()
       const saved = savedThemeNames(sources)
-      return { output: { builtin: Object.values(builtins).map(t => ({ name: t.name, mode: t.mode, description: t.description })), saved, locales: localeIds(env.packageRoot) }, content: [{ type: "text", text: `Built-in themes:\n${Object.values(builtins).map(t => `- ${t.name} (${t.mode}): ${t.description}`).join("\n")}\nSaved themes: ${saved.length ? saved.join(", ") : "none"} (charts_theme_save makes one).\nFonts bundled: Inter, JetBrains Mono. A theme can add workspace .ttf/.otf files with font.files.` }] }
+      return { output: { builtin: Object.values(builtins).map(t => ({ name: t.name, mode: t.mode, description: t.description })), saved, locales: localeIds(env.packageRoot) }, content: [{ type: "text", text: `Built-in themes:\n${Object.values(builtins).map(t => `- ${t.name} (${t.mode}): ${t.description}`).join("\n")}\nSaved themes: ${saved.length ? saved.join(", ") : "none"} (charts_theme_save makes one from tokens or a UI seed).\nFonts bundled: Inter, Geist, JetBrains Mono, Geist Mono. A theme can add workspace .ttf/.otf files with font.files.` }] }
     }
     case "theme_save": {
       await env.assertFiles("edit", [`${THEME_DIR}/${input.name}.json`])

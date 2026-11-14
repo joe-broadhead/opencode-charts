@@ -140,13 +140,40 @@ export interface AlternativeContext {
 }
 
 /**
- * The recipes a refusal may offer in place of the one asked for: the same data, bindings and options, drawn the
- * other way round (a vertical bar's categories along the bottom, a horizontal bar's down the side).
+ * The recipes a refusal may offer in place of the one asked for: the same data, bindings and options, drawn another
+ * way. `swap` turns the chart on its side (a vertical bar's categories along the bottom become a horizontal bar's down
+ * the side), `keep` leaves the axes alone and changes how the marks are arranged (bars side by side become a stack),
+ * and `radial` draws a circle's slices as bars. Every swap names a recipe that takes the same bindings, so the same
+ * document compiles; the server draws each before a refusal names it.
  */
-const SWAPS: Readonly<Record<string, string>> = { bar: "horizontal_bar", horizontal_bar: "bar" }
+interface RecipeSwap {
+  readonly recipe: string
+  readonly axes: "swap" | "keep" | "radial"
+}
+const SWAPS: Readonly<Record<string, RecipeSwap>> = {
+  bar: { recipe: "horizontal_bar", axes: "swap" },
+  horizontal_bar: { recipe: "bar", axes: "swap" },
+  grouped_bar: { recipe: "stacked_bar", axes: "keep" },
+  pie: { recipe: "horizontal_bar", axes: "radial" },
+  donut: { recipe: "horizontal_bar", axes: "radial" },
+}
 
-/** The planner's view of the same data with its axes swapped: the category axis moves to the other side. */
-function swapAxes(planner: Omit<PlannerInput, "width">): Omit<PlannerInput, "width"> | undefined {
+/** Whether a swap turns the chart on its side, so its axis titles name the other physical axis. */
+export const swapTurnsAxes = (recipe: string): boolean => SWAPS[recipe]?.axes === "swap"
+
+/**
+ * The planner's view of the same data as the swapped recipe: the category axis moves to the other side, or stays where
+ * it is, or (for a pie or donut) becomes a horizontal bar's categories down the side.
+ */
+function swappedPlanner(planner: Omit<PlannerInput, "width">, how: RecipeSwap["axes"]): Omit<PlannerInput, "width"> | undefined {
+  if (how === "keep") return planner
+  if (how === "radial") {
+    const labels = planner.legend?.labels ?? []
+    if (labels.length < 2) return undefined
+    const { radial: _radial, legend: _legend, ...rest } = planner
+    // The value axis' tick labels are not known from a circle; the widest number is a starting point the check refines.
+    return { ...rest, x: { kind: "continuous", labels: ["9,999"] }, y: { kind: "discrete", labels } }
+  }
   const { x, y, ...rest } = planner
   if (!x || !y || x.kind === y.kind) return undefined
   return { ...rest, x: { kind: y.kind, labels: y.labels, ...(y.title ? { title: y.title } : {}) }, y: { kind: x.kind, labels: x.labels, ...(x.title ? { title: x.title } : {}) } }
@@ -185,9 +212,9 @@ export function layoutAlternatives(context: AlternativeContext, width: number, h
     h: smallest(size => fits(planner, width, size), above ? height : 0),
   })
   const swap = SWAPS[context.recipe]
-  const swapped = swap ? swapAxes(context.planner) : undefined
+  const swapped = swap ? swappedPlanner(context.planner, swap.axes) : undefined
   return {
-    ...(swap && swapped ? { swap: fits(swapped, width, height) ? { recipe: swap, here: true, need: {} } : { recipe: swap, here: false, need: sizes(swapped, false) } } : {}),
+    ...(swap && swapped ? { swap: fits(swapped, width, height) ? { recipe: swap.recipe, here: true, need: {} } : { recipe: swap.recipe, here: false, need: sizes(swapped, false) } } : {}),
     own: sizes(context.planner, measured || fits(context.planner, width, height)),
   }
 }

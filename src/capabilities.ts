@@ -31,8 +31,8 @@ export interface CapabilityView {
   readonly version: string
   readonly contract: string
   readonly namespace: string
-  /** `document` is the editable chart artifact (`<name>.chart.json`): plain JSON, so always available. */
-  readonly formats: { readonly svg: true; readonly png: boolean; readonly html: boolean; readonly spec: true; readonly document: true }
+  /** `document` is the editable chart artifact (`<name>.chart.json`): plain JSON, so always available. `gif` needs the same rasteriser a PNG does. */
+  readonly formats: { readonly svg: true; readonly png: boolean; readonly gif: boolean; readonly html: boolean; readonly spec: true; readonly document: true }
   readonly engines: readonly { readonly id: string; readonly draws: readonly string[]; readonly note?: string }[]
   readonly themes: readonly { readonly name: string; readonly mode: string; readonly categorical: { readonly published: number; readonly available: number; readonly generated: number }; readonly description?: string }[]
   readonly savedThemes: readonly string[]
@@ -146,11 +146,14 @@ export function capabilities(env: CapabilitySources): CapabilityView {
     version: packageVersion(env.packageRoot),
     contract: CONTRACT_VERSION,
     namespace: NAMESPACE,
-    formats: { svg: true, png, html, spec: true, document: true },
+    formats: { svg: true, png, gif: png, html, spec: true, document: true },
     engines: [
       { id: "vega-lite", draws: ["bar", "line", "area", "scatter", "histogram", "box plot", "heatmap", "pie and donut", "facets", "layers", "dual axis", "maps"], note: "Compiled to Vega and rendered in a worker with a wall-clock limit and a heap cap." },
       { id: "vega", draws: ["treemap", "sunburst", "tree and dendrogram", "force network", "word cloud"], note: "Vega's own wordcloud transform needs a canvas; this build ships a deterministic replacement with the same parameters." },
-      { id: "echarts", draws: ["sankey", "chord", "gauge", "funnel", "radial", "calendar heatmap", "candlestick", "radar", "parallel coordinates"], note: "Server-side SVG with no DOM. Renders in the calling thread; its layouts are bounded by their inputs." },
+      { id: "echarts", draws: ["sankey", "chord", "gauge", "funnel", "radial", "calendar heatmap", "candlestick", "radar", "parallel coordinates"], note: "Server-side SVG with no DOM. Renders in the calling thread; its layouts are bounded by their inputs; a timeline option becomes one frame per step, a GIF and a story page." },
+      { id: "plot", draws: ["hexbin", "contour", "beeswarm", "bollinger band", "difference area", "waffle", "arrow change", "voronoi", "ridgeline", "horizon", "hex cartogram", "tile cartogram", "geodesic flow map", "any Observable Plot mark"], note: "Observable Plot built server-side with a headless document, inside a seeded random so the same spec and seed give the same bytes." },
+      { id: "table", draws: ["publication table", "inline bar", "sparkline", "bullet", "delta pill", "badge", "heatmap cell", "summary row", "row groups", "spanners"], note: "One measured SVG sized to its content, plus the same table as an accessible HTML table; no label is clipped by construction." },
+      { id: "diagram", draws: ["flowchart", "sequence diagram", "state diagram", "class diagram", "ER diagram", "mindmap", "org chart", "fishbone", "architecture"], note: "Mermaid source parsed offline, or a structured recipe laid out here; every drawing also returns a Unicode outline for a terminal." },
     ],
     themes: Object.values(themes).map(t => ({ name: t.name, mode: t.mode, categorical: paletteReport(t), ...(t.description ? { description: t.description } : {}) })),
     savedThemes: saved,
@@ -172,7 +175,8 @@ export function capabilities(env: CapabilitySources): CapabilityView {
       "Interactive HTML lays text out with the browser's metrics, so it can differ from the SVG by a pixel or two.",
       "The word cloud places horizontal and vertical words only. In interactive HTML it is laid out by Vega's own word-cloud transform in the browser, so word positions can differ from the SVG and PNG.",
       `ECharts options cannot use ${Object.keys(ECHARTS_UNBUNDLED).join(", ")}: this build's ECharts runtime does not include them, so an option that does is refused (ECHARTS_COMPONENT_UNSUPPORTED).`,
-      "There is no PDF output and no Plotly or Mermaid input: the engines are Vega-Lite, Vega and ECharts.",
+      "There is no PDF output and no Plotly input, and no mp4 without ffmpeg installed: the engines are Vega-Lite, Vega, ECharts, Plot, tables and diagrams, and a GIF is built in-process.",
+      "A diagram's Mermaid support covers graph/flowchart, sequence, state, class and ER diagrams; other Mermaid kinds (gantt, pie, journey, git graph) are refused with the kinds that work, and the structured recipes cover mindmaps, org charts, fishbones and architecture flows.",
       `A categorical palette distinguishes up to ${MAX_SERIES} series; past a theme's published colours the rest are generated and are not a tested colour-blind-safe set.`,
     ],
     interactions: { html: HTML_INTERACTIONS, presets: RECIPE_INTERACTIONS, unsupported: Object.entries(ECHARTS_UNBUNDLED).map(([option, instead]) => ({ engine: "echarts" as const, option, instead })) },
@@ -201,7 +205,7 @@ export function capabilities(env: CapabilitySources): CapabilityView {
 
 /** The text form the model reads: the same facts, in the order they matter. */
 export function describeCapabilities(view: CapabilityView): string {
-  const formats = [view.formats.svg ? "SVG" : "", view.formats.png ? "PNG" : "", view.formats.html ? "HTML" : "", view.formats.spec ? "spec" : "", view.formats.document ? "document (.chart.json)" : ""].filter(Boolean)
+  const formats = [view.formats.svg ? "SVG" : "", view.formats.png ? "PNG" : "", view.formats.gif ? "GIF" : "", view.formats.html ? "HTML" : "", view.formats.spec ? "spec" : "", view.formats.document ? "document (.chart.json)" : ""].filter(Boolean)
   return [
     `Charts ${view.version} (contract ${view.contract}), ${view.catalogue.count} chart types.`,
     `Outputs: ${formats.join(", ")}.`,
