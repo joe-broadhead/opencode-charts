@@ -1,7 +1,8 @@
 # Repository rules
 
-This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode plugin that renders chart specs
-(Vega-Lite, Vega, ECharts) to SVG, PNG and offline HTML. The README is for users; `docs/` is the reference.
+This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode plugin that renders chart, table,
+diagram and dashboard documents (Vega-Lite, Vega, ECharts, Observable Plot, tables, diagrams) to SVG, PNG, GIF and
+offline HTML. The README is for users; `docs/` is the reference.
 
 - **Host.** Public `@opencode/plugin` APIs only; the tools RPC is the shared v2 module (`57377eb3…`), and its shared
   part is never edited here. `opencode.host` is `>=2.2.3 <2.3.0`, and `TESTED_HOSTS` in `src/status.ts` is the one list
@@ -13,12 +14,13 @@ This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode 
 - **Nothing from the network.** No URL, loader, image or CDN, in any output or at runtime.
 - **Catalogue.** Every entry renders with no warnings in `light`, and has a golden SVG. The cookbook skill is generated
   from the catalogue (`bun scripts/cookbook.ts`).
-- **Bundles.** `npm run build` writes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm` and `dist/browser/*`,
-  and regenerates THIRD_PARTY_NOTICES.md and `licenses/packages/`. Outputs import only `node:` builtins and
-  `@opencode/plugin`.
-- **Checks.** `npm run check` is the one command (see CONTRIBUTING.md): `build`, `typecheck`, `unit`, `browser`, `copies`,
-  `forbidden`, `icons`, `whitelist`, `jelly`, `actionlint`, `pack`, `evals` and `host`. Do not skip or weaken a stage to
-  get green.
+- **Bundles.** `npm run build` writes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm`, `dist/tui.js`,
+  `dist/gui.cjs` and `dist/browser/{vega,echarts,plot,ui}.js`, and regenerates THIRD_PARTY_NOTICES.md and
+  `licenses/packages/`. Outputs import only `node:` builtins and the host packages: `@opencode/plugin`,
+  `@opencode/plugin/*`, `@opentui/core`, `@opentui/solid`, `solid-js` and `solid-js/*`.
+- **Checks.** `npm run check` is the one command (see CONTRIBUTING.md): `build`, `typecheck`, `unit`, `kit`, `browser`,
+  `copies`, `forbidden`, `icons`, `whitelist`, `jelly`, `actionlint`, `pack`, `evals` and `host`. Do not skip or weaken
+  a stage to get green.
 - **Permissions.** Every tool is allowed by default; `src/permissions.ts` generates the block from the tool table and
   the `access` option, and `test/jelly.test.ts` keeps the Jelly declaration equal to it.
 - **Shared copies.** `test/support/jelly-kit.ts`, `test/support/jelly-settings.ts` and `scripts/check-icons.mjs` are the family's; never edit them here.

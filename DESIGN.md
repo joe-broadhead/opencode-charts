@@ -44,8 +44,8 @@ Read at `joe-broadhead/open-cowork@master` (shallow clone).
 | Dropped | Why | Replaced by |
 |---|---|---|
 | Specs returned as text for a client to render | A plugin in Jelly has no client renderer of its own. PNG capture in a browser is not deterministic across machines. | The plugin renders headless and writes files. |
-| One tool per template (19 tools) | Every chart cost the model a tool choice, and `custom_spec` was the escape hatch anyway. | One `charts_render` for any spec; `charts_quick` for the basics; a catalogue of 53 tested examples the agent adapts. |
-| `mermaid` | It needs a DOM to render, so it is not a chart engine for this plugin. | Left to whichever surface renders Mermaid. |
+| One tool per template (19 tools) | Every chart cost the model a tool choice, and `custom_spec` was the escape hatch anyway. | One `charts_render` for any spec; `charts_quick` for the basics; a catalogue of 79 tested examples the agent adapts. |
+| `mermaid` | open-cowork's renderer needed a DOM, so it was not a chart engine for a plugin with no client. | `charts_diagram`: five Mermaid kinds laid out offline through `beautiful-mermaid`, and four structured recipes. |
 | The ad-hoc dark map colours, `scheme: 'plasma'` promotion, `',.2f'` on every number | They fought the theme, and two decimals on every number reads badly. | Theme tokens and smart formats. |
 | The timeout race in `chart-renderer.ts` | Its own comment (audit #865) says a timer cannot interrupt Vega's synchronous dataflow. | A worker thread with a hard wall-clock limit and a heap cap (`src/engines/vega-pool.ts`). It is tested: a 6-million-row `impute` is killed after 1.5 s and the next render works (`test/safety.test.ts`). |
 
@@ -65,8 +65,17 @@ Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities
 
 **This repo follows all of it**, with two deliberate differences:
 
-1. **Data files in `dist/`.** Besides `index.js`, `dist/` has `vega-worker.js` (a worker needs its own file), `resvg.wasm` and `browser/{vega,echarts}.js` (inlined into HTML, never loaded by the plugin). The build compiles each file's SHA-256 into `index.js`, so a stale or swapped sibling is refused rather than used. The package's bundle rule allows these engine files beside the two entry bundles, and `NOTICE` names them. This answers the same in-place-update concern that makes the owner keep `dist/` to one file.
-2. **Minified bundles.** The bundles are minified with names kept: three chart engines would be 4.5 MB unminified. The TUI part is the exception: OpenCode cannot load the minified form of its host imports from a local-path install, so `dist/tui.js` is built with `minify: false`, and the build fails if it is minified.
+1. **Data files in `dist/`.** Besides `index.js`, `dist/` has `vega-worker.js` (a worker needs its own file),
+   `resvg.wasm`, `tui.js` and `gui.cjs` (the two client surfaces) and `browser/{vega,echarts,plot,ui}.js` (inlined
+   into HTML and the board page, never loaded by the plugin). The build compiles each file's SHA-256 into `index.js`,
+   so a stale or swapped sibling is refused rather than used. The package's bundle rule allows these engine files
+   beside the four entry bundles, and `NOTICE` names them. This answers the same in-place-update concern that makes
+   the owner keep `dist/` to one file.
+2. **Minified bundles.** The plugin, its worker and the browser runtimes are minified with names kept: six engines
+   unminified would be far larger than the 5.2 MB `index.js`. The client parts are the exception: OpenCode cannot load
+   the minified form of the TUI part's host imports from a local-path install, so `dist/tui.js` is built with
+   `minify: false`, and the build fails if it is minified; `dist/gui.cjs` is unminified CommonJS for the Web and
+   Desktop host, which supplies its own plugin and Solid.
 
 The plugin is MCP-free: an OpenCode plugin's own tools need no server process. There are no sign-ins.
 
@@ -80,9 +89,9 @@ From Jelly's plugin contract.
   - The owner's plugins already declared them on their `jelly` branches (now merged into each default branch), and so does this one: `jelly.summary` is "Charts, maps and diagrams…" and `jelly.icon` is `assets/icon.svg`, a clean SVG of `rect`, `path` and `circle` only, checked by `test/plugin.test.ts`.
   - **Jelly hard-codes nothing:** the title, summary and icon all come from the package.
 - **Sign-ins.** `plugin-sign-ins.ts`: none declared (`signIns: []`).
-- **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `catalogue` and `themes` are `readOnly: true` and `allow`, and `render`, `quick` and `theme_save` (which write files) are not read-only and are `ask`, as the plugin authors' standard requires of every local file write. The plugin's own default block (`src/permissions.ts`) gives the same effects in plain OpenCode, and each call asserts its own action so an `ask` prompts.
+- **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `recommend`, `capabilities`, `catalogue` and `themes` are `readOnly: true`, and the seven writers (`render`, `quick`, `update`, `board`, `table`, `diagram`, `theme_save`) are not. Every one is declared `allow`, the product decision recorded in `docs/jelly.md`: Jelly writes no `ask`, and the host's own rules and the plugin's `access` option do the narrowing. The plugin's own default block (`src/permissions.ts`) gives the same effects in plain OpenCode, and each call still asserts its own action and file rules.
 - **Saved files.** Jelly's `jelly_file_save` (called `jelly_artifact_save` until Jelly's rd266) reaches the host through the `jelly.core` RPC, which only Jelly's first-party plugin family can use. **A third-party plugin cannot save a file itself.** It does not need to: `docs/architecture/protocol.md` ("A file the agent wrote under `outputs/` in its workspace is kept when the turn settles") makes every file under `outputs/charts/` a saved file. The tool result also says how to save one now: "save it with your host's file-saving tool (in Jelly: `jelly_file_save` with the path)". OpenCode 2.2.5 has `ctx.experimental.artifact`, but the owner's plugins forbid it (utilities `AGENTS.md` Forbidden list), and Jelly's saved files are Jelly's own.
-- **Inline display.** Workspace images by markdown and sandboxed self-contained HTML with no network are planned; this version ships the PNG and the SVG.
+- **Inline display.** This version ships the PNG, SVG, GIF and self-contained HTML; Jelly draws the markdown image line, and the `./tui` and `./gui-experimental` surfaces draw a `chart` fence inline.
   - Every result carries `markdown: "![title](outputs/charts/<name>.png)"`. The PNG is pixel-exact everywhere; SVG text depends on the viewer's fonts unless `svgText: "paths"` or `"embed"` is used.
   - The HTML has a CSP of `default-src 'none'` without `unsafe-eval`, whose `script-src` is only the SHA-256 hashes of the page's own two scripts (so injected markup cannot run an inline handler, a `javascript:` URL or a script), inlined runtimes and data-URL fonts, and the static SVG as its first paint, so a frame that runs no script still shows the chart. The live chart replaces it only after it has started (status `ready`); otherwise the page says `failed` and keeps it.
 
@@ -90,24 +99,27 @@ From Jelly's plugin contract.
 
 | Need | Engine | Evidence |
 |---|---|---|
-| Statistical charts: bar, grouped and stacked, line, area, scatter, bubble, histogram, density, box, heatmap, layers, facets, dual axis, selections, maps | **Vega-Lite 6.5** compiled to Vega 6.4 | The grammar the owner used before; 40 catalogue types. |
+| Statistical charts: bar, grouped and stacked, line, area, scatter, bubble, histogram, density, box, heatmap, layers, facets, dual axis, selections, maps | **Vega-Lite 6.5** compiled to Vega 6.4 | The grammar the owner used before; 40 catalogue entries, 14 of them typed recipes. |
 | Layouts Vega-Lite cannot express: treemap, sunburst, tree or dendrogram, force network, word cloud | **Vega 6.4** | 5 catalogue types. Vega's own `wordcloud` needs a canvas and throws in Node (`vega-wordcloud.js:102`, `canvas.height = 1` on null); it is replaced by a deterministic drop-in transform with the same parameters (`src/engines/wordcloud.ts`). |
-| Gaps: Sankey, chord, gauge, funnel, calendar heatmap, candlestick, radar, parallel coordinates | **ECharts 6.1** server-side SVG (`init(null, theme, {ssr: true, renderer: "svg"})`, no DOM) | Vega templates exist for some of these (open-cowork's `sankey.ts` was 324 lines of hand layout), but ECharts' layouts are mature, and its SSR renderer measures text through a pluggable API (`setPlatformAPI({measureText})`), so it shares the bundled font metrics. Tree-shaken to the 20 series and 17 components used: 906 KB minified. Determinism: its `zrN-` id and class counters are global, so ids are renumbered per chart. |
+| Gaps: Sankey, chord, gauge, funnel, calendar heatmap, candlestick, radar, parallel coordinates, violin | **ECharts 6.1** server-side SVG (`init(null, theme, {ssr: true, renderer: "svg"})`, no DOM) | Vega templates exist for some of these (open-cowork's `sankey.ts` was 324 lines of hand layout), but ECharts' layouts are mature, and its SSR renderer measures text through a pluggable API (`setPlatformAPI({measureText})`), so it shares the bundled font metrics. Tree-shaken to the series and components used, including `matrix`; a `timeline` option becomes a story and a GIF. Determinism: its `zrN-` id and class counters are global, so ids are renumbered per chart. |
+| Statistical drawings Vega-Lite has no mark for: hexbin, contour, beeswarm, bollinger, difference area, waffle, ridgeline, horizon, US hex and Europe tile cartograms, geodesic flow maps | **Observable Plot 0.6** against a headless document | 13 catalogue types. Plot measures through a canvas-less DOM (`linkedom`); its force and flow layouts run inside a seeded `mulberry32`, so the same spec and seed give the same bytes. |
+| Publication tables: spanners, row groups, a summary row and inline nanoplots | **Table engine** (`src/engines/table.ts`) | One measured SVG sized to its content, plus the same rows as an accessible sortable HTML table. No label is clipped by construction. |
+| Diagrams: five Mermaid kinds and four structured recipes | **Diagram engine** (`src/engines/diagram.ts`) with `beautiful-mermaid` | Mermaid is parsed and laid out offline, with no DOM and no service; a structured recipe is laid out here. Every drawing also returns a Unicode outline. |
 
 Rejected:
 - A browser (Puppeteer or Playwright) for rendering: it brings a hundred megabytes and a process to supervise. A pinned headless Chromium is a development dependency only, for the `browser` check stage that runs the interactive HTML.
 - node-canvas: a native build per platform, and system fonts.
-- Mermaid: it needs a DOM.
+- Mermaid as a runtime service or in a DOM: `beautiful-mermaid` lays the five supported kinds out without either, and the other kinds stay refused rather than approximated.
 
 ## 5. Rendering
 
 - **SVG.** Vega's `View.toSVG()` with `renderer: "none"` and the deny-all loader, running in the worker; then ECharts `renderToSVGString()`.
 - **Fonts, identical everywhere.**
-  - Bundled: Inter (Regular, SemiBold) and JetBrains Mono, subset to Latin, Greek and Cyrillic with **OpenType layout features removed**. A string's width is then exactly the sum of its advances.
+  - Bundled: Inter, Geist, JetBrains Mono and Geist Mono (regular and semibold where the family has one), subset to Latin, Greek and Cyrillic with **OpenType layout features removed**. A string's width is then exactly the sum of its advances.
   - Vega's documented user hook (`textMetrics.width`, as vl-convert uses) and ECharts' `measureText` both measure with tables parsed from those files (`src/fonts.ts`). resvg draws with the same files and never reads a system font.
   - `test/output.test.ts` checks that the drawn width equals the measured width within 1.5 px over 35-character strings for every face. A subsetting bug that the test caught: name ID 16 had been dropped, so SemiBold drew as Regular.
 - **PNG.** `@resvg/resvg-wasm` 2.6.2 (MPL-2.0), wasm, not the native prebuild. The wasm is 2.4 MB, one file for linux-x64, linux-arm64 and macOS; each native prebuild is 3.5–4.4 MB (`@resvg/resvg-js-linux-x64-gnu` 4.38 MB, `darwin-arm64` 3.54 MB) and needs per-platform optional dependencies with glibc/musl selection. Speed is fine: passing only the faces an SVG uses (resvg parses every buffer it is given: 5 faces cost 232 ms, 2 faces 66 ms) puts a 2x PNG at about 60 ms.
-- **HTML.** The compiled Vega spec with an inlined Vega, vega-interpreter and vega-tooltip runtime (545 KB), or the ECharts option with an inlined ECharts runtime (895 KB). Vega evaluates expressions with vega-interpreter, so the page needs no `unsafe-eval`. The compact number format is bundled into both runtimes from the same source as the server's, so labels format the same as in the SVG.
+- **HTML.** The compiled Vega spec with an inlined Vega, vega-interpreter and vega-tooltip runtime, or the ECharts option with an inlined ECharts runtime, or the Plot spec with an inlined Plot runtime, or the board page with `@ui-sdk` chrome. Vega evaluates expressions with vega-interpreter, so the page needs no `unsafe-eval`. The compact number format is bundled into every runtime from the same source as the server's, so labels format the same as in the SVG.
 - **Determinism.** The same input gives byte-identical SVG on one platform (`test/output.test.ts` "determinism"). Across platforms, a coordinate computed with trigonometry (sunburst arcs, map projections) can differ in its last digits, because `Math.sin` and `Math.atan2` come from the platform: CI on Linux and Intel macOS gave `66.29585392720162` where macOS arm64 gives `…165`. The golden test is therefore byte-exact where the goldens were made, and elsewhere equal with every number to 10 significant digits:
   1. Vega mutates input rows in place (a force layout's second run starts from the first run's positions), so every render deep-clones its input.
   2. Ids and ECharts classes are renumbered in order of appearance, under a content-hash prefix, so they are stable, and two charts on one page never collide.
@@ -171,14 +183,18 @@ Rejected:
   - colours: background, text, muted, grid, axis; categorical, sequential and diverging palettes; positive, negative, neutral and highlight;
   - fonts: family, mono, sizes, title weight, and workspace font files;
   - layout, axis, marks and legend.
-- **One token set, three adapters** (`src/themes/adapters.ts`): the Vega-Lite config, the Vega config and the ECharts theme. A brand looks the same in every chart type.
-- **Built-in themes.** Palettes are published colour-blind-safe sets: Paul Tol "bright", Okabe–Ito (its yellow, 1.3:1 on white, swapped for Tol's wine), ColorBrewer RdBu, viridis. Every built-in passes its own contrast check (`test/themes-data.test.ts`).
-  - `light` (the default)
-  - `dark`
-  - `high-contrast`: heavier strokes
-  - `print`: greyscale-safe
-  - `presentation`: 16:9 with large type
-- **Brand themes.** A brand theme is not built in. Save one with `charts_theme_save`, or set it in the plugin's options, and use it by name like any other theme.
+- **One token set, every adapter** (`src/themes/adapters.ts`): the Vega-Lite config, the Vega config and the ECharts theme, while the Plot, table and diagram renderers read the same tokens directly. A brand looks the same in every chart type.
+- **Built-in themes.** Nine complete token sets, each passing its own contrast check (`test/themes-data.test.ts`):
+  - `light` (the default), `dark`;
+  - `high-contrast`: heavier strokes;
+  - `print`: greyscale-safe;
+  - `presentation`: 16:9 with large type;
+  - `geist` and `geist-dark`: the Vercel product palettes, with the Geist faces;
+  - `editorial-ft`: warm FT paper with Oxford blue and claret;
+  - `editorial-economist`: cool stone with the Economist's blue, cyan and red.
+  Palettes are published colour-blind-safe sets: Paul Tol "bright", Okabe–Ito (its yellow, 1.3:1 on white, swapped for Tol's wine), ColorBrewer RdBu, viridis, and the editorial ramps.
+- **The Universal Host-Theme Contract.** A host's seed — background, surface, text, muted, border, accent, series, font and radius — is normalised from CSS Color 4 (`oklch()`, `oklab()`, `hsl()`, space-separated `rgb()`, `color(display-p3 …)`) or a W3C DTCG `$value`, then synthesised in OKLCH into hue-locked hairlines, ramps and an eight-colour Machado-2009 CVD-safe ring. `variants` carries explicit light and dark; an adaptive SVG publishes both as `--cs-*` and follows `prefers-color-scheme` and `[data-theme]`. The live `charts.theme` RPC (`sync`, `get`, `clear`, `changed`) and `.charts/theme.json` supply a host theme without a saved file; interactive HTML and boards also accept it over `postMessage` or a `MessagePort`.
+- **Brand themes.** A brand theme is not built in. Save one with `charts_theme_save`, set it in the plugin's options, or derive it from a host seed, and use it by name like any other theme.
 - **Custom themes.** Tokens over any base with `"extends"`, inline per chart, saved by name (`charts_theme_save` writes `.charts/themes/<name>.json`) or set in the plugin's options (`themes: {name: tokens}`). A theme can add workspace `.ttf`/`.otf` files with `font.files`; they are measured and drawn like the bundled fonts.
 - **Colour tokens in specs.** Any string `"theme:<token>"` in a spec (for example `"theme:negative"` or `"theme:categorical.2"`) becomes the active theme's colour, so a spec stays on-brand in every theme.
 
@@ -192,14 +208,18 @@ Rune's `chart.rs` series hues, with the arithmetic in TypeScript.
 
 | Tool | Read-only | What it does |
 |---|---|---|
-| `charts_render` | no | Any spec (Vega-Lite, Vega, ECharts; detected), data, theme, locale and currency, to files under `outputs/charts/`. |
-| `charts_quick` | no | 14 basic types from field names. Returns the spec it built. |
+| `charts_render` | no | Any spec on any of the six engines (Vega-Lite, Vega, ECharts, Plot, table, diagram; detected), data, theme, locale and currency, to files under `outputs/charts/`, with `gif`, `motion`, the editorial frame and `annotations` on request. |
+| `charts_quick` | no | 14 basic types from a typed document. Returns the spec it built and the saved artifact. |
 | `charts_validate` | yes | The same checks and the PNG preview, with no files written, plus the figure tree. |
+| `charts_update` | no | A presentation patch to a saved artifact, published as a new immutable generation. |
+| `charts_board` | no | A `BoardDocumentV1` dashboard as a 2× poster (SVG and PNG) and one offline `.board.html` with `@ui-sdk` cross-filtering. |
+| `charts_table` | no | A publication data-graphic table with inline nanoplots, spanners, row groups and a summary row. |
+| `charts_diagram` | no | Five Mermaid kinds and four structured diagram recipes, as SVG, PNG and a Unicode outline. |
 | `charts_recommend` | yes | Which chart for a question, its data and its medium: a ranked shortlist with reasons, the encoding, and a ready `charts_render` call on the caller's columns. Never renders. |
 | `charts_capabilities` | yes | Exactly what this build can do, computed: formats, engines, themes and palette sizes, font coverage, data formats, limits, tools, and what is known not to work. |
-| `charts_catalogue` | yes | 53 chart types by family, and any one as a working call. |
-| `charts_themes` | yes | Built-in and saved themes, and any theme's full tokens. |
-| `charts_theme_save` | no | Saves a named workspace theme, after checking it and its contrast. |
+| `charts_catalogue` | yes | 79 chart, table and diagram types by family, and any one as a working call. |
+| `charts_themes` | yes | Built-in and saved themes, any theme's full tokens, and a theme synthesised and previewed from a host seed. |
+| `charts_theme_save` | no | Saves a named workspace theme, from tokens, a seed or a pair, after checking it and its contrast. |
 
 **One registry.** `src/registry.ts` defines each tool once — name, class, read-only flag, description, zod input — and
 the plugin's registration, the Jelly declaration, the tools RPC, `charts_capabilities` and `docs/tool-parity.md` are
@@ -209,11 +229,13 @@ projections of it. `test/registry.test.ts` fails when any of them drifts.
 that carries `output` from a tool that declares none (0.0.3's fix). The schema is a real one — the fields the tool
 returns, with `additionalProperties` open so a later field cannot fail a call — and the tools RPC validates each
 script's result against the same object, which also enforces the shared module's rule that an owned output schema may
-carry no `pattern`. A host case calls all nine tools on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 and asserts each result is accepted.
+carry no `pattern`. Host cases on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 call the tools and assert every result is accepted
+against the output schema it declares.
 
 **The tools RPC.** `charts.tools`, v2.1 of the family module, makes every tool a method with its class, so a script
-draws and checks charts with no model. The five reads need only an agent that allows them; the three that write need an
-allow rule, because an `ask` is refused before dispatch (a script has no one to answer it).
+draws, boards, tabulates and diagrams with no model. The five reads need only an agent that allows them; the seven
+writers need an allow rule, because an `ask` is refused before dispatch (a script has no one to answer it). The
+separate `charts.theme` RPC carries a live host theme and is not a registry tool.
 
 
 **Result.** Text for the model:
@@ -235,45 +257,39 @@ Structured `output` carries the same, for scripts. A `file` part carries the PNG
 ## 10. Plugin or machine libraries
 
 The `charts` skill tells the agent:
-- **Use the plugin** for standard charts, anything that must match a theme or brand, and anything that should be checked.
+- **Use the plugin** for standard or specialised charts, maps and cartograms, publication tables, diagrams, animated GIFs and multi-panel dashboards, anything that must match a theme or brand, and anything that should be checked.
 - **Use Python on the machine** (matplotlib, seaborn, plotly; a later version adds them) for bespoke analysis figures, for plots that come out of a processing script, or for library-only features.
 
 Both write to `outputs/`, so both become saved files the same way.
 
 ## 11. Proof
 
-- **Tests.** `npm test` runs 184 tests:
-  - golden SVGs for all 53 catalogue types;
+- **Tests.** `npm test` runs the suites in `test/`:
+  - golden SVGs for all 79 catalogue types;
   - determinism;
-  - PNG at 1, 2 and 3x;
+  - PNG at 1, 2 and 3×, and GIFs;
   - HTML with no network references;
   - font-metric parity;
   - every safety refusal, and the worker kill;
   - validation and lint teaching;
-  - themes, data formats;
+  - themes, host theme synthesis, data formats;
   - the built bundle loaded with a fake host;
   - the registry's projections of every surface (registry, palette, recommend, figure, RPC);
   - the tools RPC called through the fake host.
-- **Gallery.** `bun scripts/gallery.ts <dir>`: 67 charts (all 53 types, cycling the 7 themes, plus two charts in every theme), with an HTML contact sheet and contact-sheet PNGs.
+- **Gallery.** `bun scripts/gallery.ts <dir>`: 97 charts (all 79 types, cycling the 9 themes, plus two charts in every theme), with an HTML contact sheet and contact-sheet PNGs.
 - **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5 and 2.2.6 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
-- **Eval.** `bun eval/run.ts <dir>`: 30 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
-- **Advice eval.** `bun eval/recommend.ts`: 22 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
-- **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2x PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.
-- **Footprint.** Tarball 2.85 MB, unpacked 7.5 MB, no runtime dependencies.
-
-| File | Size |
-|---|---|
-| `resvg.wasm` | 2.4 MB |
-| `index.js` | 2.2 MB |
-| `vega-worker.js` | 0.9 MB |
-| `browser/*` | 1.4 MB |
-| `assets/fonts` | 0.4 MB |
-| `assets/data` | 0.3 MB |
+- **Eval.** `bun eval/run.ts <dir>`: 42 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
+- **Advice eval.** `bun eval/recommend.ts`: 21 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
+- **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2× PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.
+- **Footprint.** About 12.5 MB unpacked, no runtime dependencies, and `dist/index.js` about 5.2 MB: Vega, Vega-Lite, ECharts, Observable Plot, the table and diagram engines, and the PNG rasteriser are all bundled, so a render needs no network. `dist/resvg.wasm` is 2.4 MB of that.
 
 ## 12. Known limits
 
 - Text beyond Latin, Greek and Cyrillic (CJK, Arabic) has no bundled glyphs. A label that needs them gets
   `FONT_GLYPH_MISSING` naming each character; add a font with `theme.font.files`.
+- There is no PDF output and no Plotly input. Mermaid covers five diagram kinds; `gantt`, `pie`, `journey` and
+  `gitGraph` are refused with the kinds that work.
 - Interactive HTML lays text out with the browser's metrics, so it can differ by a pixel or two from the SVG.
 - The word cloud places horizontal and vertical words only.
-- ECharts renders in the calling thread. Its layouts are bounded by its inputs, so it does not have Vega's runaway transforms.
+- ECharts renders in the calling thread. Its layouts are bounded by its inputs, so it does not have Vega's runaway transforms. An authored `dataZoom`, `brush`, `toolbox`, `timeline` or `thumbnail` is refused in a static option; a `timeline` becomes a story and a GIF.
+- A board writes a static poster and an offline page; it does not fetch a later data file, and a GIF is capped at 60 frames of 1280 × 960.
