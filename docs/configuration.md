@@ -5,7 +5,7 @@ type is ignored and its default used.
 
 ```json
 {
-  "plugins": [["github:joe-broadhead/opencode-charts#v0.0.3", {
+  "plugins": [["github:joe-broadhead/opencode-charts#v0.0.4", {
     "theme": "light",
     "locale": "en-GB",
     "outDir": "outputs/charts",

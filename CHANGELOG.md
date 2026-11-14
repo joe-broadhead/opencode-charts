@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.0.4] - 2026-11-14
 
 The second generation of the plugin: three more tools, three more engines, and a host-theme contract that lets a
 reader's own colours reach a chart. The tool contract moves from 1.1.0 to 1.2.0 (`CONTRACT_VERSION`); the change is
