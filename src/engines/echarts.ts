@@ -7,6 +7,7 @@ import { echartsMarkupIssues } from "../safety.js"
 import type { FontBook } from "../fonts.js"
 import { profile as profileRows, type Profile, type Row } from "../data.js"
 import type { ResolvedLocale } from "../locale.js"
+import { withSeededRandom } from "../prng.js"
 import { echartsTheme } from "../themes/adapters.js"
 import type { ThemeTokens } from "../themes/tokens.js"
 import { compactFormat, compactSpec, deepMerge, isObject, type Json } from "./common.js"
@@ -30,6 +31,13 @@ export interface EChartsContext {
   readonly description?: string
   readonly width?: number
   readonly height?: number
+  /**
+   * Keep ECharts' own animations in the option the interactive page runs, even when the spec does not ask for them,
+   * so the page can play the entrance, a bar-chart race and a universal transition between frames. Off by default:
+   * the page shows the static SVG first and then a live chart, and a chart that animates on arrival draws into a frame
+   * the reader is already looking at. The static SVG never animates (`renderECharts` draws through `ssrOption`).
+   */
+  readonly animateHtml?: boolean
 }
 
 /** Prepares an ECharts option: rows as the dataset, theme defaults, locale number formats; checks dimensions. */
@@ -39,7 +47,11 @@ export function prepareECharts(input: Json, ctx: EChartsContext): { option: Json
   const width = typeof option.width === "number" ? option.width : ctx.width ?? ctx.theme.layout.width
   const height = typeof option.height === "number" ? option.height : ctx.height ?? ctx.theme.layout.height
   delete option.width; delete option.height; delete option.$schema
-  option.animation = false
+  // Animations belong to the interactive page: the static SVG is drawn from `ssrOption`, which turns them off, and
+  // the page mounts a live chart once the still picture is showing, so a chart that animates on arrival draws itself
+  // into a frame the reader can already see. An option that asks for animation keeps it, and `animateHtml` asks for
+  // it on a spec's behalf; anything else is drawn still, which is also what the page's first frame shows.
+  if (ctx.animateHtml !== true && option.animation !== true) option.animation = false
   const series = Array.isArray(option.series) ? option.series as Json[] : isObject(option.series) ? [option.series as Json] : []
   // A component neither runtime bundles would be dropped without a word, on the server and in the browser alike.
   for (const key of Object.keys(input)) if (Object.hasOwn(ECHARTS_UNBUNDLED, key) && input[key] !== undefined && input[key] !== null && input[key] !== false)
@@ -106,20 +118,61 @@ export function prepareECharts(input: Json, ctx: EChartsContext): { option: Json
   return { option, width, height, ...(datasetRows ? { profile: profileRows(datasetRows) } : {}), issues }
 }
 
-/** Renders an ECharts option to SVG on the server (no DOM), with the bundled font metrics. */
-export function renderECharts(option: Json, theme: ThemeTokens, fonts: FontBook, width: number, height: number): string {
+/**
+ * The option as a static drawing needs it: no animation (a PNG is one frame, so it shows the end state), and no
+ * timeline scrubber (a control nobody can click, at the bottom of a still picture). The caller's option is not
+ * changed, so the same prepared option still carries its animations into the interactive page.
+ */
+export function ssrOption(option: Json): Json {
+  const still = (timeline: unknown) => Array.isArray(timeline)
+    ? timeline.map(t => (isObject(t) ? { ...t, show: false } : t))
+    : isObject(timeline) ? { ...timeline, show: false } : timeline
+  const out: Json = { ...option, animation: false }
+  if (option.timeline !== undefined) out.timeline = still(option.timeline)
+  if (isObject(option.baseOption)) out.baseOption = ssrOption(option.baseOption as Json)
+  return out
+}
+
+/**
+ * zrender numbers its instance and its generated class names from counters shared by the whole process, so the same
+ * option rendered twice would differ in `zr12-cls-0` / `zr13-cls-0` alone. One chart is one instance: every instance
+ * id becomes `zr0` and every generated name is renumbered in order of first appearance, which makes two renders of
+ * the same option byte-identical. The pipeline's own id normalisation is unaffected, since it replaces whole ids and
+ * classes wherever they came from.
+ */
+function canonicalInstanceIds(svg: string): string {
+  const singles = new Map<string, number>(), classes = new Map<string, number>()
+  return svg
+    .replace(/\bzr\d+(?=-)/g, "zr0")
+    .replace(/\bzr0-(?:cls-)?\d+\b/g, token => {
+      const isClass = token.startsWith("zr0-cls-")
+      const seen = isClass ? classes : singles
+      let index = seen.get(token)
+      if (index === undefined) { index = seen.size; seen.set(token, index) }
+      return isClass ? `zr0-cls-${index}` : `zr0-c${index}`
+    })
+}
+
+/**
+ * Renders an ECharts option to SVG on the server (no DOM), with the bundled font metrics. `seed` (1 by default)
+ * drives `Math.random` for the render, so a beeswarm's jitter, a force layout and any other random placement are
+ * the same on every render: the same option and seed give the same bytes.
+ */
+export function renderECharts(option: Json, theme: ThemeTokens, fonts: FontBook, width: number, height: number, seed = 1): string {
   installMetrics(fonts)
   const name = `charts-${theme.name}`
   echarts.registerTheme(name, echartsTheme(theme))
-  const chart = echarts.init(null as never, name, { renderer: "svg", ssr: true, width, height })
-  try {
-    chart.setOption(option as never)
-    return chart.renderToSVGString()
-  } catch (error) {
-    throw new ChartsError("RENDER_FAILED", `ECharts could not render the option: ${(error as Error).message}`, "Check series types, data shapes and axes; charts_catalogue has a working example for each type.")
-  } finally {
-    chart.dispose()
-  }
+  return withSeededRandom(seed ?? 1, () => {
+    const chart = echarts.init(null as never, name, { renderer: "svg", ssr: true, width, height })
+    try {
+      chart.setOption(ssrOption(option) as never)
+      return canonicalInstanceIds(chart.renderToSVGString())
+    } catch (error) {
+      throw new ChartsError("RENDER_FAILED", `ECharts could not render the option: ${(error as Error).message}`, "Check series types, data shapes and axes; charts_catalogue has a working example for each type.")
+    } finally {
+      chart.dispose()
+    }
+  })
 }
 
 /** The ECharts option as interactive HTML needs it: functions dropped (the page re-creates the axis formats). */

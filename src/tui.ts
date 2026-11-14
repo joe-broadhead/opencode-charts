@@ -1,8 +1,11 @@
 import { Plugin } from "@opencode/plugin/tui"
+import { TextRenderable } from "@opentui/core"
 import { createSignal } from "solid-js"
 import { formatFailure } from "./errors.js"
 import { PLUGIN_ID } from "./constants.js"
 import { ChartsStatus } from "./status-rpc.js"
+import { ChartsThemeContract, applyTuiAnsiTheme, extractTuiThemeSeed, type ThemeSeedResult } from "./theme-contract.js"
+import { ChartBlockCache } from "./tui-chart.js"
 
 
 const TITLE = "Charts status"
@@ -30,13 +33,29 @@ export function viewMessage(result: { readonly status: { readonly text: string }
   return `${formatFailure("STATUS_UNAVAILABLE", "Could not read Charts status.", "Restart OpenCode, then run /charts.")}\n\n${KEYS}`
 }
 
-/** The members of the TUI context this view uses: no slot, one dialog, and the keymap layer. */
+/**
+ * The members of the TUI context this view uses: no slot, one dialog, the keymap layer, and — when the host publishes
+ * them — the Markdown code-block registry, the theme and the renderer that a chart block draws into. All three are
+ * optional so a host that does not publish them keeps the status dialog working.
+ */
 export interface ViewContext {
   readonly location: Context["location"]
   readonly client: Pick<Context["client"], "rpc">
   readonly data: Pick<Context["data"], "on">
   readonly ui: { readonly dialog: Pick<Context["ui"]["dialog"], "alert" | "set" | "clear"> }
   readonly keymap: Pick<Context["keymap"], "layer">
+  readonly markdown?: Pick<Context["markdown"], "registerCodeBlockRenderer">
+  readonly theme?: Context["theme"]
+  readonly themeMode?: Context["themeMode"]
+  readonly renderer?: Context["renderer"]
+}
+
+/**
+ * How wide a `chart` block draws: a little inside the renderer, which is measured in terminal columns, and never so
+ * wide that the plot's axis labels crowd the curve.
+ */
+export function chartBlockWidth(columns: number): number {
+  return Math.max(24, Math.min(88, Math.floor(columns) - 12))
 }
 
 export function setupView(context: ViewContext) {
@@ -79,6 +98,72 @@ export function setupView(context: ViewContext) {
   }
   const refresh = () => void show(true)
 
+  // The active TUI theme, read on each use: the chart block paints in these colours, and the seed is pushed to the
+  // server so an artifact rendered there matches the terminal. A host that publishes no theme keeps the plain block.
+  const readTheme = (): ThemeSeedResult | undefined => {
+    try {
+      if (context.theme === undefined && context.themeMode === undefined) return undefined
+      return extractTuiThemeSeed(context.theme, context.themeMode)
+    } catch {
+      return undefined
+    }
+  }
+  let pushed: string | undefined
+  /**
+   * Push the seed once per revision that the server accepted. Silent by design: an older server has no such contract
+   * and a mock has no such method, and neither may surface an error or a warning in the terminal. A revision is only
+   * remembered once the server says it applied it, so a refused or dropped call is retried on the next connection.
+   */
+  const pushTheme = async (): Promise<void> => {
+    const seed = readTheme()
+    if (seed === undefined || pushed === seed.revision) return
+    const revision = seed.revision
+    try {
+      const call = context.client.rpc(ChartsThemeContract).sync({ mode: seed.mode, theme: { seed: seed.seed }, revision }, context.location ? { location: context.location } : {})
+      const result = (await Promise.resolve(call)) as { readonly applied?: boolean; readonly ok?: boolean } | undefined
+      if (result?.applied === true || result?.ok === true) pushed = revision
+    } catch {
+      // Silent: the charts still draw, and the next `server.connected` tries again.
+    }
+  }
+  const themeStops: (() => void)[] = []
+  try {
+    // A server that restarted or reloaded came up with an empty registry, so every connection re-offers the theme.
+    const stop = context.data.on("server.connected", () => {
+      pushed = undefined
+      void pushTheme()
+    })
+    if (typeof stop === "function") themeStops.push(stop)
+  } catch {
+    // A host whose event bus refuses the listener simply never pushes.
+  }
+  void pushTheme()
+
+  // A ```chart fence is drawn from its JSON. While a model streams the fence its JSON is incomplete, so the cache
+  // keeps the last chart this block drew; before the first one parses the block falls back to plain text, and a block
+  // that never parses is never an error.
+  const charts = new ChartBlockCache()
+  const chartStops: (() => void)[] = []
+  const markdown = context.markdown
+  if (markdown && typeof markdown.registerCodeBlockRenderer === "function") {
+    const stop = markdown.registerCodeBlockRenderer("chart", (token) => {
+      const renderer = context.renderer
+      if (!renderer) return undefined
+      try {
+        const seed = readTheme()
+        const text = charts.update(token.text, { width: chartBlockWidth(renderer.width), height: 14, ansi: seed !== undefined })
+        if (!text) return undefined
+        // The renderer paints its series with ANSI 256-colour codes; with a host theme they are repainted in its colours.
+        const content = seed === undefined ? text : applyTuiAnsiTheme(text, seed.seed)
+        const foreground = typeof seed?.seed.text === "string" ? seed.seed.text : context.theme?.text.base
+        return new TextRenderable(renderer, { content, fg: foreground })
+      } catch {
+        return undefined
+      }
+    })
+    if (typeof stop === "function") chartStops.push(stop)
+  }
+
   // Called from setup itself, because keymap layers need the host's reactive owner. Global, because the palette and
   // slash completion list only the commands reachable from their own input mode.
   context.keymap.layer(() => ({
@@ -97,6 +182,8 @@ export function setupView(context: ViewContext) {
     ],
   }))
   return () => {
+    for (const stop of chartStops.splice(0)) stop()
+    for (const stop of themeStops.splice(0)) stop()
     unsubscribe()
     if (open === undefined) return
     open = undefined

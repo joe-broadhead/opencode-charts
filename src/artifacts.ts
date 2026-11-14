@@ -4,9 +4,9 @@ import { basename, join } from "node:path"
 import { ChartsError } from "./errors.js"
 import { ensureDirectory, type Workspace } from "./paths.js"
 
-/** One finished file of a render, held in memory until every requested file is ready. */
+/** One finished file of a render, held in memory until every requested file is ready. `board` is a board's own JSON document. */
 export interface Artifact {
-  readonly kind: "svg" | "png" | "html" | "spec" | "document"
+  readonly kind: "svg" | "png" | "gif" | "html" | "spec" | "document" | "board"
   /** The file name inside the output folder. */
   readonly file: string
   readonly bytes: string | Uint8Array

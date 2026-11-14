@@ -43,7 +43,15 @@ const RESOURCE_KEYS = new Set(["url", "href", "src", "link", "sublink", "loader"
 const EXPRESSION_KEYS = new Set(["expr", "signal", "calculate", "update", "test", "filter", "as_expr"])
 const EXTERNAL_STRING = /^\s*(?:https?:|ftp:|file:|data:(?!image\/svg\+xml)|javascript:|image:\/\/|\/\/)/i
 
-export type Engine = "vega-lite" | "vega" | "echarts"
+/**
+ * Every engine a spec may name. The first three are authored grammar (Vega-Lite, Vega, ECharts); the last three are the
+ * plugin's own: Observable Plot (`marks` with channels), the data-graphic table (`columns`) and the offline diagram
+ * (`dsl` or `kind`). One check covers them all, because all six are untrusted model output rendered in-process.
+ */
+export type Engine = "vega-lite" | "vega" | "echarts" | "plot" | "table" | "diagram"
+
+/** The engines whose specs are plain JSON with no expressions, and whose text is data rather than a reference. */
+const DATA_ONLY: ReadonlySet<Engine> = new Set<Engine>(["plot", "table", "diagram"])
 
 function refuse(detail: string, path: (string | number)[], hint: string): never {
   throw new ChartsError("SPEC_UNSAFE", detail, hint, pointer(path))
@@ -72,7 +80,9 @@ export function checkSpec(spec: unknown, engine: Engine) {
     if (!value || typeof value !== "object") return
     if (++objects > LIMITS.objectNodes) refuse(`The spec has more than ${LIMITS.objectNodes} objects.`, path, "Simplify the spec or move data to data.rows.")
     const record = value as Record<string, unknown>
-    const mark = record.mark ?? (engine === "vega" ? record.type : undefined)
+    // Vega names a mark with `type`, Plot with its mark's `type`, Vega-Lite with `mark`. ECharts series carry a `type`
+    // too but are checked against its own series list below.
+    const mark = record.mark ?? (engine === "vega" || engine === "plot" ? record.type : undefined)
     const markType = typeof mark === "string" ? mark : mark && typeof mark === "object" ? (mark as Record<string, unknown>).type : undefined
     if (typeof markType === "string" && markType.toLowerCase() === "image" && (engine !== "echarts")) refuse("Image marks are not allowed.", [...path, "mark"], "Use symbols, text or shapes instead of images.")
     if (engine === "echarts" && path[path.length - 2] === "series" && typeof record.type === "string" && !ECHARTS_SERIES_TYPES.has(record.type)) {
@@ -85,7 +95,8 @@ export function checkSpec(spec: unknown, engine: Engine) {
       const childPath = [...path, key]
       if (PROTOTYPE_KEYS.has(key)) refuse(`"${key}" is not allowed as a key: it sets an object's prototype instead of a property.`, childPath, "Rename that key; a spec never needs __proto__.")
       if (RESOURCE_KEYS.has(key) && child !== null && child !== undefined && child !== false && !(key === "url" && isAtlasData(record))) refuse(`"${key}" loads or links an external resource.`, childPath, key === "url" ? "Inline the rows with data.rows, read a workspace file with data.path, or use {\"atlas\": \"world-110m\"} for a map." : "Remove it; charts are static and self-contained.")
-      if (EXPRESSION_KEYS.has(key) && typeof child === "string") {
+      // Plot, table and diagram specs have no expression language: a string under one of those names there is text.
+      if (!DATA_ONLY.has(engine) && EXPRESSION_KEYS.has(key) && typeof child === "string") {
         if (++expressions > LIMITS.expressions) refuse(`The spec has more than ${LIMITS.expressions} expressions.`, childPath, "Simplify the spec.")
         if (child.length > LIMITS.expressionChars) refuse(`An expression is ${child.length} characters, over ${LIMITS.expressionChars}.`, childPath, "Split it into several calculate steps.")
       }

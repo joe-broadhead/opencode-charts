@@ -1,7 +1,5 @@
 import type { Issue } from "../errors.js"
 import type { InteractionDefaults } from "../document/defaults.js"
-import { recipeDefinition } from "../recipes/definitions.js"
-import type { RecipeId } from "../recipes/types.js"
 
 /**
  * Interaction presets for recipe documents: which presets a recipe has, which combinations are allowed, what each one
@@ -40,12 +38,6 @@ export function combinationIssues(effective: Partial<InteractionDefaults>): Issu
     path: `/interactions/${active[active.length - 1]}`,
     fix: `Combine legend highlight with x zoom (temporal line or area) or with the interval brush (scatter or bubble); tooltip combines with every preset. Keep one of ${active.join(" and ")}.`,
   }]
-}
-
-/** Which effective presets a recipe draws (a preset the recipe cannot have is refused earlier, by the schema). */
-export function supportedPresets(recipe: RecipeId) {
-  const def = recipeDefinition(recipe)
-  return { tooltip: true, legend: def.interactions.legendHighlight, zoom: def.interactions.zoomX, brush: def.interactions.brush }
 }
 
 export interface InteractionReport {
