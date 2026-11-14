@@ -1,9 +1,11 @@
 // Builds what the host loads, each file self-contained:
 //   dist/index.js         the plugin (Vega, Vega-Lite, ECharts, resvg's loader, hyparquet and zod bundled in)
 //   dist/tui.js           the terminal UI part: the status dialog, with the status model and the RPC contract inlined
+//   dist/gui.cjs          the Web and Desktop part: chart cards, their actions and the palette commands
 //   dist/vega-worker.js   the thread Vega renders in, with a time and memory limit
 //   dist/resvg.wasm       the PNG rasteriser
-//   dist/browser/*.js     the runtimes inlined into interactive HTML (never loaded by the plugin itself)
+//   dist/browser/*.js     the runtimes inlined into interactive HTML and the dashboard page: vega, echarts, plot, ui
+//                         (never loaded by the plugin itself)
 // OpenCode supplies @opencode/plugin at runtime, so it stays an import; the build fails if an output imports
 // anything else. The wasm and browser runtimes are data files read by path: their SHA-256 is compiled into
 // index.js, so a stale or swapped sibling is refused rather than used.
@@ -24,14 +26,17 @@ const MINIFIED_IMPORT = /\bfrom"|\bimport[{*]/
 rmSync(`${ROOT}dist`, { recursive: true, force: true })
 mkdirSync(`${ROOT}dist/browser`, { recursive: true })
 
-// 1. Browser runtimes for interactive HTML, from their entry files in src/browser/. The ECharts one registers the
-//    browser half of src/runtime-support.ts's module table; the Vega one carries vega-interpreter (released from the
-//    same Vega commit as vega 6.4.0), so the page evaluates expressions without generating code.
+// 1. Browser runtimes for interactive HTML and the dashboard page, from their entry files in src/browser/. The ECharts
+//    one registers the browser half of src/runtime-support.ts's module table; the Vega one carries vega-interpreter
+//    (released from the same Vega commit as vega 6.4.0), so the page evaluates expressions without generating code;
+//    Plot answers the pointer itself (`tip: true`); and the dashboard runtime is the dashboard controller.
+// The dashboard answers to `ui`, and its entry file is `ui-sdk.ts`; the chart engines' entries are named after them.
+const browserEntry = name => name === "ui" ? `${ROOT}src/browser/ui-sdk.ts` : `${ROOT}src/browser/${name}.ts`
 const browserHashes = {}
 const bundledInputs = new Set()
-for (const name of ["vega", "echarts"]) {
+for (const name of ["vega", "echarts", "plot", "ui"]) {
   const outfile = `${ROOT}dist/browser/${name}.js`
-  const r = await build({ entryPoints: [`${ROOT}src/browser/${name}.ts`], absWorkingDir: ROOT, bundle: true, format: "iife", platform: "browser", target: "es2020", minify: true, legalComments: "none", outfile, logLevel: "warning", metafile: true })
+  const r = await build({ entryPoints: [browserEntry(name)], absWorkingDir: ROOT, bundle: true, format: "iife", platform: "browser", target: "es2020", minify: true, legalComments: "none", outfile, logLevel: "warning", metafile: true })
   for (const input of Object.keys(r.metafile.inputs)) bundledInputs.add(input)
   browserHashes[name] = sha256(outfile)
 }
@@ -39,8 +44,9 @@ for (const name of ["vega", "echarts"]) {
 // 2. resvg's wasm.
 copyFileSync(`${ROOT}node_modules/@resvg/resvg-wasm/index_bg.wasm`, `${ROOT}dist/resvg.wasm`)
 
-// 3. The plugin, its worker and the TUI part. The plugin and worker are minified; the TUI part is not, because OpenCode
-//    cannot load the minified form of its host imports from a local-path install ("Cannot find package 'solid-js'").
+// 3. The plugin, its worker, the TUI part and the GUI part. The plugin and worker are minified; the TUI part is not,
+//    because OpenCode cannot load the minified form of its host imports from a local-path install ("Cannot find package
+//    'solid-js'"). The GUI part is CommonJS for the Web and Desktop host, which supplies its own plugin and Solid.
 const shared = {
   absWorkingDir: ROOT,
   outdir: "dist",
@@ -51,26 +57,31 @@ const shared = {
   target: "es2022",
   external: HOST,
   define: { RESVG_WASM_SHA256: JSON.stringify(sha256(`${ROOT}dist/resvg.wasm`)), BROWSER_RUNTIME_SHA256: JSON.stringify(browserHashes), RESVG_VERSION: JSON.stringify(JSON.parse(readFileSync(`${ROOT}node_modules/@resvg/resvg-wasm/package.json`, "utf8")).version) },
-  // Vega's optional node-canvas is never used (text is measured with the bundled fonts); keep it out.
-  alias: { canvas: `${ROOT}scripts/empty.mjs` },
+  // Vega's optional node-canvas is never used (text is measured with the bundled fonts); keep it out. `cssomnom`'s
+  // parser is only reached by a CSS path the chart engines never take, and its module is a large one: an empty stub
+  // keeps the same exports (`parse`) without carrying it.
+  alias: { canvas: `${ROOT}scripts/empty.mjs`, "cssomnom/parse": `${ROOT}scripts/empty.mjs` },
   keepNames: true,
   legalComments: "none",
   metafile: true,
   logLevel: "warning",
 }
-// Minified: the bundle carries three chart engines; names stay so stack traces still read.
+// Minified: the bundle carries the chart engines; names stay so stack traces still read.
 const plugin = await build({ ...shared, entryPoints: { index: "src/index.ts", "vega-worker": "src/engines/vega-worker.ts" }, minify: true })
 const tui = await build({ ...shared, entryPoints: { tui: "src/tui.ts" }, minify: false })
-const metafiles = [plugin.metafile, tui.metafile]
+// The GUI part keeps its names and its plain imports: the host reads the registries it declares, and `solid-js/h` stays
+// an external the host resolves. `outfile` replaces the shared `outdir`, since the extension is `.cjs`.
+const gui = await build({ ...shared, outdir: undefined, entryPoints: { gui: "src/gui.ts" }, format: "cjs", platform: "browser", outfile: `${ROOT}dist/gui.cjs`, minify: false })
+const metafiles = [plugin.metafile, tui.metafile, gui.metafile]
 for (const metafile of metafiles) for (const input of Object.keys(metafile.inputs)) bundledInputs.add(input)
 if (MINIFIED_IMPORT.test(readFileSync(`${ROOT}dist/tui.js`, "utf8"))) throw new Error("build: dist/tui.js is minified. OpenCode cannot load its host imports from a local-path install, so build the TUI part with minify: false.")
 for (const data of ["@resvg/resvg-wasm/index_bg.wasm", "world-atlas/package.json", "us-atlas/package.json", "i18n-iso-countries/package.json"]) bundledInputs.add(`node_modules/${data}`)
 writeNotices([...bundledInputs])
 const outputs = metafiles.flatMap((metafile) => Object.keys(metafile.outputs)).sort()
-if (outputs.join() !== "dist/index.js,dist/tui.js,dist/vega-worker.js") throw new Error(`build: expected dist/index.js, dist/tui.js and dist/vega-worker.js, got ${outputs.join(", ")}.`)
+if (outputs.join() !== "dist/gui.cjs,dist/index.js,dist/tui.js,dist/vega-worker.js") throw new Error(`build: expected dist/gui.cjs, dist/index.js, dist/tui.js and dist/vega-worker.js, got ${outputs.join(", ")}.`)
 const unexpected = metafiles.flatMap((metafile) => Object.entries(metafile.outputs)).flatMap(([file, output]) => output.imports.filter(entry => !allowed(entry.path)).map(entry => `${file}: ${entry.path}`))
 if (unexpected.length > 0) throw new Error(`build: outputs import modules the host does not supply:\n  ${unexpected.join("\n  ")}`)
-for (const file of ["dist/index.js", "dist/tui.js", "dist/vega-worker.js", "dist/resvg.wasm", "dist/browser/vega.js", "dist/browser/echarts.js"]) console.log(`built ${file} (${kib(`${ROOT}${file}`)})`)
+for (const file of ["dist/index.js", "dist/tui.js", "dist/gui.cjs", "dist/vega-worker.js", "dist/resvg.wasm", "dist/browser/vega.js", "dist/browser/echarts.js", "dist/browser/plot.js", "dist/browser/ui.js"]) console.log(`built ${file} (${kib(`${ROOT}${file}`)})`)
 
 // THIRD_PARTY_NOTICES.md and licenses/: every package any output bundles, with its licence text, and the bundled
 // fonts and data. Regenerated by every build, so it cannot drift from what ships.
@@ -117,6 +128,7 @@ file names beyond the family name, as the OFL allows for unmodified-name subsets
 |---|---|---|
 | Inter 4.1 (Regular, SemiBold) | github.com/rsms/inter | OFL-1.1, assets/fonts/Inter-OFL.txt |
 | JetBrains Mono 2.304 (Regular) | github.com/JetBrains/JetBrainsMono | OFL-1.1, assets/fonts/JetBrainsMono-OFL.txt |
+| Geist & Geist Mono 1.9.2 (Regular, SemiBold) | github.com/vercel/geist-font | OFL-1.1, assets/fonts/Geist-OFL.txt |
 
 ## Data (assets/data/)
 

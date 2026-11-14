@@ -9,7 +9,12 @@ import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { renderChart } from "../src/pipeline.ts"
 
 const env = { workspace: { directory: mkdtempSync(join(tmpdir(), "charts-perf-")) }, packageRoot: resolve(import.meta.dir, ".."), configuredThemes: {}, defaults: { outDir: "outputs/charts" } }
-const ids = ["bar", "grouped_bar", "line", "multi_line", "stacked_area", "scatter", "histogram", "heatmap", "pie", "sankey", "funnel", "treemap", "choropleth_world"]
+// A representative chart per engine: the classic Vega-Lite and Vega types, then the v2 wave — Plot statistics and
+// cartograms, the ECharts dashboard types, the data-graphic tables and the offline diagrams.
+const ids = [
+  "bar", "grouped_bar", "line", "multi_line", "stacked_area", "scatter", "histogram", "heatmap", "pie", "sankey", "funnel", "treemap", "choropleth_world",
+  "hexbin", "contour", "cartogram_us_hex", "flow_map", "violin", "sparkline_matrix", "data_table", "kpi_table", "flowchart", "fishbone",
+]
 const median = (xs: number[]) => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)]!
 const rows: string[] = []
 const cold = performance.now()

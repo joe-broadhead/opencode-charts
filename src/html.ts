@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { browserPalette, THEME_BRIDGE_SOURCE } from "./browser/theme-bridge.js"
 import type { Json } from "./engines/common.js"
 import { ChartsError } from "./errors.js"
 import type { FontResource } from "./fonts.js"
-import { cssString, fontFaceCss } from "./svg.js"
+import { cssFontStack, cssString, fontFaceCss } from "./svg.js"
 import type { ThemeTokens } from "./themes/tokens.js"
 import type { RuntimePresentation } from "./layout/present.js"
 
@@ -26,8 +27,24 @@ import type { RuntimePresentation } from "./layout/present.js"
  *
  * Vega runs with vega-interpreter: the spec is parsed with `{ast: true}` and the View evaluates expressions by walking
  * the syntax tree, so Vega never builds a function from a string (which the CSP would refuse).
+ *
+ * A Plot page is the same shell with Plot in the runtime slot: the marks answer the pointer (`tip: true`), and the rows
+ * the spec's marks read travel once, in their own JSON block. A page with no chart runtime at all (a table's interactive
+ * markup, a diagram) is `static`: its body scripts are signed by the same policy, so they run and nothing else does.
+ *
+ * Every page also carries the host-theme bridge (src/browser/theme-bridge.ts) inside its one boot script: a host view
+ * may send a theme as a `postMessage` or over a transferred `MessagePort`, and the page restates its canvas, ink, every
+ * `--cs-…` adaptive drawing and its live ECharts or Plot view in place. A page given both polarities of its theme
+ * follows the reader's colour scheme until a host speaks. No second script element is added: the policy signs exactly
+ * the scripts the page ships, and the bridge is part of one of them.
  */
 declare const BROWSER_RUNTIME_SHA256: Record<string, string> | undefined
+
+/** The browser runtimes inlined into interactive HTML and the dashboard page, each a file in `dist/browser/`. */
+export type BrowserRuntimeName = "vega" | "echarts" | "plot" | "ui"
+
+/** Every runtime a page may need: the chart engines, and the dashboard controller. */
+const BROWSER_RUNTIMES: readonly BrowserRuntimeName[] = ["vega", "echarts", "plot", "ui"]
 
 /** How long the page waits for its embedded fonts before it reports `failed` and keeps the static chart. */
 export const FONT_WAIT_MS = 10_000
@@ -36,7 +53,7 @@ export const DIAGNOSTIC_MESSAGE_LIMIT = 240
 
 // Keyed by package and runtime, so a check of one install never answers for another.
 const runtimes = new Map<string, string>()
-function runtime(packageRoot: string, name: "vega" | "echarts"): string {
+function runtime(packageRoot: string, name: BrowserRuntimeName): string {
   const key = `${packageRoot}\0${name}`
   const cached = runtimes.get(key)
   if (cached) return cached
@@ -49,11 +66,18 @@ function runtime(packageRoot: string, name: "vega" | "echarts"): string {
   return source
 }
 
-/** The interactive HTML runtimes' problem, as a ChartsError, or undefined when both are there and match this build. */
+/**
+ * One browser runtime's source, read once per package and verified against the SHA-256 compiled into this build. A
+ * packed install ships the file, so this is a read and a hash: no bundler runs while a page is made.
+ */
+export function browserRuntime(packageRoot: string, name: BrowserRuntimeName): string {
+  return runtime(packageRoot, name)
+}
+
+/** The interactive HTML runtimes' problem, as a ChartsError, or undefined when all four are there and match this build. */
 export function htmlProblem(packageRoot: string): ChartsError | undefined {
   try {
-    runtime(packageRoot, "vega")
-    runtime(packageRoot, "echarts")
+    for (const name of BROWSER_RUNTIMES) runtime(packageRoot, name)
     return undefined
   } catch (error) {
     if (error instanceof ChartsError) return error
@@ -77,13 +101,25 @@ export const scriptJson = (value: unknown) => JSON.stringify(value).replace(/</g
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 
 export interface HtmlInput {
-  readonly engine: "vega" | "echarts"
-  /** A compiled Vega spec, or an ECharts option (functions removed). */
-  readonly spec: Json
+  readonly engine: "vega" | "echarts" | "plot" | "static"
+  /** A compiled Vega spec, an ECharts option (functions removed), or a Plot spec: the page's own JSON block. */
+  readonly spec?: Json
+  /** Plot's rows: the data its marks read, carried once for the page. */
+  readonly rows?: readonly unknown[]
+  /**
+   * Markup for a page with no chart runtime (a table's interactive HTML, a diagram): it takes the chart's place, and any
+   * `<script>` it carries is signed into the policy, so the body's own script runs and nothing else does.
+   */
+  readonly htmlBody?: string
   readonly svg: string
   readonly title: string
   readonly description: string
   readonly theme: ThemeTokens
+  /**
+   * Both polarities of one theme, when the page should follow the reader's colour scheme by itself. Without it the page
+   * draws `theme` until a host view sends a theme; with it, `prefers-color-scheme` picks one, and `data-theme` wins.
+   */
+  readonly pairedThemes?: { readonly light: ThemeTokens; readonly dark: ThemeTokens }
   readonly echartsTheme?: Json
   /** The approved font resources to embed: the same list the PNG was drawn with. */
   readonly fonts: readonly FontResource[]
@@ -102,7 +138,9 @@ function fail(step,err){if(state!=="initializing")return;var m=err&&err.message?
 function swap(live){if(state!=="initializing")return;host.textContent="";host.appendChild(live);if(stage&&stage.parentNode)stage.parentNode.removeChild(stage);stage=null;setStatus("ready","Interactive view ready.");if(onReady){var r=onReady;onReady=null;r();}}
 window.chartsRuntime={status:function(){return state},stats:function(){return teardown&&teardown.stats?teardown.stats():null},
 dispose:function(){if(state!=="ready")return;var t=teardown;teardown=null;onReady=null;if(t)t();host.innerHTML=STATIC;setStatus("disposed","The static chart is shown; the interactive view is stopped.");},
-mount:function(){if(state!=="disposed"||!INIT)return;setStatus("initializing","The static chart is shown; the interactive view is starting.");start(INIT);}};
+mount:function(){if(state!=="disposed"||!INIT)return;setStatus("initializing","The static chart is shown; the interactive view is starting.");start(INIT);},
+setTheme:function(p){return themeBridge.apply(p)},theme:function(){return themeBridge.theme()},
+addThemeHook:function(f){themeBridge.hooks.push(f);var t=themeBridge.theme();if(t)try{f(t)}catch(e){}return t}};
 function onError(e){fail("async",e&&(e.error||e.reason||e.message)||e);}
 window.addEventListener("error",onError);window.addEventListener("unhandledrejection",onError);
 function fontsReady(){var faces=FACES;if(!faces.length)return Promise.resolve();if(!document.fonts||!document.fonts.load)return Promise.reject(new Error("This browser cannot report font loading."));
@@ -144,54 +182,110 @@ var first=host.firstElementChild,w=first?first.getAttribute("width"):null,h=firs
 start(function(el){var refused=chartsTooltipMarkup(option);if(refused.length)throw new Error("Refused tooltip markup at "+refused[0].path+": "+refused[0].what);
 var live=document.createElement("div");live.style.width=(w||640)+"px";live.style.height=(h||400)+"px";el.appendChild(live);
 var chart=echarts.init(live,"chart",{renderer:"svg"});cleanups.push(function(){chart.dispose()});
-chart.setOption(option);cleanups.length=0;teardown=function(){chart.dispose()};teardown.stats=function(){return{views:1,observers:0,listeners:0}};return live;});`
+chart.setOption(option);cleanups.length=0;teardown=function(){chart.dispose()};teardown.stats=function(){return{views:1,observers:0,listeners:0}};
+window.chartsRuntime.addThemeHook(function(t){if(!chart||!chart.getDom)return;var box=chart.getDom();if(!box||!box.parentNode)return;
+echarts.registerTheme("chart",t.echartsTheme);chart.dispose();chart=echarts.init(box,"chart",{renderer:"svg"});chart.setOption(option);});
+return live;});`
 }
 
 export function buildHtml(packageRoot: string, input: HtmlInput): string {
-  const code = runtime(packageRoot, input.engine)
+  const code = input.engine === "static" ? "" : runtime(packageRoot, input.engine)
   const faces = fontFaceCss(input.fonts, true)
   const c = input.theme.colors
-  const family = cssString(input.theme.font.family)
+  const family = cssFontStack(input.theme.font.family, "sans-serif")
+  const mono = cssFontStack(input.theme.font.mono, "monospace")
   const present = input.engine === "vega" ? input.presentation : undefined
-  const boot = input.engine === "vega" ? vegaBoot(input.theme, !!present) : echartsBoot(input)
+  const boot = input.engine === "vega" ? vegaBoot(input.theme, !!present) : input.engine === "echarts" ? echartsBoot(input) : input.engine === "plot" ? plotBoot() : staticBoot()
   // [family as a CSS string, weight]: what `document.fonts.load` must resolve before the live chart measures text.
   const faceList = scriptJson(input.fonts.map(f => [cssString(f.family), String(f.weight)]))
+  // The host-theme bridge's own configuration: the page's palette is the base a partial payload builds on, and both
+  // polarities, when the page has them, are what `prefers-color-scheme` picks between until a host speaks.
+  const themeBridge = scriptJson({
+    palette: browserPalette(input.theme),
+    paired: input.pairedThemes ? { light: browserPalette(input.pairedThemes.light), dark: browserPalette(input.pairedThemes.dark) } : null,
+  })
   const runtimeScript = code.replace(/<\/script/gi, "<\\/script")
   const bootScript = `(function(){var ENGINE=${scriptJson(input.engine)},FACES=${faceList};
 ${SHELL}
+var themeBridge=(${THEME_BRIDGE_SOURCE})(window,document,${themeBridge});
 try{${boot}}catch(e){fail("init",e)}})();`
+  // A static page runs only the body's own scripts, each signed by the policy; no chart runtime is inlined at all.
+  const bodyScripts = input.engine === "static" ? inlineScripts(input.htmlBody ?? "") : []
+  const scripts = [...(code ? [runtimeScript] : []), bootScript, ...bodyScripts]
+  const plot = input.engine === "plot"
+  // A body's own markup (a table, a diagram) takes the chart's place; the static drawing is the first paint otherwise.
+  const chartAttributes = input.htmlBody ? "" : ` role="img" aria-label="${escapeHtml(input.title)}"`
+  const caption = input.htmlBody ? "" : `<figcaption class="chart-sr">${escapeHtml(input.description)}</figcaption>`
   return `<!doctype html>
 <html lang="en" data-chart-status="initializing">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy([runtimeScript, bootScript])}">
+<meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy(scripts)}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(input.title)}</title>
 <style>
 ${faces}
-html,body{margin:0;background:${c.background};color:${c.text};font-family:${family},sans-serif}
+html,body{margin:0;background:${c.background};color:${c.text};font-family:${family}}
 main{padding:12px;display:flex;flex-direction:column;align-items:center}
 #chart{max-width:100%;overflow-x:auto}
 #chart>svg{max-width:100%;height:auto}
-#vg-tooltip-element{font-family:${family},sans-serif}
+#vg-tooltip-element{font-family:${family}}
 .chart-sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 #chart-failure{margin:8px 0 0;padding:8px 12px;border:1px solid ${c.negative};border-radius:4px;color:${c.text};font-size:13px;max-width:100%}
 #chart-failure[hidden]{display:none}
-#chart-diagnostic{display:block;margin-top:4px;color:${c.muted};font-family:${cssString(input.theme.font.mono)},monospace;font-size:11px;white-space:pre-wrap;word-break:break-word}
+#chart-diagnostic{display:block;margin-top:4px;color:${c.muted};font-family:${mono};font-size:11px;white-space:pre-wrap;word-break:break-word}
 ${present ? presentationCss(input.theme, present) : ""}</style>
 </head>
 <body>
-<main><figure style="margin:0"><div id="chart" role="img" aria-label="${escapeHtml(input.title)}">${input.svg}</div><figcaption class="chart-sr">${escapeHtml(input.description)}</figcaption></figure>
+<main><figure style="margin:0"><div id="chart"${chartAttributes}>${input.htmlBody ?? input.svg}</div>${caption}</figure>
 <p id="chart-status" class="chart-sr" role="status" aria-live="polite" data-status="initializing">The static chart is shown; the interactive view is starting.</p>
 <div id="chart-failure" role="alert" hidden>The interactive view could not start. The static chart above is complete; hover details and selections are not available.<code id="chart-diagnostic"></code></div>${present ? presentationMarkup(present) : ""}</main>
-<script type="application/json" id="chart-spec">${scriptJson(input.spec)}</script>
+${input.spec !== undefined ? `<script type="application/json" id="chart-spec">${scriptJson(input.spec)}</script>` : ""}
+${plot ? `<script type="application/json" id="chart-rows">${scriptJson(input.rows ?? [])}</script>` : ""}
 ${present ? `<script type="application/json" id="chart-presentation">${scriptJson(present)}</script>` : ""}
-${input.echartsTheme ? `<script type="application/json" id="chart-theme">${scriptJson(input.echartsTheme)}</script>` : ""}
-<script>${runtimeScript}</script>
+${plot ? `<script type="application/json" id="chart-theme">${scriptJson(plotTheme(input.theme))}</script>` : input.echartsTheme ? `<script type="application/json" id="chart-theme">${scriptJson(input.echartsTheme)}</script>` : ""}
+${code ? `<script>${runtimeScript}</script>` : ""}
 <script>${bootScript}</script>
 </body>
 </html>
 `
+}
+
+/** The tokens a Plot page needs, as `src/browser/plot.ts` reads them: the canvas, the type and the two colour ramps. */
+function plotTheme(theme: ThemeTokens): Json {
+  return {
+    colors: {
+      background: theme.colors.background,
+      text: theme.colors.text,
+      muted: theme.colors.muted,
+      grid: theme.colors.grid,
+      axis: theme.colors.axis,
+      categorical: [...theme.colors.categorical],
+      sequential: [...theme.colors.sequential],
+    },
+    font: { family: theme.font.family, size: theme.font.size, labelSize: theme.font.labelSize },
+  }
+}
+
+/** Plot's boot: the marks answer the pointer themselves, so the live view is one render into the swap's container. */
+function plotBoot(): string {
+  return `if(typeof chartsPlot==="undefined")throw new Error("The Plot runtime is not available.");
+var spec=JSON.parse(document.getElementById("chart-spec").textContent),rowsEl=document.getElementById("chart-rows"),rows=rowsEl?JSON.parse(rowsEl.textContent):undefined;
+var themeEl=document.getElementById("chart-theme"),theme=themeEl?JSON.parse(themeEl.textContent):undefined;
+start(function(el){var live=document.createElement("div");el.appendChild(live);chartsPlot.render(live,spec,rows,theme);
+window.chartsRuntime.addThemeHook(function(t){chartsPlot.render(live,spec,rows,t.plotTheme)});
+cleanups.length=0;teardown=function(){};teardown.stats=function(){return{views:1,observers:0,listeners:0}};return live;});`
+}
+
+/** A page with no chart runtime: its body (a table, a diagram, a drawing) is the finished view. */
+function staticBoot(): string {
+  return `if(!document.getElementById("chart"))throw new Error("The static view has no content to show.");
+setStatus("ready","Static view ready.");`
+}
+
+/** The exact text of each inline `<script>` a static page's body carries: the policy signs these, so they run. */
+function inlineScripts(html: string): string[] {
+  return [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(match => match[1]!)
 }
 
 /**

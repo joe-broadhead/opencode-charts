@@ -21,7 +21,25 @@ type is ignored and its default used.
 | `theme` | string | `light` | The theme of every chart whose call names none: a built-in theme, a saved one, or one from `themes`. |
 | `locale` | string | `en-US` | Number and date formats, such as `en-GB` or `de-DE`. |
 | `outDir` | string | `outputs/charts` | The workspace folder charts are written to when a call names none. It must stay inside the workspace. |
-| `themes` | object of name to theme tokens | `{}` | Named themes, each with `extends` naming its base. A theme saved in the workspace (`.charts/themes/<name>.json`) wins over one of the same name here; a built-in name cannot be replaced. |
+| `themes` | object of name to theme tokens | `{}` | Named themes, each with `extends` naming its base. A theme may also carry a host `seed` (the few colours a host knows) or paired `variants` (`{ "light": {…}, "dark": {…} }`). A theme saved in the workspace (`.charts/themes/<name>.json`) wins over one of the same name here; a built-in name cannot be replaced. |
+
+## Themes
+
+A theme resolves in this order: the call's own `theme`; the live theme synced with `charts.theme` for its session;
+the live theme synced for the location; the plugin's `theme` option; the workspace's `.charts/theme.json`; then
+`light`. The live store is in memory and never written to disk. `.charts/theme.json` is read only when the file
+exists, when nothing earlier named a theme, and it takes the same tokens, `seed` or `variants` as any other theme.
+
+A call's `theme`, an entry in the plugin's `themes`, and the workspace's `.charts/theme.json` may each be a seed:
+
+```json
+{ "theme": { "seed": { "background": "#FAF8F5", "foreground": "#1A1A18", "accent": "#C2410C", "font": "Geist, Inter, sans-serif" } } }
+```
+
+The seed may use `#hex`, `oklch(...)`, `oklab(...)`, `hsl(...)`, space-separated `rgb(...)`, `color(display-p3 ...)`
+or a W3C DTCG `$value`. The build synthesises the grid, axis and muted hairlines, the ramps and a colour-blind-safe
+categorical ring in OKLCH. `variants` carries explicit light and dark definitions instead; an adaptive SVG publishes
+both and follows the reader's polarity.
 
 ## Environment
 
@@ -42,6 +60,9 @@ so is `charts_*`, so a tool a later version adds runs at once:
   {"action": "charts_quick", "resource": "*", "effect": "allow"},
   {"action": "charts_validate", "resource": "*", "effect": "allow"},
   {"action": "charts_update", "resource": "*", "effect": "allow"},
+  {"action": "charts_board", "resource": "*", "effect": "allow"},
+  {"action": "charts_table", "resource": "*", "effect": "allow"},
+  {"action": "charts_diagram", "resource": "*", "effect": "allow"},
   {"action": "charts_recommend", "resource": "*", "effect": "allow"},
   {"action": "charts_capabilities", "resource": "*", "effect": "allow"},
   {"action": "charts_catalogue", "resource": "*", "effect": "allow"},
@@ -51,12 +72,12 @@ so is `charts_*`, so a tool a later version adds runs at once:
 ```
 
 The `access` option narrows it from each tool's class. `"all"` is the default, as above. `"ask-changes"` makes the
-four that write files — `charts_render`, `charts_quick`, `charts_update` and `charts_theme_save` — and any tool a later version adds
-ask, while `charts_validate`, `charts_recommend`, `charts_capabilities`, `charts_catalogue` and `charts_themes` run.
-`"read-only"` denies those four writers and runs the five reads. The README prints the block for each value. Every
-later rule wins, so your own `permissions` can allow or stop one tool. An agent without a base allow gets no block.
-`/charts-status` lists an agent that is missing the block, so neither the default nor the `access` value reaches it,
-with the block to paste.
+seven that write files — `charts_render`, `charts_quick`, `charts_update`, `charts_board`, `charts_table`,
+`charts_diagram` and `charts_theme_save` — and any tool a later version adds ask, while `charts_validate`,
+`charts_recommend`, `charts_capabilities`, `charts_catalogue` and `charts_themes` run. `"read-only"` denies those
+seven writers and runs the five reads. The README prints the block for each value. Every later rule wins, so your own
+`permissions` can allow or stop one tool. An agent without a base allow gets no block. `/charts-status` lists an
+agent that is missing the block, so neither the default nor the `access` value reaches it, with the block to paste.
 
 Each tool also asks for the files it touches: `read` on a data file, `edit` on the output folder or the theme file.
 When the output folder is outside the project, OpenCode asks for `external_directory` on it as well, so allow the
@@ -76,6 +97,12 @@ place one by one; if a move fails, the files already moved are put back, the sta
 `OUTPUT_WRITE_FAILED` names any file that could not be restored. Files the render does not name are never touched.
 
 - The rollback is best-effort, within one process. Several renames cannot be made atomic together.
+- A document call publishes as one immutable generation folder `<outDir>/<name>-<digest>/`, never as flat files, and a
+  board writes `<name>.svg`, `<name>.png` and `<name>.board.html` beside each other.
+- A table writes `<name>.svg` and `<name>.png`, and `<name>.html` when `html` is in the format list; a diagram
+  writes `<name>.svg` and `<name>.png`, and returns its Unicode outline in the result.
+- `formats: ["gif"]` writes `<name>.gif`: at most 60 frames, each at most 1280 × 960 pixels, with `fps` from 1 to 30
+  (default 8). The PNG stays the final frame.
 - Renders from different processes that write the same file names are not coordinated: there is no lock, so the last
   move wins file by file. Give concurrent renders different `name`s or `outDir`s.
 - A crash or a killed process mid-write can leave hidden `.<file>.<token>.tmp` (staged bytes) or `.<file>.<token>.bak`

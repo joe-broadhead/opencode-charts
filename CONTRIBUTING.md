@@ -13,12 +13,13 @@ Chromium: the build that the exact playwright-core version in `package-lock.json
 
 ## The one command
 
-`npm run check` runs, in order: `build`, `typecheck`, `unit`, `browser`, `copies`, `forbidden`, `icons`, `whitelist`, `jelly`,
-`actionlint`, `pack`, `evals` and `host`. It is the gate for every commit: never skip, weaken or delete a stage to
-get a green run.
+`npm run check` runs, in order: `build`, `typecheck`, `unit`, `kit`, `browser`, `copies`, `forbidden`, `icons`,
+`whitelist`, `jelly`, `actionlint`, `pack`, `evals` and `host`. It is the gate for every commit: never skip, weaken or
+delete a stage to get a green run.
 
-- `build` writes `dist/`: the plugin, its Vega worker, the PNG rasteriser and the two browser runtimes. The TUI part is
-  unminified, and the build fails if it is minified.
+- `build` writes `dist/`: the plugin, its Vega worker, the PNG rasteriser, the TUI part (`tui.js`), the GUI part
+  (`gui.cjs`) and the four browser runtimes (`browser/{vega,echarts,plot,ui}.js`). The TUI and GUI parts are
+  unminified, and the build fails if the TUI part is minified.
 - `browser` opens interactive HTML made through the built plugin's tools in that headless Chromium (`test/browser/`):
   each page must start under its own CSP with no violation and no request, and each advertised interaction must change
   what is drawn. A missing browser fails the stage with the install command; it is never skipped.
@@ -54,7 +55,7 @@ a `## [x.y.z] - YYYY-MM-DD` heading below it, newest first, and the npm history 
 `## Earlier releases on npm`.
 
 1. On `master`, set `version` in `package.json` to the new version, and change every install spec in the README,
-   `CONTRIBUTING.md` and `docs/` to `#v<version>` (`test/docs.test.ts` fails until they match). Then run
+   `CONTRIBUTING.md` and `docs/` to `#v<version>`. Then run
    `node scripts/changelog.mjs release`: it turns `## [Unreleased]` into `## [<version>] - <today>`, above the earlier
    releases, and refuses a CHANGELOG it cannot shape. Run `npm run check`.
 2. Push that commit to `master`, and wait for CI to pass on it.

@@ -2,7 +2,7 @@
   "name": "@joe-broadhead/opencode-charts",
   "version": "0.0.3",
   "private": true,
-  "description": "Unofficial OpenCode plugin: deterministic, themed charts from Vega-Lite, Vega and ECharts specs, rendered offline to SVG, PNG and interactive HTML",
+  "description": "Offline deterministic charts, plots, cartograms, tables, diagrams, animated GIFs and interactive dashboards for OpenCode, across Vega-Lite, Vega, ECharts and Observable Plot.",
   "keywords": [
     "opencode",
     "opencode-plugin",
@@ -10,7 +10,12 @@
     "vega-lite",
     "vega",
     "echarts",
-    "dataviz"
+    "dataviz",
+    "plot",
+    "table",
+    "diagram",
+    "gif",
+    "dashboard"
   ],
   "homepage": "https://github.com/joe-broadhead/opencode-charts#readme",
   "bugs": {
@@ -25,6 +30,7 @@
   "exports": {
     ".": "./dist/index.js",
     "./tui": "./dist/tui.js",
+    "./gui-experimental": "./dist/gui.cjs",
     "./icon.svg": "./assets/icon.svg",
     "./icon-128.png": "./assets/icon-128.png",
     "./icon-256.png": "./assets/icon-256.png"
@@ -83,22 +89,33 @@
     "eval:recommend": "bun eval/recommend.ts"
   },
   "devDependencies": {
+    "@observablehq/plot": "0.6.19",
     "@opencode/plugin": "2.2.5",
     "@opencode/sdk": "2.2.5",
+    "@opentui/core": "0.8.0",
+    "@opentui/solid": "0.8.0",
     "@resvg/resvg-wasm": "2.6.2",
     "@types/bun": "1.4.4",
+    "@types/d3-geo": "3.1.1",
+    "@types/topojson-client": "3.1.5",
+    "@ui-sdk/core": "0.1.0-beta.1",
+    "@ui-sdk/web": "0.1.0-beta.1",
+    "beautiful-mermaid": "1.1.3",
     "d3-format": "3.1.0",
+    "d3-geo": "3.1.2",
     "echarts": "6.1.0",
     "esbuild": "0.28.2",
+    "gifenc": "1.0.3",
     "hyparquet": "1.32.0",
     "hyparquet-writer": "0.18.0",
     "i18n-iso-countries": "7.14.0",
+    "linkedom": "0.18.15",
     "playwright-core": "1.65.0",
     "solid-js": "1.9.17",
+    "topojson-client": "3.1.0",
     "typescript": "5.9.3",
     "us-atlas": "3.0.1",
     "vega": "6.4.0",
-    "vega-embed": "7.3.0",
     "vega-interpreter": "2.3.2",
     "vega-lite": "6.5.0",
     "vega-tooltip": "1.1.0",
@@ -131,6 +148,24 @@
       {
         "name": "charts.update",
         "permission": "charts_update",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "charts.board",
+        "permission": "charts_board",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "charts.table",
+        "permission": "charts_table",
+        "effect": "allow",
+        "readOnly": false
+      },
+      {
+        "name": "charts.diagram",
+        "permission": "charts_diagram",
         "effect": "allow",
         "readOnly": false
       },

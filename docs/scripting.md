@@ -1,6 +1,6 @@
 # Scripting
 
-Charts speaks the family's tools RPC v2: `<plugin id>.tools`, at
+Charts speaks the family's tools RPC v2.1: `<plugin id>.tools`, at
 `POST /api/rpc/charts.tools/<method>`, so a script draws and checks charts with no model and no provider spend.
 
 ```sh
@@ -35,18 +35,44 @@ never inlined into a script's result — the files are in the workspace, as for 
 
 | Method | Action | Class | Writes |
 |---|---|---|---|
+| `describe` | — | `read` | nothing: the methods, their classes, the location and each one's availability |
 | `render` | `charts_render` | `export` | `outputs/charts/*` |
 | `quick` | `charts_quick` | `export` | `outputs/charts/*` |
-| `update` | `charts_update` | `export` | `outputs/charts/<name>-<digest>/*` |
-| `theme_save` | `charts_theme_save` | `export` | `.charts/themes/<name>.json` |
 | `validate` | `charts_validate` | `read` | nothing |
+| `update` | `charts_update` | `export` | `outputs/charts/<name>-<digest>/*` |
+| `board` | `charts_board` | `export` | `outputs/charts/<name>.svg`, `.png` and `.board.html` |
+| `table` | `charts_table` | `export` | `outputs/charts/*` |
+| `diagram` | `charts_diagram` | `export` | `outputs/charts/*` |
 | `recommend` | `charts_recommend` | `read` | nothing |
 | `capabilities` | `charts_capabilities` | `read` | nothing |
 | `catalogue` | `charts_catalogue` | `read` | nothing |
 | `themes` | `charts_themes` | `read` | nothing |
+| `theme_save` | `charts_theme_save` | `export` | `.charts/themes/<name>.json` |
 
 The class is the worst thing a method does; it never decides whether a call runs. `docs/tool-parity.md` is generated
 from the same registry, and `test/registry.test.ts` fails when the two disagree.
+
+## The host theme
+
+`charts.theme` is a separate RPC contract, not a registry tool. A host — a TUI, the desktop app, an editor extension —
+syncs the theme its reader is looking at, and every tool call in that session resolves it:
+
+```sh
+# The session's theme; omit sessionID to set it for the whole location.
+opencode api post /api/rpc/charts.theme/sync -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>","mode":"dark","theme":{"seed":{"background":"#0A0A0A","foreground":"#EDEDED","accent":"#4D9DFF"}}}}'
+
+# What is in force now.
+opencode api post /api/rpc/charts.theme/get -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>"}}'
+
+# Forget it.
+opencode api post /api/rpc/charts.theme/clear -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"<id>"}}'
+```
+
+`sync` takes a theme name or a theme object (tokens, a `seed`, or light and dark `variants`) and returns the
+`revision`, the `mode` and the `themeName`. The store is in memory, per session and for the location, bounded to 256
+sessions, and writes no file. `changed` is the event a subscriber receives when a host pushes a new revision; it
+carries the same `revision`, so a viewer can ignore its own echo. A call's own `theme` still wins over the synced
+one.
 
 ## What decides a call
 

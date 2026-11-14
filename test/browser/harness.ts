@@ -10,7 +10,7 @@
  *   npx playwright-core install --only-shell chromium
  * (on Linux, add --with-deps to install the system libraries it needs).
  */
-import { existsSync, mkdtempSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -106,12 +106,28 @@ export interface Opened {
   readonly close: () => Promise<void>
 }
 
+/** Which status attribute a generated page sets on its root: a chart page carries `data-chart-status`, a board `data-board-status`. */
+export type PageKind = "chart" | "board"
+
+export interface OpenOptions {
+  readonly wait?: boolean
+  readonly viewport?: { width: number; height: number }
+  readonly init?: string
+  /** The status attribute to wait on, and to read back with `status()`. Default `chart`. */
+  readonly kind?: PageKind
+  /** How long to wait for the page to leave `initializing`. Default 15 s; a dashboard's first render can take longer. */
+  readonly timeout?: number
+}
+
+const STATUS_ATTRIBUTE: Record<PageKind, string> = { chart: "data-chart-status", board: "data-board-status" }
+
 /** Opens a page from disk in a fresh context, records what it does, and waits for the shell to leave `initializing`. */
-export async function open(file: string, options: { wait?: boolean; viewport?: { width: number; height: number }; init?: string } = {}): Promise<Opened> {
+export async function open(file: string, options: OpenOptions = {}): Promise<Opened> {
   const b = await launch()
   const context = await b.newContext({ viewport: options.viewport ?? { width: 1280, height: 900 } })
   const page = await context.newPage()
   const url = pathToFileURL(file).href
+  const attribute = STATUS_ATTRIBUTE[options.kind ?? "chart"]
   const violations: string[] = [], errors: string[] = [], requests: string[] = []
   page.on("console", message => { if (message.type() === "error") errors.push(`console.${message.type()}: ${message.text()}`) })
   page.on("pageerror", error => errors.push(`pageerror: ${error.message}`))
@@ -136,8 +152,8 @@ export async function open(file: string, options: { wait?: boolean; viewport?: {
   // A test's own instrumentation, installed before any of the page's scripts run.
   if (options.init) await page.addInitScript(options.init)
   await page.goto(url)
-  const status = () => page.evaluate(() => document.documentElement.getAttribute("data-chart-status"))
-  if (options.wait !== false) await page.waitForFunction(() => document.documentElement.getAttribute("data-chart-status") !== "initializing", undefined, { timeout: 15_000 })
+  const status = () => page.evaluate(name => document.documentElement.getAttribute(name), attribute)
+  if (options.wait !== false) await page.waitForFunction(name => document.documentElement.getAttribute(name) !== "initializing", attribute, { timeout: options.timeout ?? 15_000 })
   return {
     page, url, violations, errors, requests, status,
     sequence: () => page.evaluate(() => (window as unknown as { __chartsSequence: string[] }).__chartsSequence),
@@ -145,9 +161,19 @@ export async function open(file: string, options: { wait?: boolean; viewport?: {
   }
 }
 
+/** A generated dashboard from disk: the same listeners and refusals as `open`, waiting on the board's own status. */
+export const openBoard = (file: string, options: Omit<OpenOptions, "kind"> = {}): Promise<Opened> => open(file, { ...options, kind: "board" })
+
 const workDirs: string[] = []
 /** A scratch folder for a hand-written page; removed by `closeBrowser`. */
 export const workDir = () => { const dir = mkdtempSync(join(tmpdir(), "charts-browser-file-")); workDirs.push(dir); return dir }
+
+/** A hand-written page on disk, in a scratch folder `closeBrowser` removes. */
+export function page(name: string, html: string): string {
+  const file = join(workDir(), `${name}.html`)
+  writeFileSync(file, html)
+  return file
+}
 
 /**
  * Test seam: after a test edits a generated page's scripts, the page's CSP is recomputed for the edited scripts, the

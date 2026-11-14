@@ -4,18 +4,13 @@ import { join } from "node:path"
 import { CATALOGUE } from "../src/catalogue.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { runTool } from "../src/tools.ts"
-import { ROOT, workspace } from "./helpers.ts"
+import { portable, ROOT, workspace } from "./helpers.ts"
 
 /**
  * A01: the call `charts_catalogue` returns for an entry is the exact tested call. It carries the example's data,
  * title, currency, locale and size, it validates with no warning, and through `charts_render` it draws the entry's
  * golden SVG. Every entry goes through the public tool path.
  */
-const portable = (svg: string) =>
-  svg
-    .replace(/\bc[0-9a-f]{8}-(\d+)/g, "c-$1")
-    .replace(/-?\d+\.\d+(?:e[-+]?\d+)?/g, n => String(Number(Number(n).toPrecision(10))))
-
 const ws = workspace()
 const env = { ...ws.env, assertFiles: async () => undefined }
 afterAll(async () => { ws.cleanup(); await closeVegaWorker() })

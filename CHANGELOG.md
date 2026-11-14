@@ -3,6 +3,87 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+The second generation of the plugin: three more tools, three more engines, and a host-theme contract that lets a
+reader's own colours reach a chart. The tool contract moves from 1.1.0 to 1.2.0 (`CONTRACT_VERSION`); the change is
+additive, so every 1.1.0 call keeps its meaning.
+
+### Added
+
+- **Twelve tools and six engines.** `charts_board`, `charts_table` and `charts_diagram` join the registry, which now
+  has 12 tools — 5 reads and 7 writers — over `vega-lite`, `vega`, `echarts`, `plot`, `table` and `diagram`, with 79
+  catalogue chart types. Every surface is a projection of `src/registry.ts`: tool registration, the Jelly declaration,
+  the tools RPC, `charts_capabilities`, the default permission rules and `docs/tool-parity.md`.
+- **Observable Plot, server-side.** A further family of statistical drawings — `hexbin`, `contour`, `beeswarm`,
+  `bollinger`, `difference area`, `waffle`, `arrow change`, `voronoi`, `ridgeline`, `horizon`, US state hex and Europe
+  country tile cartograms, and geodesic flow maps — drawn with Plot 0.6 in a headless document. Force and flow layouts
+  use a deterministic seeded generator (`mulberry32`), so the same spec and `seed` give the same bytes.
+- **Publication data-graphic tables** (`charts_table`): spanners, row groups and a summary row, with inline cells
+  (`bar`, `sparkline`, `sparkarea`, `sparkbar`, `bullet`, `delta`, `badge`, `heatmap` and `dot`) drawn as one measured
+  SVG, plus a 2× PNG and a sortable, searchable, accessible HTML table.
+- **Offline diagrams** (`charts_diagram`): Mermaid source for `flowchart`/`graph`, `sequenceDiagram`,
+  `stateDiagram-v2`, `classDiagram` and `erDiagram`, and structured `mindmap`, `org_chart`, `fishbone` and
+  `architecture` recipes. Each drawing is themed SVG and 2× PNG, and each also returns a Unicode `ascii` outline for a
+  terminal. Rendering is in-process through `beautiful-mermaid`; nothing is fetched.
+- **Multi-panel dashboards** (`charts_board`): `BoardDocumentV1` with datasets, filter controls, KPI cards with
+  sparklines and deltas, optional tabs and Bento chart or table panels. A board writes a 2× static poster in PNG and
+  SVG and one self-contained `.board.html` app with `@ui-sdk` chrome and cross-filtering, with no network access.
+- **Motion and animated exports.** Portable zero-JavaScript CSS `motion` (`entrance`, `draw`, `stagger`, `pulse`) in
+  the written SVG, scoped behind `prefers-reduced-motion`, while the PNG stays the final frame. ECharts 6 `matrix`
+  sparkline grids and `timeline` options become a story page with one step per frame, and `formats: ["gif"]` writes a
+  deterministic animated GIF through `gifenc` (up to 60 frames at 1280×960).
+- **An editorial frame and annotations.** `kicker`, `title`, `subtitle`, `source` and `notes` wrap a drawing in a
+  five-part figure frame, and `annotations` draws `line` reference rules, `band` intervals (including the
+  `us-recessions` and `covid-lockdowns` presets) and leader-line `callout` notes over the plot.
+- **Nine built-in themes and four bundled font families.** `light`, `dark`, `geist`, `geist-dark`, `editorial-ft`,
+  `editorial-economist`, `high-contrast`, `print` and `presentation`, each a complete token set that passes its own
+  contrast check. Inter, Geist, JetBrains Mono and Geist Mono are bundled under OFL-1.1, with CSS comma stacks
+  resolved to the first face the build has.
+- **The Universal Host-Theme Contract.** A host's own theme becomes a chart theme from a small `seed`: CSS Color 4
+  syntax (`oklch()`, `oklab()`, `hsl()`, space-separated `rgb()` and `color(display-p3 …)`) and W3C DTCG `$value`
+  are normalised to hex. OKLCH derivation and a Machado-2009 colour-vision-deficiency model synthesise the grid, axis,
+  muted text, ramps and a colour-blind-safe categorical ring; a `variants` pair carries light and dark. A workspace
+  `.charts/theme.json` supplies a fallback, the `charts.theme` RPC (`sync`, `get`, `clear` and the `changed` event)
+  carries a live host theme, adaptive SVGs publish dual-polarity `--cs-*` custom properties, and interactive HTML and
+  boards accept a `postMessage` or `MessagePort` theme through the same contract (`charts.theme`, `hello` and
+  `theme.changed`).
+- **Two client surfaces.** `./tui` exports a Braille and Unicode terminal renderer and a `chart` / `charts-board`
+  code-block fence, with live TUI theme sync; `./gui-experimental` exports `dist/gui.cjs`, the Web and Desktop
+  code-block renderer with live GUI theme sync.
+
+### Changed
+
+- `CONTRACT_VERSION` is 1.2.0, additive over 1.1.0: the `plot`, `table` and `diagram` engines on `charts_render` and
+  `charts_validate`, the `gif` format, the figure fields, `annotations`, `motion` and `fps`, and the three new tools.
+  Every 1.1.0 call keeps its meaning.
+- `charts_render` and `charts_validate` take all six engines, and their output formats now include `gif`; a document
+  call's default formats are unchanged.
+- `charts_themes` also synthesises and previews a theme from a host `seed`, and reports the bundled families and the
+  scripts they cover.
+- `charts_capabilities` reports the six engines, the 79 types, the nine built-in themes and the bundled fonts, all
+  computed from the build rather than copied from this file.
+
+### Fixed
+
+- **Catalogue examples are legible.** The treemap drops from a name and size to a name alone rather than truncating,
+  the donut labels every slice with its share, the calendar and candlestick charts name their dates, and the network
+  and small multiples leave room between marks. These change examples only, not how a chart type renders a call.
+- **Plot cartograms keep their text centring** on hex and tile cells and on tick labels.
+- **A Mermaid label's `<br/>` becomes a space** the bundled fonts can draw, so markup never reaches the glyph lookup.
+- **A table or diagram label no bundled face draws** is reported as `FONT_GLYPH_MISSING` with each character, instead
+  of silently becoming a blank box.
+
+### Security
+
+- **CSS font stacks are escaped in every `<style>`.** HTML, board and table output serialise a family through one
+  CSS-string function that hex-escapes quotes, backslashes, angle brackets and control characters, so a theme or a
+  font name cannot close its string, its rule or its style element.
+- **A colour function the build cannot parse is refused with `THEME_INVALID`** at its path, before a theme is saved,
+  synced or drawn, rather than reaching a spec as an uninterpreted string.
+- **No subprocess is on a render path.** A chart, table, diagram, board or GIF is drawn in-process, so a call starts no
+  shell and no system binary; the unused subprocess helpers are gone from the tool path.
+
 ## [0.0.3] - 2026-11-14
 
 ### Changed

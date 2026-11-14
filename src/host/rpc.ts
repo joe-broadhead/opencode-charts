@@ -20,6 +20,7 @@ export { pluginError, TOOLS_RPC_ID } from "./tools-rpc.js"
 export interface OwnedSpecOptions {
   readonly ctx: Pick<Plugin.Context, "permission">
   readonly env: Environment
+  readonly envForSession?: (sessionID: string) => Environment
   /** The package version, reported by `describe`. */
   readonly version: string
 }
@@ -44,7 +45,7 @@ const outputEnvelope = (schema: Record<string, unknown>) => ({
   additionalProperties: false,
 })
 
-export function ownedSpecs({ ctx, env, version }: OwnedSpecOptions) {
+export function ownedSpecs({ ctx, env, envForSession, version }: OwnedSpecOptions) {
   const known = new Set(manifest(version).tools.map((tool: { name: string }) => tool.name))
   return DESCRIPTORS.map((descriptor: ToolDescriptor) => {
     const name = descriptor.name as ToolName
@@ -64,7 +65,7 @@ export function ownedSpecs({ ctx, env, version }: OwnedSpecOptions) {
         // The tool's own action first, as on the model path. A script reaches this line only for an allowed call: the
         // shared module refuses an `ask` or a `deny` before dispatch.
         await assert(action, ["*"])
-        return forScript(await runTool({ ...env, assertFiles }, name, input))
+        return forScript(await runTool({ ...(envForSession ? envForSession(call.sessionID) : env), assertFiles }, name, input))
       },
       /** `describe` reports a method as available unless the registry and the running build disagree. */
       available: () => (known.has(name) ? undefined : "NOT_REGISTERED"),

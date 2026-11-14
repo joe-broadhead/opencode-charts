@@ -36,8 +36,8 @@ for (const version of TESTED_HOSTS) {
     test("describe lists every tool with its class, and no method is unclassified", async () => {
       const described = (await rpc(host, "describe", reader, undefined)).data as { output?: { methods?: { name: string; class: string; kind: string }[]; unclassified?: unknown[] } }
       const methods = described.output?.methods ?? []
-      expect(methods.map(method => method.name).sort()).toEqual(["capabilities", "catalogue", "quick", "recommend", "render", "theme_save", "themes", "update", "validate"])
-      expect(methods.map(method => method.class).sort()).toEqual(["export", "export", "export", "export", "read", "read", "read", "read", "read"])
+      expect(methods.map(method => method.name).sort()).toEqual(["board", "capabilities", "catalogue", "diagram", "quick", "recommend", "render", "table", "theme_save", "themes", "update", "validate"])
+      expect(methods.map(method => method.class).sort()).toEqual(["export", "export", "export", "export", "export", "export", "export", "read", "read", "read", "read", "read"])
       expect(described.output?.unclassified ?? []).toEqual([])
     })
 
@@ -86,6 +86,7 @@ for (const version of TESTED_HOSTS) {
       // Each RPC method's output nests the tool's own schema, so the host validates the real result against exactly
       // the schema OpenCode applies on the model path. A call that comes back 200 is a result OpenCode accepts, and a
       // schema the host's own validator accepts too (an owned schema may carry no `pattern`).
+      const suffix = version.replaceAll(".", "-")
       const calls: [string, unknown][] = [
         ["capabilities", {}],
         ["catalogue", {}],
@@ -95,18 +96,42 @@ for (const version of TESTED_HOSTS) {
         ["recommend", { request: "which region has the most revenue?", data: { rows: [{ region: "North", revenue: 10 }, { region: "South", revenue: 20 }] } }],
         ["validate", { spec: { mark: "bar", encoding: { x: { field: "region", type: "nominal" }, y: { field: "revenue", type: "quantitative" } } }, data: { rows: [{ region: "North", revenue: 10 }] }, inspect: false }],
         ["validate", { spec: { mark: "banana", encoding: {} }, inspect: false }],
-        ["render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] }, formats: ["svg"], name: `accept-${version.replaceAll(".", "-")}` }],
-        ["quick", { type: "bar", data: { rows: [{ k: "a", v: 1 }] }, x: "k", y: "v", formats: ["svg"], name: `accept-quick-${version.replaceAll(".", "-")}` }],
+        ["render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] }, formats: ["svg"], name: `accept-${suffix}` }],
+        ["quick", { type: "bar", data: { rows: [{ k: "a", v: 1 }] }, x: "k", y: "v", formats: ["svg"], name: `accept-quick-${suffix}` }],
         ["theme_save", { name: "host-accept", theme: { extends: "light", colors: { text: "#111111" } } }],
-        ["quick", { document: HOST_DOCUMENT, formats: ["svg", "document"], name: `accept-doc-${version.replaceAll(".", "-")}` }],
+        ["quick", { document: HOST_DOCUMENT, formats: ["svg", "document"], name: `accept-doc-${suffix}` }],
         ["validate", { document: HOST_DOCUMENT, inspect: false }],
-        ["render", { document: { ...HOST_DOCUMENT, chart: { kind: "engine", spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] } } }, formats: ["svg"], name: `accept-engine-doc-${version.replaceAll(".", "-")}` }],
+        ["render", { document: { ...HOST_DOCUMENT, chart: { kind: "engine", spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] } } }, formats: ["svg"], name: `accept-engine-doc-${suffix}` }],
+        ["table", { data: { rows: [{ region: "North", revenue: 120, status: "Ahead" }, { region: "South", revenue: 95, status: "Behind" }] }, columns: [{ field: "region" }, { field: "revenue", cell: "bar" }, { field: "status", cell: "badge" }], summaryRow: { label: "Total", operations: { revenue: "sum" } }, formats: ["svg", "png", "html"], name: `accept-table-${suffix}` }],
+        ["diagram", { dsl: "flowchart LR\n  a[Start] --> b[Done]", formats: ["svg", "png"], name: `accept-diagram-${suffix}` }],
+        ["board", { board: { version: 1, title: "Accept board", datasets: { sales: { rows: [{ region: "North", revenue: 120 }, { region: "South", revenue: 95 }] } }, panels: [{ id: "rev", title: "Revenue", dataset: "sales", chart: { quick: { type: "bar", x: "region", y: "revenue" } } }] }, name: `accept-board-${suffix}`, inspect: false }],
       ]
+      const accepted = new Map<string, Record<string, any>>()
       for (const [method, input] of calls) {
         const result = await rpc(host, method, writer, input)
         expect(result.status, `${method} was refused: ${JSON.stringify(result.data).slice(0, 300)}`).toBe(200)
-        expect(unwrap(result.data).output, `${method} returned no output`).toBeDefined()
+        const output = unwrap(result.data).output as Record<string, any>
+        expect(output, `${method} returned no output`).toBeDefined()
+        accepted.set(String((input as Record<string, unknown>).name ?? method), output)
       }
+      // The v2 tools' outputs are the files and outlines they promise, all written inside the project.
+      const files = (value: unknown): string[] => Array.isArray(value) ? value.map(String) : typeof value === "string" ? [value] : []
+      const table = accepted.get(`accept-table-${suffix}`)!
+      expect(table.engine).toBe("table")
+      expect(table.files.html).toContain(".html")
+      for (const path of [table.files.svg, table.files.html, ...files(table.files.png)]) expect(existsSync(join(host.a, path))).toBe(true)
+      const diagram = accepted.get(`accept-diagram-${suffix}`)!
+      expect(diagram.engine).toBe("diagram")
+      expect(String(diagram.ascii)).toContain("Start")
+      expect(String(diagram.ascii)).toContain("Done")
+      for (const path of [diagram.files.svg, ...files(diagram.files.png)]) expect(existsSync(join(host.a, path))).toBe(true)
+      const board = accepted.get(`accept-board-${suffix}`)!
+      expect(board.engine).toBe("board")
+      expect(board.panels).toBe(1)
+      expect(board.rows).toBe(2)
+      expect(board.files.html).toContain(".board.html")
+      expect(board.files.board).toContain(".board.json")
+      for (const path of [board.files.html, board.files.board, ...files(board.files.png)]) expect(existsSync(join(host.a, path))).toBe(true)
     })
 
     test("a saved chart document renders again from its path, with its revision as a precondition", async () => {
