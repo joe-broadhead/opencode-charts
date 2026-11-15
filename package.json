@@ -86,7 +86,8 @@
     "eval": "bun eval/run.ts",
     "data": "node scripts/data.mjs",
     "cookbook": "bun scripts/cookbook.ts",
-    "eval:recommend": "bun eval/recommend.ts"
+    "eval:recommend": "bun eval/recommend.ts",
+    "capture": "node scripts/capture-tools.mjs"
   },
   "devDependencies": {
     "@observablehq/plot": "0.6.19",
