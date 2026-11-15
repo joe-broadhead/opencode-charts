@@ -3,6 +3,36 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **A diagram can no longer exhaust the host's memory.** A Mermaid diagram (a `dsl`, or an `architecture` recipe) is
+  refused before any layout past 150 nodes or 200 edges, with `SPEC_TOO_EXPENSIVE` naming the limit; Mermaid's layout
+  grows much faster than its input, and within the 20,000-character `dsl` limit a 600-edge flowchart took 15 s and
+  6.8 GB, and 1,500 edges more than 150 s. At the limits the worst layout measured is about 2.5 s and 220 MB.
+  `charts_validate` takes the same path.
+- **Diagrams lay out in the render worker,** under the same wall-clock limit (`CHARTS_RENDER_TIMEOUT_MS`) and 256 MB
+  heap cap as Vega, so a layout that runs away is stopped and the OpenCode process never blocks. The Unicode outline is
+  a second job with its own 2 s deadline, drawn only up to 40 nodes and 60 edges: Mermaid's outline router can loop
+  without end on some three-line inputs, and an outline stopped at its deadline is left out with a warning while the
+  drawing stands. With `CHARTS_IN_PROCESS=1` a Mermaid diagram returns no outline.
+- **User colours are checked as colours.** A table's `badgeColors` and a diagram node's `color` take `#hex`, `rgb()`,
+  `rgba()`, `transparent`, a CSS colour name or a `theme:` token, and nothing else; a value such as
+  `red" style="cursor:url(…)` is refused with its JSON path. Colour arithmetic never passes on a value that is not a
+  colour, and every colour the table and diagram engines write into an attribute is escaped.
+- **The SVG check refuses external CSS references.** `checkRenderedSvg` refuses a `url()` to anything but an internal
+  `#id`, `@import` and `image()`, in presentation attributes, `style` attributes and `<style>` elements, with CSS escapes
+  and XML entities decoded first.
+- **THIRD_PARTY_NOTICES.md names elkjs's source** (EPL-2.0): github.com/kieler/elkjs at the bundled tag, as it does for
+  resvg.
+
+### Changed
+
+- `charts_update`'s `appearance.hash` is a hash of the tokens drawn, and a layout profile sets the typography, so a
+  `layout` patch changes the hash (as it has since 0.0.4); `appearance.theme` and `appearance.base` say whether the
+  theme itself changed. docs/documents.md says so.
+
 ## [0.0.4] - 2026-11-14
 
 The second generation of the plugin: three more tools, three more engines, and a host-theme contract that lets a

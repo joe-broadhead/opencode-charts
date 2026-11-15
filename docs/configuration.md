@@ -45,8 +45,8 @@ both and follows the reader's polarity.
 
 | Variable | Default | Rule |
 | --- | --- | --- |
-| `CHARTS_RENDER_TIMEOUT_MS` | `10000` | The wall-clock limit of one Vega render, 1,000 to 60,000. |
-| `CHARTS_IN_PROCESS` | unset | `1` renders Vega in the calling thread, for a host without worker threads. The time and memory limits then do not apply. |
+| `CHARTS_RENDER_TIMEOUT_MS` | `10000` | The wall-clock limit of one Vega render, data transform or diagram layout, 1,000 to 60,000. A diagram's ASCII outline has its own limit of 2 s (or this one, if lower). |
+| `CHARTS_IN_PROCESS` | unset | `1` renders Vega and diagrams in the calling thread, for a host without worker threads. The time and memory limits then do not apply (the diagram size limits still do), and a Mermaid diagram returns no ASCII outline, because nothing could stop one that does not finish. |
 
 ## Permissions
 
@@ -118,6 +118,8 @@ place one by one; if a move fails, the files already moved are put back, the sta
 | Data | 100,000 rows; a data file at most 32 MB |
 | Size | 20 to 4,000 pixels a side; a PNG at most 40 million pixels |
 | Generated data | 20,000 generated rows, 250,000 estimated rows, 4,000,000 grid cells |
+| A Mermaid diagram (a `dsl`, or an `architecture` recipe) | 150 nodes and 200 edges, checked before layout (`SPEC_TOO_EXPENSIVE`); the ASCII outline only up to 40 nodes and 60 edges, otherwise the title line |
+| A render in the worker | the wall-clock limit above and a 256 MB heap |
 
 ## Errors
 

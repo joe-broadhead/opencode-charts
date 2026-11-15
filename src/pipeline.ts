@@ -4,7 +4,8 @@ import { applyTransforms, describeProfile, loadData, type DataInput, type Profil
 import { compactSpec, isObject, substituteThemeColours, type Json } from "./engines/common.js"
 import { prepareECharts, renderECharts, serialisableOption } from "./engines/echarts.js"
 import { extractTimelineFrameSvgOptions } from "./engines/echarts-custom.js"
-import { DiagramSpecSchema, renderDiagram, type DiagramSpec } from "./engines/diagram.js"
+import { DiagramSpecSchema, type DiagramSpec } from "./engines/diagram.js"
+import { renderDiagramBounded } from "./engines/vega-pool.js"
 import { atlasFeatures, compilePlotRecipe, renderPlot } from "./engines/plot.js"
 import { renderTable, TableSpecSchema, type TableSpec } from "./engines/table.js"
 import { prepareVega, renderVega } from "./engines/vega.js"
@@ -316,7 +317,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     description ??= `${title}. A table of ${tableRows.length} rows and ${parsed.columns.length} columns.`
   } else {
     const parsed = parsedOrThrow<DiagramSpec>(DiagramSpecSchema.safeParse(drawSpec), "The diagram spec")
-    const out = await renderDiagram(parsed, { theme, fonts, ...(request.width ? { width: request.width } : {}), ...(request.height ? { height: request.height } : {}) })
+    const out = await renderDiagramBounded(parsed, { theme, fonts, ...(request.width ? { width: request.width } : {}), ...(request.height ? { height: request.height } : {}) })
     issues.push(...out.issues)
     resolvedSpec = parsed as unknown as Json
     svg = out.svg; width = out.width; height = out.height; ascii = out.ascii

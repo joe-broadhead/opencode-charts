@@ -328,6 +328,7 @@ resvg (MPL-2.0), and the fonts (OFL-1.1).
 - **Bundled fonts cover Latin, Greek and Cyrillic.** A label beyond them gets `FONT_GLYPH_MISSING`; the fix is a font file with `theme.font.files`.
 - **Built-in themes cover neutral, product and editorial palettes.** The nine include the neutral `light`, `dark`, `high-contrast`, `print` and `presentation`, the Geist pair, and the FT and Economist palettes. A brand theme is saved per workspace with `charts_theme_save`, set in the plugin's options, or derived from a host `seed`.
 - **Nothing is loaded from the network.** A remote data file or image is not fetched.
+- **Diagrams have a size limit.** A Mermaid diagram (a `dsl`, or an `architecture` recipe) may have 150 nodes and 200 edges; a larger one is refused with `SPEC_TOO_EXPENSIVE` before any layout, because the layout grows much faster than the input. The Unicode outline is drawn up to 40 nodes and 60 edges and within 2 s; past that it is the title line.
 - **Recipes cover the 14 standard types.** The other 65 catalogue entries are not recipes: 56 are raw engine specs, 2 are tables for `charts_table` and 7 are diagrams for `charts_diagram`. An engine document keeps its native layout (no outer-size fitting or responsive reflow) and its own interaction syntax.
 - **Four interaction presets.** Tooltip, legend highlight, temporal x zoom and scatter/bubble brush, in the documented
   combinations; no series hiding, no ECharts zoom or brush, and SVG/PNG always show the initial view.

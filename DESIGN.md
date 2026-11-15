@@ -139,9 +139,14 @@ Rejected:
 2. On the compiled Vega spec: open-cowork's cardinality guard. It is extended to accept Vega-Lite's own facet `sequence`s, whose stop is a `length(data(...))` count; `impute` is left to the worker, because its cost is data-dependent.
 3. In the worker:
    - a wall-clock limit (default 10 s, `CHARTS_RENDER_TIMEOUT_MS`) and a 256 MB heap cap;
-   - a runaway render is terminated and the worker replaced (`data.transform` runs there too);
+   - a runaway render is terminated and the worker replaced (`data.transform` and diagram layout run there too, and a
+     diagram's ASCII outline runs as its own job with a 2 s deadline);
+   - a Mermaid diagram is refused before layout past 150 nodes or 200 edges: Mermaid's layout grows much faster than
+     its input (a random 150-node, 200-edge flowchart takes about 2.5 s and 220 MB; 600 edges more than 30 s);
    - jobs are tied to their worker, so one worker's exit never fails another's jobs (a bug the test found).
-4. On output: no `<image>`, `<foreignObject>`, `<script>`, `<iframe>`, event attributes or external `href`.
+4. On output: no `<image>`, `<foreignObject>`, `<script>`, `<iframe>`, event attributes, external `href`, or a CSS
+   `url()` (in an attribute or a `<style>`) to anything but an internal `#id`, `@import` or `image()`. User colours
+   (table badges, diagram nodes) are checked as colours, and every colour is escaped where it is written.
 5. Files:
    - `data.path`, theme font files and `outDir` must resolve inside the session directory or the project directory, after following links;
    - `~`, `..`, absolute paths elsewhere, URLs and `.git/` are refused;

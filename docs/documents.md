@@ -210,7 +210,8 @@ revision is `DOCUMENT_REVISION_MISMATCH`, raised before anything is drawn.
   theme); an omitted one keeps the captured base. `overrides` merge token by token, arrays whole, and `{}` clears
   them all. `categoryColors` replaces whole, and `[]` clears it.
 - `layout` replaces the whole layout: `{"target": "presentation"}` takes that profile's size, not an old explicit
-  width.
+  width. A layout profile sets the typography too, so a layout patch also changes the result's `appearance.hash` (a
+  hash of the tokens drawn); `appearance.theme` and `appearance.base` say whether the theme itself changed.
 - `interactions` merges by property.
 - Data, bindings, options, transforms, locale, currency and seed cannot change. No JSON Patch, no code, no unknown
   paths.
