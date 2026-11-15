@@ -40,8 +40,8 @@ would go stale, the tool is the source of truth.
   `fishbone` and `architecture`. Other Mermaid kinds (`gantt`, `pie`, `journey`, `gitGraph`) are refused with the
   kinds that work rather than drawn badly.
 - **A Mermaid diagram has a size limit.** 150 nodes and 200 edges, checked before any layout, because Mermaid's layout
-  grows much faster than its input (a random 150-node, 200-edge flowchart lays out in about 2.5 s; 600 edges take more
-  than 30 s). The ASCII outline is drawn up to 40 nodes and 60 edges and within 2 s; past that it is the title line,
+  grows much faster than its input (within the limits a layout takes up to about 7 s and 370 MB, always inside the
+  default 10 s deadline; 600 edges take more than 30 s). The ASCII outline is drawn up to 40 nodes and 60 edges and within 2 s; past that it is the title line,
   and an outline stopped at its deadline is reported with a warning.
 - **Interactive HTML differs from the SVG by a pixel or two of text layout.** The browser measures text its own way;
   the SVG, the PNG and the figure tree carry the exact promise.

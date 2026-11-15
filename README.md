@@ -328,7 +328,7 @@ resvg (MPL-2.0), and the fonts (OFL-1.1).
 - **Bundled fonts cover Latin, Greek and Cyrillic.** A label beyond them gets `FONT_GLYPH_MISSING`; the fix is a font file with `theme.font.files`.
 - **Built-in themes cover neutral, product and editorial palettes.** The nine include the neutral `light`, `dark`, `high-contrast`, `print` and `presentation`, the Geist pair, and the FT and Economist palettes. A brand theme is saved per workspace with `charts_theme_save`, set in the plugin's options, or derived from a host `seed`.
 - **Nothing is loaded from the network.** A remote data file or image is not fetched.
-- **Diagrams have a size limit.** A Mermaid diagram (a `dsl`, or an `architecture` recipe) may have 150 nodes and 200 edges; a larger one is refused with `SPEC_TOO_EXPENSIVE` before any layout, because the layout grows much faster than the input. The Unicode outline is drawn up to 40 nodes and 60 edges and within 2 s; past that it is the title line.
+- **Diagrams have a size limit.** A Mermaid diagram (a `dsl`, or an `architecture` recipe) may have 150 nodes and 200 edges; a larger one is refused with `SPEC_TOO_EXPENSIVE` before any layout, because the layout grows much faster than the input. Within the limits a layout takes up to about 7 s and 370 MB, always inside the default 10 s deadline. The Unicode outline is drawn up to 40 nodes and 60 edges and within 2 s; past that it is the title line.
 - **Recipes cover the 14 standard types.** The other 65 catalogue entries are not recipes: 56 are raw engine specs, 2 are tables for `charts_table` and 7 are diagrams for `charts_diagram`. An engine document keeps its native layout (no outer-size fitting or responsive reflow) and its own interaction syntax.
 - **Four interaction presets.** Tooltip, legend highlight, temporal x zoom and scatter/bubble brush, in the documented
   combinations; no series hiding, no ECharts zoom or brush, and SVG/PNG always show the initial view.
@@ -336,6 +336,7 @@ resvg (MPL-2.0), and the fonts (OFL-1.1).
 - **Some catalogue examples have rough edges.** Close-set ticks in the histogram and binned heatmap examples.
 - **Package size.** The package is about 12.5 MB unpacked, and `dist/index.js` is about 5.2 MB: Vega, Vega-Lite, ECharts, Observable Plot, the diagram and table engines, and the PNG rasteriser are bundled, so a render needs no network.
 - **Host range.** OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
+- **Stop doesn't interrupt a render already running.** It runs to its deadline: 10 s by default (`CHARTS_RENDER_TIMEOUT_MS`).
 - In Jelly, the `access` setting is drawn as a choice of three, which needs a Jelly that reads declared choices: an
   older Jelly refuses the plugin's whole declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.

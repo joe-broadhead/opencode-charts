@@ -131,8 +131,8 @@ export interface DiagramRender {
 
 /**
  * How large a Mermaid diagram (a dsl, or an architecture recipe) may be. Mermaid's layout grows much faster than its
- * input: measured on one core, a random 150-node, 200-edge flowchart lays out in about 2.5 s and 220 MB, while 200 nodes
- * and 400 edges take about 10 s and 420 MB, and 600 edges more than 30 s. Past these limits a diagram is refused before
+ * input: within these limits a layout takes up to about 7 s and 370 MB (15 nested subgraphs), inside the default 10 s
+ * deadline, while 200 nodes and 400 edges take about 10 s and 420 MB, and 600 edges more than 30 s. Past these limits a diagram is refused before
  * any layout with SPEC_TOO_EXPENSIVE; a picture that size is unreadable at any page width anyway.
  *
  * The ASCII outline has smaller limits: its router searches a character grid, and a 60-node, 80-edge flowchart already

@@ -17,7 +17,8 @@ All notable changes to this project are documented in this file. The format foll
 - **A diagram can no longer exhaust the host's memory.** A Mermaid diagram (a `dsl`, or an `architecture` recipe) is
   refused before any layout past 150 nodes or 200 edges, with `SPEC_TOO_EXPENSIVE` naming the limit; Mermaid's layout
   grows much faster than its input, and within the 20,000-character `dsl` limit a 600-edge flowchart took 15 s and
-  6.8 GB, and 1,500 edges more than 150 s. At the limits the worst layout measured is about 2.5 s and 220 MB.
+  6.8 GB, and 1,500 edges more than 150 s. Within the limits a layout takes up to about 7 s and 370 MB (15 nested
+  subgraphs at 150 nodes and 200 edges), always inside the default 10 s deadline.
   `charts_validate` takes the same path.
 - **Diagrams lay out in the render worker,** under the same wall-clock limit (`CHARTS_RENDER_TIMEOUT_MS`) and 256 MB
   heap cap as Vega, so a layout that runs away is stopped and the OpenCode process never blocks. The Unicode outline is
