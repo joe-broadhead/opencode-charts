@@ -56,7 +56,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.4 # the Bun inside stock OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6
+          bun-version: 1.4.4 # the Bun inside stock OpenCode 2.2.3 to 2.2.7 and 2.3.0
       - run: npm ci --ignore-scripts
       # The browser stage's headless Chromium: the build that playwright-core's exact version in package-lock.json pins.
       # On Linux, --with-deps installs the system libraries it needs.
@@ -71,7 +71,7 @@ jobs:
       - name: Stock OpenCode binaries
         run: |
           platform="$(node -p 'process.platform')-$(node -p 'process.arch')"
-          for version in 2.2.3 2.2.4 2.2.5 2.2.6; do
+          for version in 2.2.3 2.2.4 2.2.5 2.2.6 2.2.7 2.3.0; do
             dir="$RUNNER_TEMP/stock-$version"
             mkdir -p "$dir"
             (cd "$dir" && npm init -y >/dev/null && npm install "@opencode/cli@$version" "@opencode/cli-$platform@$version" --omit=optional --ignore-scripts --no-audit --no-fund)

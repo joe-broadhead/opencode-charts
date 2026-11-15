@@ -10,7 +10,7 @@ Unofficial; not affiliated with OpenCode or Anomaly.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
+- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
 - macOS or Linux.
 - No network, no system fonts and no provider: every render is local and deterministic.
 
@@ -335,7 +335,7 @@ resvg (MPL-2.0), and the fonts (OFL-1.1).
 - **PNG and HTML need the packaged runtime.** A missing runtime is reported as `PNG_UNAVAILABLE` or `HTML_UNAVAILABLE`; reinstalling the plugin restores it.
 - **Some catalogue examples have rough edges.** Close-set ticks in the histogram and binned heatmap examples.
 - **Package size.** The package is about 12.5 MB unpacked, and `dist/index.js` is about 5.2 MB: Vega, Vega-Lite, ECharts, Observable Plot, the diagram and table engines, and the PNG rasteriser are bundled, so a render needs no network.
-- **Host range.** OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
+- **Host range.** OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
 - In Jelly, the `access` setting is drawn as a choice of three, which needs a Jelly that reads declared choices: an
   older Jelly refuses the plugin's whole declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.

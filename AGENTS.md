@@ -5,8 +5,8 @@ diagram and dashboard documents (Vega-Lite, Vega, ECharts, Observable Plot, tabl
 offline HTML. The README is for users; `docs/` is the reference.
 
 - **Host.** Public `@opencode/plugin` APIs only; the tools RPC is the shared v2 module (`57377eb3…`), and its shared
-  part is never edited here. `opencode.host` is `>=2.2.3 <2.3.0`, and `TESTED_HOSTS` in `src/status.ts` is the one list
-  of tested releases: tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.
+  part is never edited here. `opencode.host` is `>=2.2.3 <2.4.0`, and `TESTED_HOSTS` in `src/status.ts` is the one list
+  of tested releases: tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
 - **Errors.** `CODE: what happened. Next step: what to do.` (`formatFailure` in `src/errors.ts`), with a JSON path for
   spec problems, and one typed code set the docs table mirrors.
 - **Determinism is a feature.** The same input gives the same bytes on one platform. Never read system fonts, the

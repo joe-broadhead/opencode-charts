@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- **OpenCode 2.3.** The host range is `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0, and CI
+  runs the host suite on every one of them. Nothing in the plugin depends on what 2.3.0 changes: it starts no
+  subagent, reads no `session.tool.failed` event and registers no `session.fork` hook. A tool call still runs to its
+  render deadline after Stop, as it did on 2.2.
+
 ### Fixed
 
 - **A diagram can no longer exhaust the host's memory.** A Mermaid diagram (a `dsl`, or an `architecture` recipe) is
