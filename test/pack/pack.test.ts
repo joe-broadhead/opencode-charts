@@ -20,7 +20,7 @@ const MAX_PACKED_BYTES = 12 * 1024 * 1024
 const SHIPPED = [/^package\.json$/, /^README\.md$/, /^LICENSE$/, /^NOTICE$/, /^THIRD_PARTY_NOTICES\.md$/, /^CHANGELOG\.md$/, /^dist\//, /^assets\//, /^skills\//, /^licenses\//]
 const REQUIRED = [
   "package.json", "README.md", "LICENSE", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md",
-  "dist/index.js", "dist/tui.js", "dist/gui.cjs", "dist/vega-worker.js", "dist/resvg.wasm",
+  "dist/index.js", "dist/renderer.js", "dist/tui.js", "dist/gui.cjs", "dist/vega-worker.js", "dist/resvg.wasm",
   "dist/browser/vega.js", "dist/browser/echarts.js", "dist/browser/plot.js", "dist/browser/ui.js",
   "assets/icon.svg", "assets/icon-128.png", "assets/icon-256.png",
   "skills/charts/SKILL.md", "skills/charts-cookbook/SKILL.md",

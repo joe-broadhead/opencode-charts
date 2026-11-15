@@ -14,10 +14,16 @@ offline HTML. The README is for users; `docs/` is the reference.
 - **Nothing from the network.** No URL, loader, image or CDN, in any output or at runtime.
 - **Catalogue.** Every entry renders with no warnings in `light`, and has a golden SVG. The cookbook skill is generated
   from the catalogue (`bun scripts/cookbook.ts`).
-- **Bundles.** `npm run build` writes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm`, `dist/tui.js`,
-  `dist/gui.cjs` and `dist/browser/{vega,echarts,plot,ui}.js`, and regenerates THIRD_PARTY_NOTICES.md and
-  `licenses/packages/`. Outputs import only `node:` builtins and the host packages: `@opencode/plugin`,
-  `@opencode/plugin/*`, `@opentui/core`, `@opentui/solid`, `solid-js` and `solid-js/*`.
+- **Bundles.** `npm run build` writes `dist/index.js`, `dist/renderer.js`, `dist/chunks/`, `dist/vega-worker.js`,
+  `dist/resvg.wasm`, `dist/tui.js`, `dist/gui.cjs` and `dist/browser/{vega,echarts,plot,ui}.js`, and regenerates
+  THIRD_PARTY_NOTICES.md and `licenses/packages/`. Outputs import only `node:` builtins, the host packages
+  (`@opencode/plugin`, `@opencode/plugin/*`, `@opentui/core`, `@opentui/solid`, `solid-js` and `solid-js/*`) and, for
+  the plugin, its own chunks.
+- **Engine start.** `dist/index.js` is what every engine start evaluates: the tool table (plain data the build computes
+  from the registry, `src/tool-table.ts`), settings, status and RPCs, with no zod schema and no engine. Everything else
+  is in `dist/renderer.js`, which `src/renderer-load.ts` imports on the first call that needs it. Never import the
+  renderer, the registry's schemas or an engine from a module the entry reaches; `test/lazy-start.test.ts` and the
+  build fail when it does.
 - **Checks.** `npm run check` is the one command (see CONTRIBUTING.md): `build`, `typecheck`, `unit`, `kit`, `browser`,
   `copies`, `forbidden`, `icons`, `whitelist`, `jelly`, `actionlint`, `pack`, `evals` and `host`. Do not skip or weaken
   a stage to get green.

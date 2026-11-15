@@ -3,8 +3,9 @@ import { ChartsError, formatFailure } from "./errors.js"
 import { htmlProblem } from "./html.js"
 import { AGENT_FIX, defaultRules, unguardedAgents, type Access, type Rule } from "./permissions.js"
 import { pngProblem } from "./png.js"
-import { NAMESPACE, TOOLS } from "./tools.js"
-import { builtinThemes, savedThemeNames, THEME_DIR, type ThemeSources } from "./themes/store.js"
+import { NAMESPACE, TOOLS } from "./tool-table.js"
+import { THEME_DIR } from "./constants.js"
+import type { ThemeSources } from "./themes/store.js"
 
 /** The OpenCode releases this plugin supports, as package.json's `opencode.host` says, and the ones its checks run on. */
 export const HOST_RANGE = ">=2.2.3 <2.4.0"
@@ -88,6 +89,8 @@ export async function buildStatus(sources: StatusSources): Promise<StatusView> {
   const png = pngProblem(sources.packageRoot)
   const html = htmlProblem(sources.packageRoot)
   const hostVersion = sources.hostVersion.trim() === "" ? null : sources.hostVersion
+  // The theme store carries the tokens' schemas, so it loads when a status is asked for, not at every start.
+  const { builtinThemes, savedThemeNames } = await import("./themes/store.js")
   let saved: string[] = []
   try { saved = savedThemeNames({ ...sources.themes, configured: {} }) } catch { /* a workspace without saved themes */ }
   const view: Omit<StatusView, "nextStep"> = {

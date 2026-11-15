@@ -11,7 +11,7 @@
  */
 import { afterAll, describe, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { renderBoard } from "../../src/board/render-board.ts"
 import { browserRuntime, buildHtml, htmlProblem, type BrowserRuntimeName } from "../../src/html.ts"
@@ -53,8 +53,9 @@ describe("the built bundles", () => {
     expect(readFileSync(join(PACKAGE, "dist", "gui.cjs"), "utf8")).toContain("charts.codeBlock")
   })
 
-  test("index.js carries all four runtime hashes, so a swapped sibling is refused", () => {
-    const index = readFileSync(join(PACKAGE, "dist", "index.js"), "utf8")
+  test("the plugin carries all four runtime hashes, so a swapped sibling is refused", () => {
+    // The check is in the code an engine start loads: dist/index.js or a chunk it shares with the renderer.
+    const index = ["index.js", ...readdirSync(join(PACKAGE, "dist", "chunks")).map(name => `chunks/${name}`)].map(file => readFileSync(join(PACKAGE, "dist", file), "utf8")).join("\n")
     for (const name of RUNTIMES) {
       const digest = createHash("sha256").update(readFileSync(join(PACKAGE, "dist", "browser", `${name}.js`))).digest("hex")
       expect(index).toContain(digest)

@@ -11,8 +11,9 @@ const env = { ...process.env, PATH: `${join(root, "node_modules", ".bin")}${deli
 // The approved package shape. Change it here only together with the release policy.
 const FILES = ["dist", "assets", "assets/icon.svg", "assets/icon-128.png", "assets/icon-256.png", "skills", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "licenses", "CHANGELOG.md"]
 const EXPORTS = { ".": "./dist/index.js", "./tui": "./dist/tui.js", "./gui-experimental": "./dist/gui.cjs", "./icon.svg": "./assets/icon.svg", "./icon-128.png": "./assets/icon-128.png", "./icon-256.png": "./assets/icon-256.png" }
-// dist/ holds the plugin, its Vega worker, the PNG rasteriser, the GUI part and the runtimes inlined into HTML.
-const DIST = ["browser", "gui.cjs", "index.js", "resvg.wasm", "tui.js", "vega-worker.js"]
+// dist/ holds the plugin's entry and its renderer (with the chunks they share in chunks/), its Vega worker, the PNG
+// rasteriser, the GUI part and the runtimes inlined into HTML.
+const DIST = ["browser", "chunks", "gui.cjs", "index.js", "renderer.js", "resvg.wasm", "tui.js", "vega-worker.js"]
 // The supported OpenCode line. The host provides @opencode/plugin, so the package declares no peers.
 const HOST_RANGE = ">=2.2.3 <2.4.0"
 const HOST_DEV_PIN = "2.2.5"
@@ -107,6 +108,8 @@ function whitelist() {
   const dist = join(root, "dist")
   const built = existsSync(dist) ? readdirSync(dist).sort() : []
   if (JSON.stringify(built) !== JSON.stringify(DIST)) problems.push(`dist/ must hold exactly ${DIST.join(", ")}, found ${built.join(", ") || "nothing"}. Run npm run build.`)
+  const chunks = existsSync(join(dist, "chunks")) ? readdirSync(join(dist, "chunks")) : []
+  if (!chunks.length || chunks.some((name) => !/^[\w-]+-[A-Z0-9]{8}\.js$/.test(name))) problems.push(`dist/chunks/ must hold only the build's chunks (<name>-<hash>.js), found ${chunks.join(", ") || "nothing"}. Run npm run build.`)
   for (const problem of problems) console.error(`package: ${problem}`)
   if (!problems.length) console.log("package.json and dist/ match the approved package shape.")
   return problems.length ? 1 : 0
