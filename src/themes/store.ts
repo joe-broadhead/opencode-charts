@@ -3,9 +3,10 @@ import { join } from "node:path"
 import { ChartsError, suggest } from "../errors.js"
 import { confine, ensureDirectory, type Workspace } from "../paths.js"
 import { BUILTIN_THEMES as BASE_THEMES, derivePairedTheme, deriveThemeFromSeed, mergeTokens, normaliseThemeColors, parseHostThemeSeed, ThemeTokensSchema, type HostThemeSeed, type ThemeOverrides, type ThemeTokens } from "./tokens.js"
+import { THEME_DIR } from "../constants.js"
 
-/** Saved themes live in the workspace, so a brand theme is defined once and used by name in every chart. */
-export const THEME_DIR = ".charts/themes"
+/** Saved themes live in the workspace (the folder is in src/constants.ts, which the start reads without the tokens). */
+export { THEME_DIR }
 /**
  * The workspace's own theme file. It is read when neither the tool call nor the plugin options name a theme, so a host
  * can drop one file into a repository and every chart follows it. It is never read when nothing named it but the file

@@ -8,3 +8,6 @@ export const MONO = "JetBrains Mono"
 export const GEIST = "Geist"
 /** Geist's monospaced companion, for figures, code and tabular labels. */
 export const GEIST_MONO = "Geist Mono"
+
+/** Saved themes live in the workspace, so a brand theme is defined once and used by name in every chart. */
+export const THEME_DIR = ".charts/themes"

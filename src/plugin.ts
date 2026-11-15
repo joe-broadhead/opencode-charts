@@ -3,7 +3,6 @@ import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { Error as ToolError } from "@opencode/plugin/promise/tool"
 import { ChartsError } from "./errors.js"
-import { closeVegaWorker } from "./engines/vega-pool.js"
 import { registerChartsRpc } from "./host/rpc.js"
 import { formatFailure, isChartsError } from "./errors.js"
 import type { Access } from "./permissions.js"
@@ -11,10 +10,13 @@ import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
 import type { Json } from "./engines/common.js"
 import { registerStatusRpc } from "./status-rpc.js"
 import { buildStatus, commandTransform, formatStatus } from "./status.js"
-import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, runTool, type ToolName } from "./tools.js"
-import { descriptor } from "./registry.js"
+// The tool table only (plain data, src/tool-table.ts): the renderer and the tools' zod schemas load on the first call
+// that needs them (src/renderer-load.ts).
+import type { ToolName } from "./registry.js"
+import { deferredInput, DESCRIPTIONS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, toolEntry } from "./tool-table.js"
+import { loadedRenderer, renderer } from "./renderer-load.js"
 import { publishHtmlArtifact } from "./artifact-bridge.js"
-import { createHostThemeStore, effectiveThemeInput, registerThemeRpc } from "./theme-rpc.js"
+import { effectiveThemeInput, registerDeferredThemeRpc, type HostThemeStore } from "./theme-session.js"
 import type { ThemeOverrides } from "./themes/tokens.js"
 
 export { PLUGIN_ID } from "./constants.js"
@@ -86,9 +88,10 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
       const workspace = { directory: ctx.location.directory, projectDirectory: ctx.location.project.directory }
       const defaults = { ...(opts.theme ? { theme: opts.theme } : {}), ...(opts.locale ? { locale: opts.locale } : {}), outDir: opts.outDir ?? "outputs/charts" }
       const location = { location: { directory: ctx.location.directory } }
-      const hostThemes = createHostThemeStore()
+      // The themes a host synced: the store exists once the theme RPC's first sync has made it (src/theme-session.ts).
+      let hostThemes: () => HostThemeStore | undefined = () => undefined
       const envForSession = (sessionID: string) => {
-        const synced = effectiveThemeInput(undefined, sessionID, hostThemes, defaults.theme)
+        const synced = effectiveThemeInput(undefined, sessionID, hostThemes(), defaults.theme)
         if (synced === undefined) return toolEnv
         if (typeof synced === "string") return { ...toolEnv, defaults: { ...defaults, theme: synced } }
         return { ...toolEnv, configuredThemes: { ...toolEnv.configuredThemes, "host-synced": synced as ThemeOverrides }, defaults: { ...defaults, theme: "host-synced" } }
@@ -110,11 +113,13 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
           editor.add({
             name,
             description: DESCRIPTIONS[name],
-            input: INPUTS[name],
+            // A Standard Schema whose JSON Schema is the table's and whose validation is the tool's zod schema,
+            // loaded with the renderer on the first call.
+            input: deferredInput(name, async () => (await renderer()).INPUTS),
             // Each tool returns structured output, so it declares its output schema: OpenCode 2.2.5 fails a result
             // that carries `output` from a tool that declares none. The schema is the registry's, which the tools RPC
             // validates the same result against.
-            output: descriptor(name).output,
+            output: toolEntry(name).output,
             options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}`, ...(PINNED.has(name) ? { pinned: true } : {}) },
             execute: async (input: unknown, context: { sessionID: string; agent: string; messageID: string; id: string }) => {
               const assert = (action: string, resources: readonly string[]) =>
@@ -124,6 +129,7 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
               // The tool's own action first, on every call: every tool is allowed by default, and access or a rule can narrow it.
               await assert(permissionOf(name), ["*"])
               try {
+                const { runTool } = await renderer()
                 const result = await runTool(env, name, input)
                 // A written HTML page is offered to the host's artifact surface when this release has one; the file is
                 // already on disk, so a host without it, or a publish that fails, changes nothing the caller sees.
@@ -149,13 +155,15 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
       await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), status }))
       // The status RPC: the same model the command prints, so the dialog and a script read one source.
       const stopStatus = await registerStatusRpc(ctx.rpc, status, formatStatus)
-      const stopThemeRpc = await registerThemeRpc(ctx.rpc, hostThemes, { workspace, configured: opts.themes ?? {} })
+      const themeRpc = await registerDeferredThemeRpc(ctx.rpc, { workspace, configured: opts.themes ?? {} })
+      hostThemes = themeRpc.store
       await ctx.skill.transform(editor => { for (const skill of skills) editor.add(skill as never) })
       return async () => {
-        await stopThemeRpc()
+        await themeRpc.stop()
         await stopStatus()
         await stopRpc()
-        await closeVegaWorker()
+        // A start that never drew anything never loaded the renderer, so there is no worker to stop.
+        await loadedRenderer()?.closeVegaWorker()
       }
     },
   }

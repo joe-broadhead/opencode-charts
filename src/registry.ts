@@ -1,11 +1,11 @@
 import * as z from "zod"
 import { AnnotationSchema } from "./annotations.js"
-import { DiagramEdgeSchema, DiagramGroupSchema, DiagramNodeSchema, FishboneCategorySchema } from "./engines/diagram.js"
+import { DiagramEdgeSchema, DiagramGroupSchema, DiagramNodeSchema, FishboneCategorySchema } from "./engines/diagram-schema.js"
 import { TableColumnSchema } from "./engines/table.js"
 import { CURRENCY_FIELD, LOCALE_FIELD } from "./locale-fields.js"
 import { QUICK_TYPES } from "./quick.js"
 import { DEFINITIONS } from "./recipes/definitions.js"
-import { THEME_DIR } from "./themes/store.js"
+import { THEME_DIR } from "./constants.js"
 import { ThemeDefinitionOverridesSchema } from "./document/schema.js"
 
 /**

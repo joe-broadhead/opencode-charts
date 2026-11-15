@@ -3,6 +3,26 @@
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.0.6] - 2026-11-15
+
+### Changed
+
+- **An engine start no longer loads the chart engines.** The plugin is split: `dist/index.js`, which every engine start
+  evaluates, holds the tool table, options, status and RPCs, with no zod schema and no engine; Vega, Vega-Lite,
+  ECharts, Observable Plot, resvg's loader, the diagram layout, the table and dashboard builders and the tools' zod
+  schemas are in `dist/renderer.js` and `dist/chunks/`, loaded on the first tool call, the first script call or the
+  first input check, once. Measured inside a real engine start with only Charts loaded (the plugin's import plus its
+  setup, median of 5, on a shared Linux VM): **726 ms → 19 ms on stock OpenCode 2.3.0, and 714 ms → 17 ms on 2.2.6**.
+  The first call pays the load instead: a first `validate` went from 513 ms to 1,150 ms on 2.3.0 (537 ms to 1,194 ms
+  on 2.2.6), so a start and its first chart take about as long as before, and a start that draws nothing saves it
+  all. A render's deadline starts after the load, so no call gets less time to render.
+- **The tools are registered from a table the build computes** from the registry (`src/tool-table.ts`): the same names,
+  descriptions, output schemas and input JSON Schemas, which are zod's own. Each tool's input is a Standard Schema that
+  validates with the tool's zod schema, so OpenCode reports the same issues and passes the same parsed input. The theme
+  RPC loads its theme code on the first `sync`, and `/charts-status` loads the theme store when it runs.
+- CI reads the stock OpenCode releases it installs from `TESTED_HOSTS` (`scripts/tested-hosts.mjs`), as the release
+  workflow does, instead of a list of its own.
+
 ## [0.0.5] - 2026-11-15
 
 ### Added

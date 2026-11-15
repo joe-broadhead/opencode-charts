@@ -65,14 +65,15 @@ Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities
 
 **This repo follows all of it**, with two deliberate differences:
 
-1. **Data files in `dist/`.** Besides `index.js`, `dist/` has `vega-worker.js` (a worker needs its own file),
+1. **Data files in `dist/`.** Besides `index.js`, `dist/` has `renderer.js` and `chunks/` (the engines, loaded on the
+   first call rather than at every engine start), `vega-worker.js` (a worker needs its own file),
    `resvg.wasm`, `tui.js` and `gui.cjs` (the two client surfaces) and `browser/{vega,echarts,plot,ui}.js` (inlined
    into HTML and the board page, never loaded by the plugin). The build compiles each file's SHA-256 into `index.js`,
    so a stale or swapped sibling is refused rather than used. The package's bundle rule allows these engine files
    beside the four entry bundles, and `NOTICE` names them. This answers the same in-place-update concern that makes
    the owner keep `dist/` to one file.
 2. **Minified bundles.** The plugin, its worker and the browser runtimes are minified with names kept: six engines
-   unminified would be far larger than the 5.2 MB `index.js`. The client parts are the exception: OpenCode cannot load
+   unminified would be far larger than the 5.3 MB of `index.js`, `renderer.js` and `chunks/`. The client parts are the exception: OpenCode cannot load
    the minified form of the TUI part's host imports from a local-path install, so `dist/tui.js` is built with
    `minify: false`, and the build fails if it is minified; `dist/gui.cjs` is unminified CommonJS for the Web and
    Desktop host, which supplies its own plugin and Solid.
@@ -287,7 +288,10 @@ Both write to `outputs/`, so both become saved files the same way.
 - **Eval.** `bun eval/run.ts <dir>`: 42 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
 - **Advice eval.** `bun eval/recommend.ts`: 21 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
 - **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2× PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.
-- **Footprint.** About 14.5 MB unpacked, no runtime dependencies, `dist/index.js` about 5.2 MB and the render worker about 2.8 MB: Vega, Vega-Lite, ECharts, Observable Plot, the table and diagram engines, and the PNG rasteriser are all bundled, so a render needs no network. `dist/resvg.wasm` is 2.4 MB of that.
+- **Engine start.** About 20 ms in a real engine start (import and setup, on a shared Linux VM with stock OpenCode
+  2.3.0 and 2.2.6), down from about 800 ms when the engines were evaluated at import: the start reads the tool table
+  and nothing else, and the first tool call loads the renderer once (see `docs/architecture.md`).
+- **Footprint.** About 14.5 MB unpacked, no runtime dependencies, the plugin about 5.3 MB (`dist/index.js` about 170 KB, `dist/renderer.js` and `dist/chunks/` the rest) and the render worker about 2.8 MB: Vega, Vega-Lite, ECharts, Observable Plot, the table and diagram engines, and the PNG rasteriser are all bundled, so a render needs no network. `dist/resvg.wasm` is 2.4 MB of that.
 
 ## 12. Known limits
 

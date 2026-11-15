@@ -1,7 +1,8 @@
 import type { Plugin } from "@opencode/plugin"
 import type { Environment } from "../pipeline.js"
-import { DESCRIPTORS, inputSchema, manifest, permissionOfTool, type ToolDescriptor, type ToolName } from "../registry.js"
-import { runTool } from "../tools.js"
+import type { ToolName } from "../registry.js"
+import { inputJsonSchema, NAMESPACE, TOOL_ENTRIES, type ToolEntry } from "../tool-table.js"
+import { renderer } from "../renderer-load.js"
 import { METHODS, registerToolsRpc, type ToolCall, type ToolsRpcContext } from "./tools-rpc.js"
 
 export { pluginError, TOOLS_RPC_ID } from "./tools-rpc.js"
@@ -45,18 +46,19 @@ const outputEnvelope = (schema: Record<string, unknown>) => ({
   additionalProperties: false,
 })
 
-export function ownedSpecs({ ctx, env, envForSession, version }: OwnedSpecOptions) {
-  const known = new Set(manifest(version).tools.map((tool: { name: string }) => tool.name))
-  return DESCRIPTORS.map((descriptor: ToolDescriptor) => {
-    const name = descriptor.name as ToolName
-    const action = permissionOfTool(name)
+export function ownedSpecs({ ctx, env, envForSession }: OwnedSpecOptions) {
+  // The tool table is the registry's, as plain data (src/tool-table.ts), so registering reads no zod schema.
+  const known = new Set<string>(TOOL_ENTRIES.map((tool: ToolEntry) => tool.name))
+  return TOOL_ENTRIES.map((descriptor: ToolEntry) => {
+    const name: ToolName = descriptor.name
+    const action = `${NAMESPACE}_${name}`
     return {
       kind: "plugin" as const,
       class: descriptor.class,
       name,
       action,
       description: descriptor.description,
-      input: inputSchema(name) as never,
+      input: inputJsonSchema(name) as never,
       output: outputEnvelope(descriptor.output) as never,
       async run(input: unknown, call: ToolCall) {
         const assert = (what: string, resources: readonly string[]) =>
@@ -65,6 +67,7 @@ export function ownedSpecs({ ctx, env, envForSession, version }: OwnedSpecOption
         // The tool's own action first, as on the model path. A script reaches this line only for an allowed call: the
         // shared module refuses an `ask` or a `deny` before dispatch.
         await assert(action, ["*"])
+        const { runTool } = await renderer()
         return forScript(await runTool({ ...(envForSession ? envForSession(call.sessionID) : env), assertFiles }, name, input))
       },
       /** `describe` reports a method as available unless the registry and the running build disagree. */

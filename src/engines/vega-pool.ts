@@ -28,8 +28,9 @@ const pending = new Map<number, Job>()
 
 function workerUrl(): URL | undefined {
   const here = import.meta.url
-  // Source (tests, bun): the .ts file beside this one. Bundle: dist/vega-worker.js beside dist/index.js.
-  for (const candidate of here.endsWith(".ts") ? ["./vega-worker.ts"] : ["./vega-worker.js"]) {
+  // Source (tests, bun): the .ts file beside this one. Bundle: dist/vega-worker.js, beside dist/renderer.js or one
+  // folder above the dist/chunks/ file this code is split into.
+  for (const candidate of here.endsWith(".ts") ? ["./vega-worker.ts"] : ["./vega-worker.js", "../vega-worker.js"]) {
     const url = new URL(candidate, here)
     if (existsSync(fileURLToPath(url))) return url
   }

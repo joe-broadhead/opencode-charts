@@ -164,16 +164,40 @@ them drifts. A tool that exists on one surface and not another is a defect, not 
 
 ## The bundle
 
-`node scripts/build.mjs` makes `dist/index.js`, `dist/vega-worker.js`, `dist/resvg.wasm`, `dist/tui.js`,
-`dist/gui.cjs` and `dist/browser/{vega,echarts,plot,ui}.js` (from the entry files in `src/browser/`; the ECharts
+`node scripts/build.mjs` makes `dist/index.js`, `dist/renderer.js` and `dist/chunks/`, `dist/vega-worker.js`,
+`dist/resvg.wasm`, `dist/tui.js`, `dist/gui.cjs` and `dist/browser/{vega,echarts,plot,ui}.js` (from the entry files in `src/browser/`; the ECharts
 modules both runtimes register come from one table, `src/runtime-support.ts`, which also lists the interactions
 interactive HTML provides), and regenerates `THIRD_PARTY_NOTICES.md` and `licenses/packages/`. `dist/tui.js` is built
 unminified because OpenCode cannot load the minified form of its host imports from a local-path install; `dist/gui.cjs`
 is CommonJS for the Web and Desktop host, which supplies its own plugin and Solid. The outputs import only `node:`
 builtins and the host packages — `@opencode/plugin`, `@opencode/plugin/*`, `@opentui/core`, `@opentui/solid`,
 `solid-js` and `solid-js/*` — so the tarball stands alone with no runtime dependencies. The SHA-256 of the wasm and of
-each browser runtime is compiled into `index.js`, so a stale or swapped file is refused (`PNG_UNAVAILABLE`,
+each browser runtime is compiled into the plugin, so a stale or swapped file is refused (`PNG_UNAVAILABLE`,
 `HTML_UNAVAILABLE`), and `/charts-status` reports it.
+
+### What an engine start loads
+
+The plugin is split in two, so an engine start does not pay for the engines. `dist/index.js` is the entry: the
+tools, their descriptions and JSON Schemas, the options, the status command and the three RPCs. It holds no zod schema
+and no engine, about 250 KB with the chunks it imports. `dist/renderer.js` holds the rest: every tool's
+implementation, Vega and Vega-Lite, ECharts, Observable Plot, resvg's loader, the diagram layout, the table and
+dashboard builders, and the tools' zod schemas. Code both use is in `dist/chunks/`, so each module is evaluated once.
+
+- **The tool table.** The tools are registered from `src/tool-table.ts`: each tool's name, class, description, output
+  schema and input JSON Schema. In the bundle it is data the build computed from `src/registry.ts` (it evaluates
+  `src/tool-table-source.ts` and compiles the result in that module's place); from source it is computed. The registry
+  stays the one definition.
+- **Input validation.** Each tool's input is a Standard Schema whose JSON Schema is the table's and whose `validate`
+  hands the value to the tool's zod schema, which loads with the renderer. OpenCode reads the JSON Schema to describe the
+  tool and validates each call with `validate`, so the issues and the parsed value are zod's, as before.
+- **The renderer** is imported by `src/renderer-load.ts` on the first tool call, the first tools-RPC call or the first
+  input validation, from a fixed specifier the build resolves to `dist/renderer.js`, and kept. A load that fails is
+  not kept, so the next call tries again. A render's deadline starts after the load, inside the tool.
+- **Status and themes.** `/charts-status` loads the theme store when it runs. The theme RPC loads its theme code on
+  the first `sync`; until then `get` and `clear` answer as an empty store does.
+
+`test/lazy-start.test.ts` loads the built entry with a fake host and a module-load spy: a start, a status, `describe`
+and a theme read load no renderer, no zod and no engine; the first tool call loads `dist/renderer.js`, once.
 
 ## Checks
 

@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode/plugin"
-import { NAMESPACE, TOOLS, type ToolName } from "./tools.js"
+import { NAMESPACE, TOOLS, type ToolName } from "./tool-table.js"
 
 /**
  * The default permission block. `ctx.agent.transform` inserts it right after each agent's base `* * allow`: every tool

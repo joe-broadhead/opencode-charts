@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import type { Plugin } from "@opencode/plugin"
 import { ChartsError, suggest } from "./errors.js"
 import { ChartsThemeContract, THEME_RPC_ID } from "./theme-contract.js"
+import { registerThemeContract, type HostThemeStore, type HostThemeValue, type RpcLike, type SyncedHostTheme, type SyncThemeInput, type ThemeHandlers, type ThemeNotify } from "./theme-session.js"
 import { checkThemeDefinition, resolveThemeAsked } from "./themes/chain.js"
 import { builtinThemes, savedThemeNames, type ThemeSources } from "./themes/store.js"
 
@@ -18,42 +19,10 @@ import { builtinThemes, savedThemeNames, type ThemeSources } from "./themes/stor
  */
 
 export { ChartsThemeContract, ChartsThemeContract as ChartsThemeRpc, THEME_RPC_ID }
+export { effectiveThemeInput, type HostThemeStore, type HostThemeValue, type SyncedHostTheme, type SyncThemeInput } from "./theme-session.js"
 
 /** The most sessions whose synced theme is remembered: the least recently used is dropped first. */
 export const MAX_SYNCED_THEMES = 256
-
-/** What a host may sync: a theme name, or a theme object (tokens, a seed, or light and dark variants). */
-export type HostThemeValue = string | Record<string, unknown>
-
-export interface SyncThemeInput {
-  /** The session the theme applies to; without one it applies to the whole location. */
-  readonly sessionID?: string
-  readonly mode?: "light" | "dark"
-  readonly theme?: HostThemeValue
-  /** The host's own revision for this theme; identical input gives an identical revision when it is not given. */
-  readonly revision?: string
-}
-
-/** A theme as it was synced, with the revision that identifies it. */
-export interface SyncedHostTheme {
-  readonly theme: HostThemeValue
-  readonly mode: "light" | "dark"
-  readonly revision: string
-  /** The session it belongs to; absent for the location-wide theme. */
-  readonly sessionID?: string
-}
-
-export interface HostThemeStore {
-  /** How many sessions hold a synced theme. */
-  readonly size: number
-  sync(input: SyncThemeInput & { readonly theme: HostThemeValue }): SyncedHostTheme
-  /** The theme synced for a session, if any; reading it marks the session as recently used. */
-  forSession(sessionID: string | undefined): SyncedHostTheme | undefined
-  /** The theme synced for the whole location, if any. */
-  default(): SyncedHostTheme | undefined
-  /** Clears a session's theme, or the location-wide one when no session is named; true when there was one. */
-  clear(sessionID?: string): boolean
-}
 
 /** A stable JSON text: keys sorted, so two equal themes hash to the same revision. */
 function stableJson(value: unknown): string {
@@ -168,29 +137,10 @@ export function createHostThemeStore(limit = MAX_SYNCED_THEMES): HostThemeStore 
   }
 }
 
-/**
- * Which theme a tool call resolves, in the order a host expects: the one the call named, then the live theme synced for
- * its session, then the live theme synced for the location, then the plugin's configured default, and finally nothing
- * (which reads the workspace's own theme file when there is one).
- */
-export function effectiveThemeInput(
-  explicitTheme: HostThemeValue | undefined,
-  sessionID: string | undefined,
-  hostStore: Pick<HostThemeStore, "forSession" | "default"> | undefined,
-  defaultTheme: string | undefined,
-): HostThemeValue | undefined {
-  if (explicitTheme !== undefined) return explicitTheme
-  const session = hostStore?.forSession(sessionID)
-  if (session !== undefined) return session.theme
-  const location = hostStore?.default()
-  if (location !== undefined) return location.theme
-  return defaultTheme
-}
-
 // ---------------------------------------------------------------------------------------------------------------
 // The contract lives in theme-contract.ts and is declared there once; this module registers it.
 
-export type ChartsThemeRpcType = typeof ChartsThemeContract
+export type { ChartsThemeRpcType } from "./theme-session.js"
 
 /** What a failed method returns: the typed code and its one next step, as every other Charts refusal does. */
 function refusal<T>(cause: unknown, error: (type: "refused", message: string, data: { code: string; next: string }) => T): T {
@@ -209,31 +159,9 @@ function checkThemeName(sources: ThemeSources, name: string): void {
   throw new ChartsError("THEME_NOT_FOUND", `There is no theme "${name}".${close.length ? ` Did you mean ${close.map(entry => `"${entry}"`).join(" or ")}?` : ""}`, `Use one of: ${all.join(", ")}; or sync the theme's own tokens as an object.`, "/theme")
 }
 
-interface ThemeRpcRegistration {
-  readonly events: { readonly emit: (name: "changed", data: Record<string, unknown>) => Promise<void> }
-  dispose(): Promise<void> | void
-}
-
-type RpcLike = Pick<Plugin.Context["rpc"], "register">
-
-/**
- * Registers `charts.theme` against a store. The returned function unregisters it, so the plugin's own cleanup can
- * await every registration it made.
- */
-export async function registerThemeRpc(rpc: RpcLike, store: HostThemeStore, sources: ThemeSources): Promise<() => Promise<void>> {
-  type Emit = (name: "changed", data: Record<string, unknown>) => Promise<void>
-  let emit: Emit | undefined
-  // A `sync` may arrive while `rpc.register` is still resolving, and `reg.emit` does not exist until it does: the
-  // events are held here and sent the moment it is assigned, so the first theme a host pushes is never lost.
-  const pending: { name: "changed"; data: Record<string, unknown> }[] = []
-  const notify = async (name: "changed", data: Record<string, unknown>): Promise<void> => {
-    if (emit === undefined) {
-      pending.push({ name, data })
-      return
-    }
-    await emit(name, data)
-  }
-  const registration = (await rpc.register(ChartsThemeContract, {
+/** The theme RPC's handlers over a store: the work behind `sync`, `get` and `clear`. */
+export function themeHandlers(store: HostThemeStore, sources: ThemeSources, notify: ThemeNotify): ThemeHandlers {
+  return {
     sync: async (input, context) => {
       try {
         const sync = (input ?? {}) as SyncThemeInput
@@ -266,8 +194,14 @@ export async function registerThemeRpc(rpc: RpcLike, store: HostThemeStore, sour
       }
     },
     clear: async (input) => ({ cleared: store.clear(((input ?? {}) as { sessionID?: string }).sessionID) }),
-  })) as unknown as ThemeRpcRegistration
-  emit = registration.events?.emit
-  for (const event of pending.splice(0)) await emit?.(event.name, event.data)
-  return async () => void (await registration.dispose())
+  }
+}
+
+/**
+ * Registers `charts.theme` against a store. The returned function unregisters it, so the plugin's own cleanup can
+ * await every registration it made. (The plugin itself registers it with `registerDeferredThemeRpc`, which makes the
+ * store and loads this module on the first sync.)
+ */
+export async function registerThemeRpc(rpc: RpcLike, store: HostThemeStore, sources: ThemeSources): Promise<() => Promise<void>> {
+  return registerThemeContract(rpc, notify => themeHandlers(store, sources, notify))
 }

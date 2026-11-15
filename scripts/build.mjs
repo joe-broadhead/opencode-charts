@@ -1,5 +1,8 @@
 // Builds what the host loads, each file self-contained:
-//   dist/index.js         the plugin (Vega, Vega-Lite, ECharts, resvg's loader, hyparquet and zod bundled in)
+//   dist/index.js         the plugin's entry: its tools, schemas, settings, status and RPCs, evaluated at every start
+//   dist/renderer.js      the renderer (Vega, Vega-Lite, ECharts, Plot, resvg's loader, the diagram layout, the table
+//                         and dashboard builders, hyparquet), which index.js imports on the first call that needs it
+//   dist/chunks/*.js      code index.js and renderer.js share, and the renderer's own on-demand parts
 //   dist/tui.js           the terminal UI part: the status dialog, with the status model and the RPC contract inlined
 //   dist/gui.cjs          the Web and Desktop part: chart cards, their actions and the palette commands
 //   dist/vega-worker.js   the thread Vega renders in, with a time and memory limit
@@ -44,7 +47,21 @@ for (const name of ["vega", "echarts", "plot", "ui"]) {
 // 2. resvg's wasm.
 copyFileSync(`${ROOT}node_modules/@resvg/resvg-wasm/index_bg.wasm`, `${ROOT}dist/resvg.wasm`)
 
-// 3. The plugin, its worker, the TUI part and the GUI part. The plugin and worker are minified; the TUI part is not,
+// 3. The tool table (src/tool-table.ts): each tool's name, class, description and JSON Schemas. The build evaluates
+//    src/tool-table-source.ts once, from a bundle of it held in memory, and compiles the result into the plugin in that
+//    module's place, so an engine start reads plain data and never builds the registry's zod schemas.
+//    test/lazy-start.test.ts checks the compiled table equals the registry's.
+const tableBundle = await build({ absWorkingDir: ROOT, entryPoints: ["src/tool-table-source.ts"], bundle: true, write: false, format: "esm", platform: "node", target: "es2022", alias: { canvas: `${ROOT}scripts/empty.mjs`, "cssomnom/parse": `${ROOT}scripts/empty.mjs` }, logLevel: "warning" })
+const toolTable = (await import(`data:text/javascript;base64,${Buffer.from(tableBundle.outputFiles[0].text).toString("base64")}`)).toolTable()
+const builtToolTable = {
+  name: "built-tool-table",
+  setup(b) {
+    b.onResolve({ filter: /^\.\/tool-table-source\.js$/ }, (args) => (/[\\/]src[\\/]tool-table\.ts$/.test(args.importer) ? { path: "tool-table", namespace: "built-tool-table" } : undefined))
+    b.onLoad({ filter: /.*/, namespace: "built-tool-table" }, () => ({ contents: `export const toolTable = () => JSON.parse(${JSON.stringify(JSON.stringify(toolTable))})\n`, loader: "js" }))
+  },
+}
+
+// 4. The plugin, its worker, the TUI part and the GUI part. The plugin and worker are minified; the TUI part is not,
 //    because OpenCode cannot load the minified form of its host imports from a local-path install ("Cannot find package
 //    'solid-js'"). The GUI part is CommonJS for the Web and Desktop host, which supplies its own plugin and Solid.
 const shared = {
@@ -66,22 +83,38 @@ const shared = {
   metafile: true,
   logLevel: "warning",
 }
-// Minified: the bundle carries the chart engines; names stay so stack traces still read.
-const plugin = await build({ ...shared, entryPoints: { index: "src/index.ts", "vega-worker": "src/engines/vega-worker.ts" }, minify: true })
+// Minified: the bundle carries the chart engines; names stay so stack traces still read. The plugin is split: index.js
+// is what an engine start evaluates, and renderer.js, with every engine, is a second entry that index.js reaches only
+// through its one dynamic import (src/renderer-load.ts), so the first call pays for the engines and a start does not.
+// Code both use goes to dist/chunks/, so each module is evaluated once. The worker stays one file of its own.
+const plugin = await build({ ...shared, entryPoints: { index: "src/index.ts", renderer: "src/renderer.ts" }, splitting: true, chunkNames: "chunks/[name]-[hash]", plugins: [builtToolTable], minify: true })
+const worker = await build({ ...shared, entryPoints: { "vega-worker": "src/engines/vega-worker.ts" }, minify: true })
 const tui = await build({ ...shared, entryPoints: { tui: "src/tui.ts" }, minify: false })
 // The GUI part keeps its names and its plain imports: the host reads the registries it declares, and `solid-js/h` stays
 // an external the host resolves. `outfile` replaces the shared `outdir`, since the extension is `.cjs`.
 const gui = await build({ ...shared, outdir: undefined, entryPoints: { gui: "src/gui.ts" }, format: "cjs", platform: "browser", outfile: `${ROOT}dist/gui.cjs`, minify: false })
-const metafiles = [plugin.metafile, tui.metafile, gui.metafile]
+const metafiles = [plugin.metafile, worker.metafile, tui.metafile, gui.metafile]
 for (const metafile of metafiles) for (const input of Object.keys(metafile.inputs)) bundledInputs.add(input)
 if (MINIFIED_IMPORT.test(readFileSync(`${ROOT}dist/tui.js`, "utf8"))) throw new Error("build: dist/tui.js is minified. OpenCode cannot load its host imports from a local-path install, so build the TUI part with minify: false.")
 for (const data of ["@resvg/resvg-wasm/index_bg.wasm", "world-atlas/package.json", "us-atlas/package.json", "i18n-iso-countries/package.json"]) bundledInputs.add(`node_modules/${data}`)
 writeNotices([...bundledInputs])
 const outputs = metafiles.flatMap((metafile) => Object.keys(metafile.outputs)).sort()
-if (outputs.join() !== "dist/gui.cjs,dist/index.js,dist/tui.js,dist/vega-worker.js") throw new Error(`build: expected dist/gui.cjs, dist/index.js, dist/tui.js and dist/vega-worker.js, got ${outputs.join(", ")}.`)
-const unexpected = metafiles.flatMap((metafile) => Object.entries(metafile.outputs)).flatMap(([file, output]) => output.imports.filter(entry => !allowed(entry.path)).map(entry => `${file}: ${entry.path}`))
+const named = outputs.filter(file => !file.startsWith("dist/chunks/"))
+if (named.join() !== "dist/gui.cjs,dist/index.js,dist/renderer.js,dist/tui.js,dist/vega-worker.js") throw new Error(`build: expected dist/gui.cjs, dist/index.js, dist/renderer.js, dist/tui.js and dist/vega-worker.js besides dist/chunks/, got ${named.join(", ")}.`)
+// The plugin's own files import each other (its chunks); every other import is a builtin or a host package.
+const own = new Set(Object.keys(plugin.metafile.outputs))
+const unexpected = metafiles.flatMap((metafile) => Object.entries(metafile.outputs)).flatMap(([file, output]) => output.imports.filter(entry => !allowed(entry.path) && !(own.has(file) && own.has(entry.path))).map(entry => `${file}: ${entry.path}`))
+// Only the plugin is split: the TUI part, the GUI part and the worker are one file each.
+for (const [file, output] of [worker, tui, gui].flatMap((result) => Object.entries(result.metafile.outputs))) if (output.imports.some(entry => entry.path.startsWith("dist/"))) throw new Error(`build: ${file} imports another dist/ file; it must stand alone.`)
+// index.js reaches the renderer only by its dynamic import, never statically: a static path would evaluate the engines
+// at every start again.
+const eager = new Set(["dist/index.js"])
+for (const queue = ["dist/index.js"]; queue.length;) for (const entry of plugin.metafile.outputs[queue.shift()].imports) if (entry.kind === "import-statement" && own.has(entry.path) && !eager.has(entry.path)) { eager.add(entry.path); queue.push(entry.path) }
+if (eager.has("dist/renderer.js")) throw new Error("build: dist/index.js imports dist/renderer.js statically; it must load it on first use.")
+const eagerBytes = [...eager].reduce((sum, file) => sum + plugin.metafile.outputs[file].bytes, 0)
 if (unexpected.length > 0) throw new Error(`build: outputs import modules the host does not supply:\n  ${unexpected.join("\n  ")}`)
-for (const file of ["dist/index.js", "dist/tui.js", "dist/gui.cjs", "dist/vega-worker.js", "dist/resvg.wasm", "dist/browser/vega.js", "dist/browser/echarts.js", "dist/browser/plot.js", "dist/browser/ui.js"]) console.log(`built ${file} (${kib(`${ROOT}${file}`)})`)
+console.log(`built dist/index.js and the chunks it loads at start (${(eagerBytes / 1024).toFixed(0)} KiB); dist/renderer.js with its chunks on first use`)
+for (const file of ["dist/index.js", "dist/renderer.js", "dist/tui.js", "dist/gui.cjs", "dist/vega-worker.js", "dist/resvg.wasm", "dist/browser/vega.js", "dist/browser/echarts.js", "dist/browser/plot.js", "dist/browser/ui.js"]) console.log(`built ${file} (${kib(`${ROOT}${file}`)})`)
 
 // THIRD_PARTY_NOTICES.md and licenses/: every package any output bundles, with its licence text, and the bundled
 // fonts and data. Regenerated by every build, so it cannot drift from what ships.
