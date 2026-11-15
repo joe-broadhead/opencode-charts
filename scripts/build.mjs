@@ -106,7 +106,14 @@ function writeNotices(inputs) {
     if (notice) copyFileSync(`${p.dir}/${notice}`, `${ROOT}${target.replace(/\.txt$/, ".NOTICE.txt")}`)
     // resvg-wasm's npm package carries no licence file: the MPL-2.0 text is kept in licenses/, and MPL asks that
     // the Source Code Form be available: it is github.com/thx/resvg-js at the same version (the wasm is built from it).
-    const text = file ? target : p.license === "MPL-2.0" ? "licenses/MPL-2.0.txt (source: github.com/thx/resvg-js, tag v" + p.version + ")" : "(no licence file in the package)"
+    let text = file ? target : p.license === "MPL-2.0" ? "licenses/MPL-2.0.txt (source: github.com/thx/resvg-js, tag v" + p.version + ")" : "(no licence file in the package)"
+    // EPL-2.0 (elkjs, the layout engine the diagrams use) also asks that the Source Code be available: the package's own
+    // repository at the tag of the bundled version (elkjs tags its releases with the bare version).
+    if (file && p.license === "EPL-2.0") {
+      const repo = /github\.com[/:]([\w.-]+\/[\w.-]+?)(?:\.git)?$/.exec(p.repo)?.[1]
+      if (!repo) throw new Error(`build: ${p.name} is EPL-2.0 and names no GitHub repository for its source.`)
+      text += ` (source: github.com/${repo}, tag ${p.version})`
+    }
     rows.push(`| ${p.name} | ${p.version} | ${p.license} | ${text} |`)
   }
   writeFileSync(`${ROOT}THIRD_PARTY_NOTICES.md`, `# Third-party notices
