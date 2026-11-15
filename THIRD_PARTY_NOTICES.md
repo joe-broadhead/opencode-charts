@@ -56,7 +56,7 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 | domutils | 3.2.2 | BSD-2-Clause | licenses/packages/domutils@3.2.2.txt |
 | domutils | 4.0.2 | BSD-2-Clause | licenses/packages/domutils@4.0.2.txt |
 | echarts | 6.1.0 | Apache-2.0 | licenses/packages/echarts@6.1.0.txt |
-| elkjs | 0.11.1 | EPL-2.0 | licenses/packages/elkjs@0.11.1.txt |
+| elkjs | 0.11.1 | EPL-2.0 | licenses/packages/elkjs@0.11.1.txt (source: github.com/kieler/elkjs, tag 0.11.1) |
 | entities | 4.5.0 | BSD-2-Clause | licenses/packages/entities@4.5.0.txt |
 | entities | 7.0.1 | BSD-2-Clause | licenses/packages/entities@7.0.1.txt |
 | entities | 8.1.0 | BSD-2-Clause | licenses/packages/entities@8.1.0.txt |

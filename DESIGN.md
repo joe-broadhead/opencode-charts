@@ -53,7 +53,7 @@ Read at `joe-broadhead/open-cowork@master` (shallow clone).
 
 Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities` and `opencode-gws` (ee21aa2).
 
-- **Package.** Each is published as `@joe-broadhead/opencode-<name>`, `type: module`, with `exports["."] = ./dist/index.js`. `files` is a whitelist, and there are no install scripts. `opencode.host` is an exact minor range (`>=2.2.3 <2.3.0`). All dependencies are devDependencies and bundled.
+- **Package.** Each is published as `@joe-broadhead/opencode-<name>`, `type: module`, with `exports["."] = ./dist/index.js`. `files` is a whitelist, and there are no install scripts. `opencode.host` is an exact minor range (`>=2.2.3 <2.4.0`). All dependencies are devDependencies and bundled.
 - **Entry.** `Plugin.define({ id, setup(ctx) })` (utilities `src/index.ts`, `src/host/plugin.ts`). Tools come from `ctx.tool.transform` with `editor.namespace` and `editor.add({ name, description, input: zod, options: { namespace, permission } })` (utilities `src/host/tools.ts`).
 - **Behaviour.**
   - Skills come from `skills/<id>/SKILL.md` through `ctx.skill.transform` (utilities `src/host/skills.ts`).
@@ -139,9 +139,15 @@ Rejected:
 2. On the compiled Vega spec: open-cowork's cardinality guard. It is extended to accept Vega-Lite's own facet `sequence`s, whose stop is a `length(data(...))` count; `impute` is left to the worker, because its cost is data-dependent.
 3. In the worker:
    - a wall-clock limit (default 10 s, `CHARTS_RENDER_TIMEOUT_MS`) and a 256 MB heap cap;
-   - a runaway render is terminated and the worker replaced (`data.transform` runs there too);
+   - a runaway render is terminated and the worker replaced (`data.transform` and diagram layout run there too, and a
+     diagram's ASCII outline runs as its own job with a 2 s deadline);
+   - a Mermaid diagram is refused before layout past 150 nodes or 200 edges: Mermaid's layout grows much faster than
+     its input (within the limits a layout takes up to about 7 s and 370 MB, always inside the default 10 s deadline;
+     600 edges more than 30 s);
    - jobs are tied to their worker, so one worker's exit never fails another's jobs (a bug the test found).
-4. On output: no `<image>`, `<foreignObject>`, `<script>`, `<iframe>`, event attributes or external `href`.
+4. On output: no `<image>`, `<foreignObject>`, `<script>`, `<iframe>`, event attributes, external `href`, or a CSS
+   `url()` (in an attribute or a `<style>`) to anything but an internal `#id`, `@import` or `image()`. User colours
+   (table badges, diagram nodes) are checked as colours, and every colour is escaped where it is written.
 5. Files:
    - `data.path`, theme font files and `outDir` must resolve inside the session directory or the project directory, after following links;
    - `~`, `..`, absolute paths elsewhere, URLs and `.git/` are refused;
@@ -229,7 +235,7 @@ projections of it. `test/registry.test.ts` fails when any of them drifts.
 that carries `output` from a tool that declares none (0.0.3's fix). The schema is a real one — the fields the tool
 returns, with `additionalProperties` open so a later field cannot fail a call — and the tools RPC validates each
 script's result against the same object, which also enforces the shared module's rule that an owned output schema may
-carry no `pattern`. Host cases on 2.2.3, 2.2.4, 2.2.5 and 2.2.6 call the tools and assert every result is accepted
+carry no `pattern`. Host cases on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 call the tools and assert every result is accepted
 against the output schema it declares.
 
 **The tools RPC.** `charts.tools`, v2.1 of the family module, makes every tool a method with its class, so a script
@@ -277,11 +283,11 @@ Both write to `outputs/`, so both become saved files the same way.
   - the registry's projections of every surface (registry, palette, recommend, figure, RPC);
   - the tools RPC called through the fake host.
 - **Gallery.** `bun scripts/gallery.ts <dir>`: 97 charts (all 79 types, cycling the 9 themes, plus two charts in every theme), with an HTML contact sheet and contact-sheet PNGs.
-- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5 and 2.2.6 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
+- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
 - **Eval.** `bun eval/run.ts <dir>`: 42 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
 - **Advice eval.** `bun eval/recommend.ts`: 21 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
 - **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2× PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.
-- **Footprint.** About 12.5 MB unpacked, no runtime dependencies, and `dist/index.js` about 5.2 MB: Vega, Vega-Lite, ECharts, Observable Plot, the table and diagram engines, and the PNG rasteriser are all bundled, so a render needs no network. `dist/resvg.wasm` is 2.4 MB of that.
+- **Footprint.** About 14.5 MB unpacked, no runtime dependencies, `dist/index.js` about 5.2 MB and the render worker about 2.8 MB: Vega, Vega-Lite, ECharts, Observable Plot, the table and diagram engines, and the PNG rasteriser are all bundled, so a render needs no network. `dist/resvg.wasm` is 2.4 MB of that.
 
 ## 12. Known limits
 

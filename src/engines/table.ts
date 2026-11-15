@@ -9,6 +9,7 @@ import { accessible, cssString } from "../svg.js"
 import { parseColor } from "../themes/contrast.js"
 import { inkOn } from "../themes/palette.js"
 import type { ThemeTokens } from "../themes/tokens.js"
+import { attr, colourToken, isUserColour, USER_COLOUR_MESSAGE, USER_COLOUR_PATTERN, userColourHex } from "../themes/user-colour.js"
 
 /**
  * Publication data-graphic tables: a Great-Tables-style renderer that draws a whole table as one measured SVG (so it
@@ -55,8 +56,11 @@ export const TableColumnSchema = z.strictObject({
    * already percentage points.
    */
   positiveIsGood: z.boolean().optional(),
-  /** `badge` and `dot`: the fill for a given value, such as {"Overdue": "#CC3344"}. */
-  badgeColors: z.record(z.string().max(120), z.string().max(64)).optional(),
+  /**
+   * `badge` and `dot`: the fill for a given value, such as {"Overdue": "#CC3344"}: #hex, rgb(), rgba(), transparent or
+   * a CSS colour name.
+   */
+  badgeColors: z.record(z.string().max(120), z.string().trim().max(64).regex(USER_COLOUR_PATTERN, USER_COLOUR_MESSAGE).refine(isUserColour, USER_COLOUR_MESSAGE)).optional(),
 })
 
 export const TableSpecSchema = z.strictObject({
@@ -223,17 +227,20 @@ export function formatCellValue(column: TableColumn, value: unknown, pattern: Nu
 
 const hex2 = (value: number) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0")
 
-/** `a` to `b` at `t`, in sRGB. Falls back to `b` when either cannot be parsed. */
+/**
+ * `a` to `b` at `t`, in sRGB. A CSS colour name is read as its value. Falls back to `b` when either cannot be parsed and
+ * `b` is colour text (a theme token or a user colour), else to "none": a value that is not a colour is never passed on.
+ */
 export function mixColour(a: string, b: string, t: number): string {
-  const ca = parseColor(a), cb = parseColor(b)
-  if (!ca || !cb) return b
+  const ca = parseColor(userColourHex(a) ?? a), cb = parseColor(userColourHex(b) ?? b)
+  if (!ca || !cb) return colourToken(b) ?? "none"
   return `#${hex2(ca[0] + (cb[0] - ca[0]) * t)}${hex2(ca[1] + (cb[1] - ca[1]) * t)}${hex2(ca[2] + (cb[2] - ca[2]) * t)}`
 }
 
-/** The colour at `alpha` (0..1) as #rrggbbaa; the token itself when it cannot be parsed. */
+/** The colour at `alpha` (0..1) as #rrggbbaa; the token itself when it cannot be parsed, or "none" when it is not colour text. */
 export function withAlpha(colour: string, alpha: number): string {
-  const c = parseColor(colour)
-  if (!c) return colour
+  const c = parseColor(userColourHex(colour) ?? colour)
+  if (!c) return colourToken(colour) ?? "none"
   return `#${hex2(c[0])}${hex2(c[1])}${hex2(c[2])}${hex2(Math.max(0, Math.min(1, alpha)) * 255)}`
 }
 
@@ -414,7 +421,9 @@ interface CellBox {
  * which puts white ink on what is really a pale pill.
  */
 function badgeFill(column: TableColumn, value: unknown, ctx: PlotContext): string {
-  const named = column.badgeColors?.[String(value ?? "")]
+  const given = column.badgeColors?.[String(value ?? "")]
+  // A colour is checked by the schema; one that is not a colour (a caller that skipped the schema) draws as no colour.
+  const named = given === undefined ? undefined : userColourHex(given)
   return mixColour(ctx.theme.colors.background, named ?? ctx.muted, named ? 0.16 : 0.14)
 }
 
@@ -428,7 +437,7 @@ function plotCell(column: TableColumn, value: unknown, box: CellBox, ctx: PlotCo
   const kind = column.cell ?? "text"
   const body = ctx.metrics.body
   const out: string[] = []
-  const textStyle = (anchor: "start" | "middle" | "end", size = body, weight = 400, fill = ctx.text) => `font-family="${escapeText(ctx.metrics.family)}" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}"`
+  const textStyle = (anchor: "start" | "middle" | "end", size = body, weight = 400, fill = ctx.text) => `font-family="${escapeText(ctx.metrics.family)}" font-size="${size}" font-weight="${weight}" fill="${attr(fill)}" text-anchor="${anchor}"`
   const baseline = round(centre + body * 0.36)
 
   if (kind === "bar") {
@@ -443,8 +452,8 @@ function plotCell(column: TableColumn, value: unknown, box: CellBox, ctx: PlotCo
     // A value the domain clamps away draws nothing: a minimum-width sliver at the domain's edge would misreport it.
     const width = numeric === 0 || at === zero ? 0 : Math.max(Math.abs(at - zero), 1.5)
     const barH = Math.min(10, Math.max(4, h - 8))
-    if (width > 0) out.push(`<rect x="${round(left)}" y="${round(centre - barH / 2)}" width="${round(width)}" height="${round(barH)}" rx="${round(Math.min(3, barH / 2))}" fill="${fill}"/>`)
-    if (lo < 0) out.push(`<line x1="${round(zero)}" y1="${round(centre - barH / 2 - 1)}" x2="${round(zero)}" y2="${round(centre + barH / 2 + 1)}" stroke="${ctx.axis}" stroke-width="1"/>`)
+    if (width > 0) out.push(`<rect x="${round(left)}" y="${round(centre - barH / 2)}" width="${round(width)}" height="${round(barH)}" rx="${round(Math.min(3, barH / 2))}" fill="${attr(fill)}"/>`)
+    if (lo < 0) out.push(`<line x1="${round(zero)}" y1="${round(centre - barH / 2 - 1)}" x2="${round(zero)}" y2="${round(centre + barH / 2 + 1)}" stroke="${attr(ctx.axis)}" stroke-width="1"/>`)
     out.push(`<text x="${round(x + w)}" y="${baseline}" ${textStyle("end")} style="font-variant-numeric:tabular-nums">${escapeText(label)}</text>`)
     return out.join("")
   }
@@ -460,14 +469,14 @@ function plotCell(column: TableColumn, value: unknown, box: CellBox, ctx: PlotCo
     const coords = points.map((point, index) => [x + (points.length > 1 ? index * step : w / 2), bottom - ((point - lo) / span) * (bottom - top)] as const)
     const line = smoothPath(coords)
     const colour = ctx.categorical[0]!
-    if (kind === "sparkarea") out.push(`<path d="${line}L${pathNumber(x + w)},${pathNumber(bottom)}L${pathNumber(x)},${pathNumber(bottom)}Z" fill="${withAlpha(colour, 0.16)}" stroke="none"/>`)
-    out.push(`<path d="${line}" fill="none" stroke="${colour}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`)
+    if (kind === "sparkarea") out.push(`<path d="${line}L${pathNumber(x + w)},${pathNumber(bottom)}L${pathNumber(x)},${pathNumber(bottom)}Z" fill="${attr(withAlpha(colour, 0.16))}" stroke="none"/>`)
+    out.push(`<path d="${line}" fill="none" stroke="${attr(colour)}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`)
     for (const index of new Set([points.indexOf(lo), points.indexOf(hi)])) {
       const point = coords[index]!
-      out.push(`<circle cx="${round(point[0])}" cy="${round(point[1])}" r="1.5" fill="${ctx.muted}"/>`)
+      out.push(`<circle cx="${round(point[0])}" cy="${round(point[1])}" r="1.5" fill="${attr(ctx.muted)}"/>`)
     }
     const end = coords[coords.length - 1]!
-    out.push(`<circle cx="${round(end[0])}" cy="${round(end[1])}" r="2.4" fill="${colour}" stroke="${ctx.theme.colors.background}" stroke-width="1"/>`)
+    out.push(`<circle cx="${round(end[0])}" cy="${round(end[1])}" r="2.4" fill="${attr(colour)}" stroke="${attr(ctx.theme.colors.background)}" stroke-width="1"/>`)
     return out.join("")
   }
 
@@ -484,7 +493,7 @@ function plotCell(column: TableColumn, value: unknown, box: CellBox, ctx: PlotCo
     points.forEach((point, index) => {
       const at = bottom - ((point - lo) / span) * (h - 4)
       const top = Math.min(at, zero)
-      out.push(`<rect x="${round(x + index * slot + gap / 2)}" y="${round(top)}" width="${round(Math.max(1, slot - gap))}" height="${round(Math.max(1, Math.abs(zero - at)))}" rx="1" fill="${point < 0 ? ctx.negative : colour}"/>`)
+      out.push(`<rect x="${round(x + index * slot + gap / 2)}" y="${round(top)}" width="${round(Math.max(1, slot - gap))}" height="${round(Math.max(1, Math.abs(zero - at)))}" rx="1" fill="${attr(point < 0 ? ctx.negative : colour)}"/>`)
     })
     return out.join("")
   }
@@ -495,12 +504,12 @@ function plotCell(column: TableColumn, value: unknown, box: CellBox, ctx: PlotCo
     const span = hi - lo || 1
     const trackW = Math.max(12, w - labelWidth - 6)
     const barH = Math.min(8, Math.max(4, h - 10))
-    out.push(`<rect x="${round(x)}" y="${round(centre - barH / 2)}" width="${round(trackW)}" height="${round(barH)}" rx="${round(barH / 2)}" fill="${withAlpha(ctx.axis, 0.22)}"/>`)
+    out.push(`<rect x="${round(x)}" y="${round(centre - barH / 2)}" width="${round(trackW)}" height="${round(barH)}" rx="${round(barH / 2)}" fill="${attr(withAlpha(ctx.axis, 0.22))}"/>`)
     const at = x + ((clamp(numeric, lo, hi) - lo) / span) * trackW
-    out.push(`<rect x="${round(x)}" y="${round(centre - barH / 2)}" width="${round(Math.max(1.5, at - x))}" height="${round(barH)}" rx="${round(barH / 2)}" fill="${ctx.categorical[0]}"/>`)
+    out.push(`<rect x="${round(x)}" y="${round(centre - barH / 2)}" width="${round(Math.max(1.5, at - x))}" height="${round(barH)}" rx="${round(barH / 2)}" fill="${attr(ctx.categorical[0])}"/>`)
     if (target !== undefined && Number.isFinite(target)) {
       const tick = x + ((clamp(target, lo, hi) - lo) / span) * trackW
-      out.push(`<line x1="${round(tick)}" y1="${round(centre - barH)}" x2="${round(tick)}" y2="${round(centre + barH)}" stroke="${ctx.text}" stroke-width="1.6" stroke-linecap="round"/>`)
+      out.push(`<line x1="${round(tick)}" y1="${round(centre - barH)}" x2="${round(tick)}" y2="${round(centre + barH)}" stroke="${attr(ctx.text)}" stroke-width="1.6" stroke-linecap="round"/>`)
     }
     out.push(`<text x="${round(x + w)}" y="${baseline}" ${textStyle("end")} style="font-variant-numeric:tabular-nums">${escapeText(label)}</text>`)
     return out.join("")
@@ -515,7 +524,7 @@ function plotCell(column: TableColumn, value: unknown, box: CellBox, ctx: PlotCo
     const triangle = direction > 0
       ? `${round(x + 0.5)},${round(baseY + body * 0.62)} ${round(x + body * 0.52)},${round(baseY + body * 0.62)} ${round(x + body * 0.26)},${round(baseY)}`
       : `${round(x + 0.5)},${round(baseY)} ${round(x + body * 0.52)},${round(baseY)} ${round(x + body * 0.26)},${round(baseY + body * 0.62)}`
-    out.push(`<polygon points="${triangle}" fill="${colour}"/>`)
+    out.push(`<polygon points="${triangle}" fill="${attr(colour)}"/>`)
     out.push(`<text x="${round(x + body * 0.72)}" y="${baseline}" ${textStyle("start", body, 600, colour)} style="font-variant-numeric:tabular-nums">${escapeText(label)}</text>`)
     return out.join("")
   }
@@ -524,14 +533,14 @@ function plotCell(column: TableColumn, value: unknown, box: CellBox, ctx: PlotCo
     const fill = badgeFill(column, value, ctx)
     const pillH = Math.min(round(body * 1.7), Math.max(12, h - 8))
     const pillW = Math.min(w, labelWidth + 16)
-    out.push(`<rect x="${round(x)}" y="${round(centre - pillH / 2)}" width="${round(pillW)}" height="${round(pillH)}" rx="${round(pillH / 2)}" fill="${fill}" stroke="${withAlpha(ctx.muted, 0.3)}" stroke-width="1"/>`)
+    out.push(`<rect x="${round(x)}" y="${round(centre - pillH / 2)}" width="${round(pillW)}" height="${round(pillH)}" rx="${round(pillH / 2)}" fill="${attr(fill)}" stroke="${attr(withAlpha(ctx.muted, 0.3))}" stroke-width="1"/>`)
     out.push(`<text x="${round(x + pillW / 2)}" y="${baseline}" ${textStyle("middle", body, 600, inkOn(fill, ctx.darkInk, ctx.lightInk))}>${escapeText(label)}</text>`)
     return out.join("")
   }
 
   if (kind === "dot") {
     const fill = badgeFill(column, value, ctx)
-    out.push(`<circle cx="${round(x + 4)}" cy="${round(centre)}" r="3.6" fill="${fill}"/>`)
+    out.push(`<circle cx="${round(x + 4)}" cy="${round(centre)}" r="3.6" fill="${attr(fill)}"/>`)
     out.push(`<text x="${round(x + 13)}" y="${baseline}" ${textStyle("start")}>${escapeText(label)}</text>`)
     return out.join("")
   }
@@ -736,17 +745,17 @@ export function renderTable(specInput: unknown, rowsInput: readonly Row[], optio
   let y = metrics.pad
   if (spec.kicker) {
     y += Math.round(metrics.small * 1.2)
-    text.push(`<text x="${metrics.pad}" y="${y}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" font-weight="600" fill="${theme.colors.highlight}" letter-spacing="${round(metrics.small * 0.1)}">${escapeText(spec.kicker.toUpperCase())}</text>`)
+    text.push(`<text x="${metrics.pad}" y="${y}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" font-weight="600" fill="${attr(theme.colors.highlight)}" letter-spacing="${round(metrics.small * 0.1)}">${escapeText(spec.kicker.toUpperCase())}</text>`)
     y += Math.round(metrics.small * 0.4)
   }
   if (spec.title) {
     y += Math.round(metrics.title * 1.05)
-    text.push(`<text x="${metrics.pad}" y="${y}" font-family="${escapeText(metrics.family)}" font-size="${metrics.title}" font-weight="${metrics.titleWeight}" fill="${theme.colors.text}">${escapeText(spec.title)}</text>`)
+    text.push(`<text x="${metrics.pad}" y="${y}" font-family="${escapeText(metrics.family)}" font-size="${metrics.title}" font-weight="${metrics.titleWeight}" fill="${attr(theme.colors.text)}">${escapeText(spec.title)}</text>`)
     y += Math.round(metrics.title * 0.3)
   }
   if (spec.subtitle) {
     y += Math.round(metrics.subtitle * 1.35)
-    text.push(`<text x="${metrics.pad}" y="${y}" font-family="${escapeText(metrics.family)}" font-size="${metrics.subtitle}" font-weight="400" fill="${theme.colors.muted}">${escapeText(spec.subtitle)}</text>`)
+    text.push(`<text x="${metrics.pad}" y="${y}" font-family="${escapeText(metrics.family)}" font-size="${metrics.subtitle}" font-weight="400" fill="${attr(theme.colors.muted)}">${escapeText(spec.subtitle)}</text>`)
   }
   if (spec.title || spec.subtitle || spec.kicker) y += Math.round(metrics.body * 0.6)
 
@@ -770,8 +779,8 @@ export function renderTable(specInput: unknown, rowsInput: readonly Row[], optio
     for (const span of spans) {
       const from = xs[span.from]!
       const to = xs[span.to]! + widths[span.to]!
-      rules.push(`<line x1="${round(from)}" y1="${round(y + spannerHeight - 1.5)}" x2="${round(to)}" y2="${round(y + spannerHeight - 1.5)}" stroke="${theme.colors.grid}" stroke-width="1"/>`)
-      text.push(`<text x="${round((from + to) / 2)}" y="${round(y + spannerHeight - 8)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" font-weight="600" fill="${theme.colors.text}" text-anchor="middle" letter-spacing="${round(metrics.small * 0.04)}">${escapeText(span.label)}</text>`)
+      rules.push(`<line x1="${round(from)}" y1="${round(y + spannerHeight - 1.5)}" x2="${round(to)}" y2="${round(y + spannerHeight - 1.5)}" stroke="${attr(theme.colors.grid)}" stroke-width="1"/>`)
+      text.push(`<text x="${round((from + to) / 2)}" y="${round(y + spannerHeight - 8)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" font-weight="600" fill="${attr(theme.colors.text)}" text-anchor="middle" letter-spacing="${round(metrics.small * 0.04)}">${escapeText(span.label)}</text>`)
     }
     y += spannerHeight
   }
@@ -780,24 +789,24 @@ export function renderTable(specInput: unknown, rowsInput: readonly Row[], optio
   spec.columns.forEach((column, index) => {
     const align = alignOf(column)
     const x = align === "right" ? xs[index]! + widths[index]! - metrics.cellPad : align === "center" ? xs[index]! + widths[index]! / 2 : xs[index]! + metrics.cellPad
-    text.push(`<text x="${round(x)}" y="${round(y + metrics.rowHeight / 2 + metrics.body * 0.36)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="600" fill="${theme.colors.text}" text-anchor="${align === "right" ? "end" : align === "center" ? "middle" : "start"}">${escapeText(labelOf(column))}</text>`)
+    text.push(`<text x="${round(x)}" y="${round(y + metrics.rowHeight / 2 + metrics.body * 0.36)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="600" fill="${attr(theme.colors.text)}" text-anchor="${align === "right" ? "end" : align === "center" ? "middle" : "start"}">${escapeText(labelOf(column))}</text>`)
   })
   y += metrics.rowHeight
-  rules.push(`<line x1="${round(tableX)}" y1="${round(y - 0.75)}" x2="${round(tableX + tableWidth)}" y2="${round(y - 0.75)}" stroke="${theme.colors.axis}" stroke-width="1.5"/>`)
+  rules.push(`<line x1="${round(tableX)}" y1="${round(y - 0.75)}" x2="${round(tableX + tableWidth)}" y2="${round(y - 0.75)}" stroke="${attr(theme.colors.axis)}" stroke-width="1.5"/>`)
 
   // Rows, section bands and the summary.
   const missingData = new Set<string>()
   let rowNumber = 0
   for (const band of bands) {
     if (band.label !== undefined) {
-      fills.push(`<rect x="${round(tableX)}" y="${round(y)}" width="${round(tableWidth)}" height="${groupHeight}" fill="${withAlpha(theme.colors.text, 0.045)}"/>`)
-      rules.push(`<line x1="${round(tableX)}" y1="${round(y + 0.5)}" x2="${round(tableX + tableWidth)}" y2="${round(y + 0.5)}" stroke="${theme.colors.grid}" stroke-width="1"/>`)
-      text.push(`<text x="${round(tableX + metrics.cellPad)}" y="${round(y + groupHeight / 2 + metrics.small * 0.36)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" font-weight="600" fill="${theme.colors.text}" letter-spacing="${round(metrics.small * 0.04)}">${escapeText(band.label || "—")}</text>`)
+      fills.push(`<rect x="${round(tableX)}" y="${round(y)}" width="${round(tableWidth)}" height="${groupHeight}" fill="${attr(withAlpha(theme.colors.text, 0.045))}"/>`)
+      rules.push(`<line x1="${round(tableX)}" y1="${round(y + 0.5)}" x2="${round(tableX + tableWidth)}" y2="${round(y + 0.5)}" stroke="${attr(theme.colors.grid)}" stroke-width="1"/>`)
+      text.push(`<text x="${round(tableX + metrics.cellPad)}" y="${round(y + groupHeight / 2 + metrics.small * 0.36)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" font-weight="600" fill="${attr(theme.colors.text)}" letter-spacing="${round(metrics.small * 0.04)}">${escapeText(band.label || "—")}</text>`)
       y += groupHeight
     }
     band.rows.forEach((entry, inBand) => {
-      if (spec.zebra && (rowNumber + inBand) % 2 === 1) fills.push(`<rect x="${round(tableX)}" y="${round(y)}" width="${round(tableWidth)}" height="${metrics.rowHeight}" fill="${withAlpha(theme.colors.text, 0.028)}"/>`)
-      if (entry.highlight) fills.push(`<rect x="${round(tableX)}" y="${round(y)}" width="${round(tableWidth)}" height="${metrics.rowHeight}" fill="${withAlpha(theme.colors.highlight, 0.12)}"/>`)
+      if (spec.zebra && (rowNumber + inBand) % 2 === 1) fills.push(`<rect x="${round(tableX)}" y="${round(y)}" width="${round(tableWidth)}" height="${metrics.rowHeight}" fill="${attr(withAlpha(theme.colors.text, 0.028))}"/>`)
+      if (entry.highlight) fills.push(`<rect x="${round(tableX)}" y="${round(y)}" width="${round(tableWidth)}" height="${metrics.rowHeight}" fill="${attr(withAlpha(theme.colors.highlight, 0.12))}"/>`)
 
       spec.columns.forEach((column, index) => {
         const stats = allStats[index]!
@@ -817,12 +826,12 @@ export function renderTable(specInput: unknown, rowsInput: readonly Row[], optio
           const t = numeric === undefined || hi === lo ? 0 : (numeric - lo) / (hi - lo)
           const ramp = lo < 0 && hi > 0 ? ctx.diverging : ctx.sequential
           const fill = sampleRamp(ramp, t)
-          fills.push(`<rect x="${round(cellX + 1)}" y="${round(y + 2)}" width="${round(cellW - 2)}" height="${metrics.rowHeight - 4}" fill="${fill}"/>`)
-          marks.push(`<text x="${round(textX)}" y="${baseline}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="400" fill="${inkOn(fill, ctx.darkInk, ctx.lightInk)}" text-anchor="${anchor}" style="font-variant-numeric:tabular-nums">${escapeText(label)}</text>`)
+          fills.push(`<rect x="${round(cellX + 1)}" y="${round(y + 2)}" width="${round(cellW - 2)}" height="${metrics.rowHeight - 4}" fill="${attr(fill)}"/>`)
+          marks.push(`<text x="${round(textX)}" y="${baseline}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="400" fill="${attr(inkOn(fill, ctx.darkInk, ctx.lightInk))}" text-anchor="${anchor}" style="font-variant-numeric:tabular-nums">${escapeText(label)}</text>`)
           return
         }
         if (kind === "text") {
-          marks.push(`<text x="${round(textX)}" y="${baseline}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="400" fill="${theme.colors.text}" text-anchor="${anchor}">${escapeText(label)}</text>`)
+          marks.push(`<text x="${round(textX)}" y="${baseline}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="400" fill="${attr(theme.colors.text)}" text-anchor="${anchor}">${escapeText(label)}</text>`)
           return
         }
         if ((kind === "sparkline" || kind === "sparkarea" || kind === "sparkbar") && !seriesOf(value)) missingData.add(column.field)
@@ -830,19 +839,19 @@ export function renderTable(specInput: unknown, rowsInput: readonly Row[], optio
         marks.push(plotCell(column, value, inner, ctx, stats, label, metrics.measure(label, metrics.body, 400), targetOf(column, entry.row)))
       })
       y += metrics.rowHeight
-      if (inBand < band.rows.length - 1) rules.push(`<line x1="${round(tableX)}" y1="${round(y - 0.5)}" x2="${round(tableX + tableWidth)}" y2="${round(y - 0.5)}" stroke="${theme.colors.grid}" stroke-width="1"/>`)
+      if (inBand < band.rows.length - 1) rules.push(`<line x1="${round(tableX)}" y1="${round(y - 0.5)}" x2="${round(tableX + tableWidth)}" y2="${round(y - 0.5)}" stroke="${attr(theme.colors.grid)}" stroke-width="1"/>`)
     })
     rowNumber += band.rows.length
   }
 
   if (spec.summaryRow) {
-    rules.push(`<line x1="${round(tableX)}" y1="${round(y + 0.75)}" x2="${round(tableX + tableWidth)}" y2="${round(y + 0.75)}" stroke="${theme.colors.axis}" stroke-width="1.5"/>`)
+    rules.push(`<line x1="${round(tableX)}" y1="${round(y + 0.75)}" x2="${round(tableX + tableWidth)}" y2="${round(y + 0.75)}" stroke="${attr(theme.colors.axis)}" stroke-width="1.5"/>`)
     const centre = y + metrics.rowHeight / 2 + metrics.body * 0.36
     spec.columns.forEach((column, index) => {
       const align = alignOf(column)
       const x = align === "right" ? xs[index]! + widths[index]! - metrics.cellPad : align === "center" ? xs[index]! + widths[index]! / 2 : xs[index]! + metrics.cellPad
       const label = index === 0 ? spec.summaryRow!.label : summary.get(column.field) ?? ""
-      marks.push(`<text x="${round(x)}" y="${round(centre)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="600" fill="${theme.colors.text}" text-anchor="${align === "right" ? "end" : align === "center" ? "middle" : "start"}" style="font-variant-numeric:tabular-nums">${escapeText(label)}</text>`)
+      marks.push(`<text x="${round(x)}" y="${round(centre)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.body}" font-weight="600" fill="${attr(theme.colors.text)}" text-anchor="${align === "right" ? "end" : align === "center" ? "middle" : "start"}" style="font-variant-numeric:tabular-nums">${escapeText(label)}</text>`)
     })
     y += metrics.rowHeight
   }
@@ -850,11 +859,11 @@ export function renderTable(specInput: unknown, rowsInput: readonly Row[], optio
   // Footer: the notes, then the source, in the muted ink.
   if (spec.notes) {
     y += Math.round(metrics.small * 1.5)
-    marks.push(`<text x="${metrics.pad}" y="${round(y)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" fill="${theme.colors.muted}">${escapeText(spec.notes)}</text>`)
+    marks.push(`<text x="${metrics.pad}" y="${round(y)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" fill="${attr(theme.colors.muted)}">${escapeText(spec.notes)}</text>`)
   }
   if (spec.source) {
     y += Math.round(metrics.small * 1.5)
-    marks.push(`<text x="${metrics.pad}" y="${round(y)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" fill="${theme.colors.axis}">${escapeText(spec.source)}</text>`)
+    marks.push(`<text x="${metrics.pad}" y="${round(y)}" font-family="${escapeText(metrics.family)}" font-size="${metrics.small}" fill="${attr(theme.colors.axis)}">${escapeText(spec.source)}</text>`)
   }
   const height = Math.ceil(y + metrics.pad)
 
@@ -868,7 +877,7 @@ export function renderTable(specInput: unknown, rowsInput: readonly Row[], optio
   const svg = accessible(
     [
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
-      `<rect x="0" y="0" width="${width}" height="${height}" fill="${theme.colors.background}"/>`,
+      `<rect x="0" y="0" width="${width}" height="${height}" fill="${attr(theme.colors.background)}"/>`,
       ...fills,
       ...rules,
       ...text,
@@ -978,7 +987,7 @@ function tableHtml(input: HtmlInput): string {
       const t = numeric === undefined || hi === lo ? 0 : (numeric - lo) / (hi - lo)
       const ramp = lo < 0 && hi > 0 ? ctx.diverging : ctx.sequential
       const fill = sampleRamp(ramp, t)
-      return `<td class="align-${align} heat" data-sort-value="${escapeText(sortValue)}" data-tsv="${escapeText(raw)}" style="background:${fill};color:${inkOn(fill, ctx.darkInk, ctx.lightInk)}">${escapeText(label)}</td>`
+      return `<td class="align-${align} heat" data-sort-value="${escapeText(sortValue)}" data-tsv="${escapeText(raw)}" style="${attr(`background:${fill};color:${inkOn(fill, ctx.darkInk, ctx.lightInk)}`)}">${escapeText(label)}</td>`
     }
     if (kind === "text") return `<td class="align-${align}" data-sort-value="${escapeText(sortValue)}" data-tsv="${escapeText(raw)}">${escapeText(label)}</td>`
     const plotW = Math.max(56, Math.min(150, widths[index]! - metrics.cellPad * 2))

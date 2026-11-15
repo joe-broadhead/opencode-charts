@@ -1,11 +1,12 @@
 import * as z from "zod"
-import { renderMermaidASCII, renderMermaidSVG } from "beautiful-mermaid"
+import { parseMermaid, renderMermaidASCII, renderMermaidSVG } from "beautiful-mermaid"
 import { MONO, SANS } from "../constants.js"
 import { ChartsError, pointer, type Issue } from "../errors.js"
 import type { FontBook } from "../fonts.js"
 import { accessible } from "../svg.js"
 import { inkOn } from "../themes/palette.js"
 import type { ThemeTokens } from "../themes/tokens.js"
+import { attr, isUserColour, USER_COLOUR_MESSAGE, USER_COLOUR_PATTERN, userColourHex } from "../themes/user-colour.js"
 import { mixColour, withAlpha } from "./table.js"
 
 /**
@@ -33,8 +34,8 @@ export const DiagramNodeSchema = z.strictObject({
   parent: z.string().max(80).optional(),
   /** A department or theme name; its colour comes from the theme's categorical palette. */
   group: z.string().max(80).optional(),
-  /** An explicit accent colour for this node's card or pill. */
-  color: z.string().max(64).optional(),
+  /** An explicit accent colour for this node's card or pill: #hex, rgb(), rgba(), transparent or a CSS colour name. */
+  color: z.string().trim().max(64).regex(USER_COLOUR_PATTERN, USER_COLOUR_MESSAGE).refine(isUserColour, USER_COLOUR_MESSAGE).optional(),
 })
 
 export const DiagramEdgeSchema = z.strictObject({
@@ -104,6 +105,13 @@ export interface DiagramRenderOptions {
   readonly width?: number
   /** Overrides the spec's height, in px; the width follows the content's aspect. */
   readonly height?: number
+  /**
+   * The ASCII outline of a Mermaid diagram (a dsl or an architecture recipe): drawn here (`inline`, the default), left
+   * to the caller as `asciiSource` (`defer`: the worker pool draws it as a separate job with its own deadline), or not
+   * drawn (`skip`). Mermaid's outline layout can run for a long time on some small inputs, so the plugin never draws it
+   * inline: `renderDiagramBounded` in vega-pool.ts is the entry point the tools use.
+   */
+  readonly mermaidAscii?: "inline" | "defer" | "skip"
 }
 
 export interface DiagramRender {
@@ -114,6 +122,98 @@ export interface DiagramRender {
   readonly width: number
   readonly height: number
   readonly issues: readonly Issue[]
+  /** With `mermaidAscii: "defer"`: the Mermaid source whose outline is still to be drawn. */
+  readonly asciiSource?: string
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Size limits.
+
+/**
+ * How large a Mermaid diagram (a dsl, or an architecture recipe) may be. Mermaid's layout grows much faster than its
+ * input: within these limits a layout takes up to about 7 s and 370 MB (15 nested subgraphs), inside the default 10 s
+ * deadline, while 200 nodes and 400 edges take about 10 s and 420 MB, and 600 edges more than 30 s. Past these limits a diagram is refused before
+ * any layout with SPEC_TOO_EXPENSIVE; a picture that size is unreadable at any page width anyway.
+ *
+ * The ASCII outline has smaller limits: its router searches a character grid, and a 60-node, 80-edge flowchart already
+ * takes 0.4 s and 300 MB. Past them the outline is the diagram's title alone.
+ */
+export const DIAGRAM_LIMITS = { nodes: 150, edges: 200, outlineNodes: 40, outlineEdges: 60 } as const
+/** The wall-clock limit of an ASCII outline, in ms: past it the outline is left out and the drawing stands. */
+export const ASCII_DEADLINE_MS = 2_000
+
+/** The warning a left-out outline raises. */
+export function asciiTooSlowIssue(deadlineMs: number): Issue {
+  return {
+    level: "warning",
+    code: "SPEC_TOO_EXPENSIVE",
+    message: `The diagram's ASCII outline did not finish within ${deadlineMs / 1000} s or its memory limit, so it is left out; the drawing is complete.`,
+    fix: "Ignore it, or simplify repeated edges between the same nodes if the outline is wanted.",
+  }
+}
+
+const SEQUENCE_MESSAGE = /^(\S+?)\s*(?:--?>?>|--?[)x]|--?>>|--?>)\s*[+-]?(\S+?)\s*:\s*.+$/
+const CLASS_RELATION = /^(\S+?)\s+(?:"[^"]*?"\s+)?(?:<\|--|<\|\.\.|\*--|o--|-->|--\*|--o|--\|>|\.\.>|\.\.\|>|<--|<\.\.?|--)\s+(?:"[^"]*?"\s+)?(\S+?)(?:\s*:\s*.+)?$/
+const ER_RELATION = /^(\S+)\s+[|o}{]+(?:--|\.\.)[|o}{]+\s+(\S+)\s*:\s*.+$/
+
+/**
+ * The nodes and edges a Mermaid source draws, counted the way the renderer reads them: flowcharts and state diagrams
+ * through its own parser, and sequence (participants and messages), class (classes and relationships) and ER (entities
+ * and relationships) diagrams line by line. Cheap and linear, so it runs before any layout. `undefined` when the source
+ * does not parse; the renderer then reports the problem itself.
+ */
+export function mermaidSize(source: string): { nodes: number; edges: number } | undefined {
+  const lines = source.split("\n").map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith("%%"))
+  const header = (lines[0] ?? "").toLowerCase()
+  const nodes = new Set<string>()
+  let edges = 0
+  const pair = (match: RegExpExecArray | null) => {
+    if (!match) return false
+    nodes.add(match[1]!)
+    nodes.add(match[2]!)
+    edges++
+    return true
+  }
+  if (/^sequencediagram\s*$/.test(header)) {
+    for (const line of lines.slice(1)) {
+      const actor = /^(?:participant|actor)\s+(\S+)/.exec(line)
+      if (actor) nodes.add(actor[1]!)
+      else pair(SEQUENCE_MESSAGE.exec(line))
+    }
+    return { nodes: nodes.size, edges }
+  }
+  if (/^classdiagram\s*$/.test(header)) {
+    for (const line of lines.slice(1)) {
+      const declared = /^class\s+([^\s{~]+)/.exec(line)
+      if (declared) nodes.add(declared[1]!)
+      else pair(CLASS_RELATION.exec(line))
+    }
+    return { nodes: nodes.size, edges }
+  }
+  if (/^erdiagram\s*$/.test(header)) {
+    for (const line of lines.slice(1)) {
+      const block = /^(\S+)\s*\{$/.exec(line)
+      if (block) nodes.add(block[1]!)
+      else pair(ER_RELATION.exec(line))
+    }
+    return { nodes: nodes.size, edges }
+  }
+  try {
+    const graph = parseMermaid(source)
+    return { nodes: graph.nodes.size, edges: graph.edges.length }
+  } catch {
+    return undefined
+  }
+}
+
+/** Refuses a Mermaid source over `DIAGRAM_LIMITS`, naming the limit, before any layout. */
+function checkMermaidSize(source: string, at: { nodes: string; edges: string }): { nodes: number; edges: number } | undefined {
+  const size = mermaidSize(source)
+  if (!size) return undefined
+  const next = "Split it into smaller diagrams (one per stage or subsystem), or merge detail into fewer, larger steps."
+  if (size.edges > DIAGRAM_LIMITS.edges) throw new ChartsError("SPEC_TOO_EXPENSIVE", `The diagram has ${size.edges} edges; a diagram may have at most ${DIAGRAM_LIMITS.edges} edges and ${DIAGRAM_LIMITS.nodes} nodes.`, next, at.edges)
+  if (size.nodes > DIAGRAM_LIMITS.nodes) throw new ChartsError("SPEC_TOO_EXPENSIVE", `The diagram has ${size.nodes} nodes; a diagram may have at most ${DIAGRAM_LIMITS.nodes} nodes and ${DIAGRAM_LIMITS.edges} edges.`, next, at.nodes)
+  return size
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -294,17 +394,17 @@ function composeFrame(content: FrameContent, head: FrameHead, theme: ThemeTokens
   let y = m.pad
   if (head.kicker) {
     y += Math.round(m.small * 1.2)
-    headParts.push(`<text x="${m.pad}" y="${y}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="600" fill="${theme.colors.highlight}" letter-spacing="${round(m.small * 0.1)}">${escapeText(head.kicker.toUpperCase())}</text>`)
+    headParts.push(`<text x="${m.pad}" y="${y}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="600" fill="${attr(theme.colors.highlight)}" letter-spacing="${round(m.small * 0.1)}">${escapeText(head.kicker.toUpperCase())}</text>`)
     y += Math.round(m.small * 0.4)
   }
   if (head.title) {
     y += Math.round(m.title * 1.05)
-    headParts.push(`<text x="${m.pad}" y="${y}" font-family="${escapeText(m.family)}" font-size="${m.title}" font-weight="${m.titleWeight}" fill="${theme.colors.text}">${escapeText(head.title)}</text>`)
+    headParts.push(`<text x="${m.pad}" y="${y}" font-family="${escapeText(m.family)}" font-size="${m.title}" font-weight="${m.titleWeight}" fill="${attr(theme.colors.text)}">${escapeText(head.title)}</text>`)
     y += Math.round(m.title * 0.3)
   }
   if (head.subtitle) {
     y += Math.round(m.subtitle * 1.35)
-    headParts.push(`<text x="${m.pad}" y="${y}" font-family="${escapeText(m.family)}" font-size="${m.subtitle}" font-weight="400" fill="${theme.colors.muted}">${escapeText(head.subtitle)}</text>`)
+    headParts.push(`<text x="${m.pad}" y="${y}" font-family="${escapeText(m.family)}" font-size="${m.subtitle}" font-weight="400" fill="${attr(theme.colors.muted)}">${escapeText(head.subtitle)}</text>`)
   }
   if (head.kicker || head.title || head.subtitle) y += Math.round(m.body * 0.6)
 
@@ -318,11 +418,11 @@ function composeFrame(content: FrameContent, head: FrameHead, theme: ThemeTokens
   let footY = y + drawH
   if (head.notes) {
     footY += Math.round(m.small * 1.5)
-    tail.push(`<text x="${m.pad}" y="${footY}" font-family="${escapeText(m.family)}" font-size="${m.small}" fill="${theme.colors.muted}">${escapeText(head.notes)}</text>`)
+    tail.push(`<text x="${m.pad}" y="${footY}" font-family="${escapeText(m.family)}" font-size="${m.small}" fill="${attr(theme.colors.muted)}">${escapeText(head.notes)}</text>`)
   }
   if (head.source) {
     footY += Math.round(m.small * 1.5)
-    tail.push(`<text x="${m.pad}" y="${footY}" font-family="${escapeText(m.family)}" font-size="${m.small}" fill="${theme.colors.axis}">${escapeText(head.source)}</text>`)
+    tail.push(`<text x="${m.pad}" y="${footY}" font-family="${escapeText(m.family)}" font-size="${m.small}" fill="${attr(theme.colors.axis)}">${escapeText(head.source)}</text>`)
   }
 
   const style = `<style>text{font-family:${cssString(m.family)},sans-serif}.mono{font-family:${cssString(m.mono)},monospace}</style>`
@@ -331,7 +431,7 @@ function composeFrame(content: FrameContent, head: FrameHead, theme: ThemeTokens
     [
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
       style,
-      `<rect x="0" y="0" width="${width}" height="${height}" fill="${theme.colors.background}"/>`,
+      `<rect x="0" y="0" width="${width}" height="${height}" fill="${attr(theme.colors.background)}"/>`,
       ...headParts,
       `<g transform="${transform}">${content.inner}</g>`,
       ...tail,
@@ -420,7 +520,7 @@ export function sanitiseMermaidSvg(raw: string, theme: ThemeTokens): { inner: st
     if (/\bdy\s*=/.test(inner)) return whole
     const content = inner.replace(/<[^>]+>/g, "")
     // The fragments' own fills are gone with their tspans, so the run takes the theme's text ink unless it has one.
-    const base = /\bfill\s*=/.test(attrs) ? attrs : `${attrs} fill="${theme.colors.text}"`
+    const base = /\bfill\s*=/.test(attrs) ? attrs : `${attrs} fill="${attr(theme.colors.text)}"`
     return `<text${base}>${content}</text>`
   })
   // A last guard: any reference that is not to an id in this document is dropped, not left to be fetched.
@@ -428,8 +528,18 @@ export function sanitiseMermaidSvg(raw: string, theme: ThemeTokens): { inner: st
   return { inner: body, width: Math.max(1, Math.round(width * 100) / 100), height: Math.max(1, Math.round(height * 100) / 100) }
 }
 
-/** The Mermaid source a spec draws, and its ASCII outline. */
-function renderMermaidSource(dsl: string, theme: ThemeTokens, fonts: FontBook): { content: FrameContent; ascii: string } {
+/** The ASCII outline of a Mermaid source, or "" when the renderer cannot draw one. Unbounded: run it under a deadline. */
+export function renderMermaidOutline(source: string): string {
+  try {
+    return renderMermaidASCII(source, { colorMode: "none" })
+  } catch {
+    return ""
+  }
+}
+
+/** The Mermaid source a spec draws, and its ASCII outline (or the source for one, deferred). */
+function renderMermaidSource(dsl: string, theme: ThemeTokens, fonts: FontBook, at: { nodes: string; edges: string }, mode: "inline" | "defer" | "skip"): { content: FrameContent; ascii: string; asciiSource?: string } {
+  const size = checkMermaidSize(dsl, at)
   let raw: string
   try {
     raw = renderMermaidSVG(dsl, mermaidOptions(theme))
@@ -439,13 +549,10 @@ function renderMermaidSource(dsl: string, theme: ThemeTokens, fonts: FontBook): 
   }
   // A back edge makes Mermaid reserve a rank it never fills; close that band so the footer sits below the drawing.
   const content = trimTrailingSpace(sanitiseMermaidSvg(raw, theme), Math.round(frameMetrics(theme, fonts).small * 1.4))
-  let ascii = ""
-  try {
-    ascii = renderMermaidASCII(dsl, { colorMode: "none" })
-  } catch {
-    ascii = ""
-  }
-  return { content, ascii }
+  const outline = size !== undefined && size.nodes <= DIAGRAM_LIMITS.outlineNodes && size.edges <= DIAGRAM_LIMITS.outlineEdges
+  if (!outline || mode === "skip") return { content, ascii: "" }
+  if (mode === "defer") return { content, ascii: "", asciiSource: dsl }
+  return { content, ascii: renderMermaidOutline(dsl) }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -500,7 +607,7 @@ function buildTree(nodes: readonly DiagramNode[], rootLabel: string | undefined,
   const rootNode: DiagramNode = named ?? (free.length === 1 ? free[0]! : { id: "__root", label: rootLabel ?? "Diagram" })
 
   const make = (node: DiagramNode, depth: number, parent: TreeNode | undefined): TreeNode => ({
-    id: node.id, label: plainLabel(node.label), subtitle: node.subtitle ? plainLabel(node.subtitle) : undefined, group: node.group, color: node.color,
+    id: node.id, label: plainLabel(node.label), subtitle: node.subtitle ? plainLabel(node.subtitle) : undefined, group: node.group, color: userColourHex(node.color),
     children: [], depth, family: parent ? parent.family : 0, leaf: true, angle: 0, radius: 0, x: 0, y: 0, w: 0, h: 0,
   })
 
@@ -628,7 +735,7 @@ function layoutMindmap(spec: DiagramSpec, theme: ThemeTokens, fonts: FontBook): 
         const c1y = centreY + Math.sin(node.angle) * midRadius
         const c2x = centreX + Math.cos(child.angle) * midRadius
         const c2y = centreY + Math.sin(child.angle) * midRadius
-        parts.push(`<path d="M${round(node.x)},${round(node.y)}C${round(c1x)},${round(c1y)} ${round(c2x)},${round(c2y)} ${round(child.x)},${round(child.y)}" fill="none" stroke="${withAlpha(fill, child.depth <= 1 ? 0.9 : 0.55)}" stroke-width="${child.depth <= 1 ? 2 : 1.3}"/>`)
+        parts.push(`<path d="M${round(node.x)},${round(node.y)}C${round(c1x)},${round(c1y)} ${round(c2x)},${round(c2y)} ${round(child.x)},${round(child.y)}" fill="none" stroke="${attr(withAlpha(fill, child.depth <= 1 ? 0.9 : 0.55))}" stroke-width="${child.depth <= 1 ? 2 : 1.3}"/>`)
       }
     }
     for (const node of build.nodes) drawMindmapPill(parts, node, colour(node), theme, m)
@@ -670,7 +777,7 @@ function layoutMindmap(spec: DiagramSpec, theme: ThemeTokens, fonts: FontBook): 
       const x0 = node.x + node.w / 2
       const x1 = child.x - child.w / 2
       const mid = (x0 + x1) / 2
-      parts.push(`<path d="M${round(x0)},${round(node.y)}C${round(mid)},${round(node.y)} ${round(mid)},${round(child.y)} ${round(x1)},${round(child.y)}" fill="none" stroke="${withAlpha(fill, child.depth <= 1 ? 0.9 : 0.55)}" stroke-width="${child.depth <= 1 ? 2 : 1.3}"/>`)
+      parts.push(`<path d="M${round(x0)},${round(node.y)}C${round(mid)},${round(node.y)} ${round(mid)},${round(child.y)} ${round(x1)},${round(child.y)}" fill="none" stroke="${attr(withAlpha(fill, child.depth <= 1 ? 0.9 : 0.55))}" stroke-width="${child.depth <= 1 ? 2 : 1.3}"/>`)
     }
   }
   for (const node of build.nodes) drawMindmapPill(parts, node, colour(node), theme, m)
@@ -684,15 +791,15 @@ function drawMindmapPill(parts: string[], node: TreeNode, colour: string, theme:
   const root = node.depth === 0
   const fill = root ? theme.colors.text : node.depth === 1 ? mixColour(theme.colors.background, colour, 0.16) : theme.colors.background
   const stroke = root ? theme.colors.text : node.depth === 1 ? colour : theme.colors.grid
-  parts.push(`<rect x="${round(x)}" y="${round(y)}" width="${round(node.w)}" height="${round(node.h)}" rx="${round(radius)}" fill="${fill}" stroke="${stroke}" stroke-width="${root || node.depth === 1 ? 1.6 : 1}"/>`)
+  parts.push(`<rect x="${round(x)}" y="${round(y)}" width="${round(node.w)}" height="${round(node.h)}" rx="${round(radius)}" fill="${attr(fill)}" stroke="${attr(stroke)}" stroke-width="${root || node.depth === 1 ? 1.6 : 1}"/>`)
   const ink = root ? theme.colors.background : theme.colors.text
   const size = node.depth === 0 ? m.body + 1 : m.body
   const weight = node.depth <= 1 ? 600 : 400
   if (node.subtitle) {
-    parts.push(`<text x="${round(node.x)}" y="${round(node.y - 2)}" font-family="${escapeText(m.family)}" font-size="${size}" font-weight="${weight}" fill="${ink}" text-anchor="middle">${escapeText(node.label)}</text>`)
-    parts.push(`<text x="${round(node.x)}" y="${round(node.y + m.small + 2)}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="400" fill="${root ? ink : theme.colors.muted}" text-anchor="middle">${escapeText(node.subtitle)}</text>`)
+    parts.push(`<text x="${round(node.x)}" y="${round(node.y - 2)}" font-family="${escapeText(m.family)}" font-size="${size}" font-weight="${weight}" fill="${attr(ink)}" text-anchor="middle">${escapeText(node.label)}</text>`)
+    parts.push(`<text x="${round(node.x)}" y="${round(node.y + m.small + 2)}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="400" fill="${attr(root ? ink : theme.colors.muted)}" text-anchor="middle">${escapeText(node.subtitle)}</text>`)
   } else {
-    parts.push(`<text x="${round(node.x)}" y="${round(node.y + size * 0.36)}" font-family="${escapeText(m.family)}" font-size="${size}" font-weight="${weight}" fill="${ink}" text-anchor="middle">${escapeText(node.label)}</text>`)
+    parts.push(`<text x="${round(node.x)}" y="${round(node.y + size * 0.36)}" font-family="${escapeText(m.family)}" font-size="${size}" font-weight="${weight}" fill="${attr(ink)}" text-anchor="middle">${escapeText(node.label)}</text>`)
   }
 }
 
@@ -765,19 +872,19 @@ function layoutOrgChart(spec: DiagramSpec, theme: ThemeTokens, fonts: FontBook):
       const x0 = node.x, y0 = node.y + node.h / 2
       const x1 = child.x, y1 = child.y - child.h / 2
       const midY = y0 + (y1 - y0) / 2
-      parts.push(`<path d="M${round(x0)},${round(y0)}V${round(midY)}H${round(x1)}V${round(y1)}" fill="none" stroke="${theme.colors.axis}" stroke-width="1.2" stroke-linejoin="miter"/>`)
+      parts.push(`<path d="M${round(x0)},${round(y0)}V${round(midY)}H${round(x1)}V${round(y1)}" fill="none" stroke="${attr(theme.colors.axis)}" stroke-width="1.2" stroke-linejoin="miter"/>`)
     }
   }
   for (const node of build.nodes) {
     const x = node.x - node.w / 2, y = node.y - node.h / 2
     const colour = accent(node)
-    parts.push(`<rect x="${round(x)}" y="${round(y)}" width="${round(node.w)}" height="${round(node.h)}" rx="6" fill="${mixColour(theme.colors.background, theme.colors.text, 0.03)}" stroke="${theme.colors.grid}" stroke-width="1"/>`)
-    parts.push(`<rect x="${round(x)}" y="${round(y)}" width="4" height="${round(node.h)}" rx="2" fill="${colour}"/>`)
+    parts.push(`<rect x="${round(x)}" y="${round(y)}" width="${round(node.w)}" height="${round(node.h)}" rx="6" fill="${attr(mixColour(theme.colors.background, theme.colors.text, 0.03))}" stroke="${attr(theme.colors.grid)}" stroke-width="1"/>`)
+    parts.push(`<rect x="${round(x)}" y="${round(y)}" width="4" height="${round(node.h)}" rx="2" fill="${attr(colour)}"/>`)
     if (node.subtitle) {
-      parts.push(`<text x="${round(x + 6 + cardPadX)}" y="${round(node.y - 3)}" font-family="${escapeText(m.family)}" font-size="${m.body}" font-weight="600" fill="${theme.colors.text}">${escapeText(node.label)}</text>`)
-      parts.push(`<text x="${round(x + 6 + cardPadX)}" y="${round(node.y + m.small + 5)}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="400" fill="${theme.colors.muted}">${escapeText(node.subtitle)}</text>`)
+      parts.push(`<text x="${round(x + 6 + cardPadX)}" y="${round(node.y - 3)}" font-family="${escapeText(m.family)}" font-size="${m.body}" font-weight="600" fill="${attr(theme.colors.text)}">${escapeText(node.label)}</text>`)
+      parts.push(`<text x="${round(x + 6 + cardPadX)}" y="${round(node.y + m.small + 5)}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="400" fill="${attr(theme.colors.muted)}">${escapeText(node.subtitle)}</text>`)
     } else {
-      parts.push(`<text x="${round(x + 6 + cardPadX)}" y="${round(node.y + m.body * 0.36)}" font-family="${escapeText(m.family)}" font-size="${m.body}" font-weight="600" fill="${theme.colors.text}">${escapeText(node.label)}</text>`)
+      parts.push(`<text x="${round(x + 6 + cardPadX)}" y="${round(node.y + m.body * 0.36)}" font-family="${escapeText(m.family)}" font-size="${m.body}" font-weight="600" fill="${attr(theme.colors.text)}">${escapeText(node.label)}</text>`)
     }
   }
 
@@ -861,26 +968,26 @@ function layoutFishbone(spec: DiagramSpec, theme: ThemeTokens, fonts: FontBook):
 
   const parts: string[] = []
   // The spine, pointing at the effect: a line and a polygon head, so no glyph has to exist for the arrow.
-  parts.push(`<line x1="${x(0)}" y1="${y(spineY)}" x2="${x(spineEnd)}" y2="${y(spineY)}" stroke="${theme.colors.text}" stroke-width="2"/>`)
-  parts.push(`<polygon points="${x(spineEnd)},${y(spineY - 6)} ${x(spineEnd + 12)},${y(spineY)} ${x(spineEnd)},${y(spineY + 6)}" fill="${theme.colors.text}"/>`)
+  parts.push(`<line x1="${x(0)}" y1="${y(spineY)}" x2="${x(spineEnd)}" y2="${y(spineY)}" stroke="${attr(theme.colors.text)}" stroke-width="2"/>`)
+  parts.push(`<polygon points="${x(spineEnd)},${y(spineY - 6)} ${x(spineEnd + 12)},${y(spineY)} ${x(spineEnd)},${y(spineY + 6)}" fill="${attr(theme.colors.text)}"/>`)
   // The effect box.
   const headX = spineEnd + 18
   const headFill = mixColour(theme.colors.background, theme.colors.categorical[0]!, 0.14)
-  parts.push(`<rect x="${x(headX)}" y="${y(spineY - headH / 2)}" width="${headW}" height="${headH}" rx="6" fill="${headFill}" stroke="${theme.colors.categorical[0]!}" stroke-width="1.6"/>`)
-  parts.push(`<text x="${round(x(headX + headW / 2))}" y="${round(y(spineY + (body + 1) * 0.36))}" font-family="${escapeText(m.family)}" font-size="${body + 1}" font-weight="600" fill="${theme.colors.text}" text-anchor="middle">${escapeText(effect)}</text>`)
+  parts.push(`<rect x="${x(headX)}" y="${y(spineY - headH / 2)}" width="${headW}" height="${headH}" rx="6" fill="${attr(headFill)}" stroke="${attr(theme.colors.categorical[0]!)}" stroke-width="1.6"/>`)
+  parts.push(`<text x="${round(x(headX + headW / 2))}" y="${round(y(spineY + (body + 1) * 0.36))}" font-family="${escapeText(m.family)}" font-size="${body + 1}" font-weight="600" fill="${attr(theme.colors.text)}" text-anchor="middle">${escapeText(effect)}</text>`)
 
   ribs.forEach((rib, index) => {
     const label = ribsInput[index]!.label
-    parts.push(`<line x1="${x(rib.attach)}" y1="${y(spineY)}" x2="${x(rib.tip)}" y2="${y(rib.tipY)}" stroke="${rib.colour}" stroke-width="1.8"/>`)
+    parts.push(`<line x1="${x(rib.attach)}" y1="${y(spineY)}" x2="${x(rib.tip)}" y2="${y(rib.tipY)}" stroke="${attr(rib.colour)}" stroke-width="1.8"/>`)
     // The pill on the bone's outer tip: above the tip on an upper rib, below it on a lower one.
     const pillY = rib.above ? rib.tipY - pillH : rib.tipY
     const pillFill = mixColour(theme.colors.background, rib.colour, 0.16)
-    parts.push(`<rect x="${x(rib.tip - rib.labelWidth / 2)}" y="${y(pillY)}" width="${rib.labelWidth}" height="${pillH}" rx="${round(pillH / 2)}" fill="${pillFill}" stroke="${rib.colour}" stroke-width="1.2"/>`)
-    parts.push(`<text x="${x(rib.tip)}" y="${round(y(pillY + pillH / 2 + body * 0.36))}" font-family="${escapeText(m.family)}" font-size="${body}" font-weight="600" fill="${inkOn(pillFill, theme.mode === "dark" ? theme.colors.background : theme.colors.text, "#FFFFFF")}" text-anchor="middle">${escapeText(label)}</text>`)
+    parts.push(`<rect x="${x(rib.tip - rib.labelWidth / 2)}" y="${y(pillY)}" width="${rib.labelWidth}" height="${pillH}" rx="${round(pillH / 2)}" fill="${attr(pillFill)}" stroke="${attr(rib.colour)}" stroke-width="1.2"/>`)
+    parts.push(`<text x="${x(rib.tip)}" y="${round(y(pillY + pillH / 2 + body * 0.36))}" font-family="${escapeText(m.family)}" font-size="${body}" font-weight="600" fill="${attr(inkOn(pillFill, theme.mode === "dark" ? theme.colors.background : theme.colors.text, "#FFFFFF"))}" text-anchor="middle">${escapeText(label)}</text>`)
     // Each cause: a short tick off the bone, stopping before the text, with the label above and to its left.
     for (const cause of rib.causes) {
-      parts.push(`<line x1="${x(cause.x - tick)}" y1="${y(cause.y)}" x2="${x(cause.x)}" y2="${y(cause.y)}" stroke="${withAlpha(rib.colour, 0.8)}" stroke-width="1.1"/>`)
-      parts.push(`<text x="${x(cause.x - tick - textGap)}" y="${round(y(cause.y) - 5)}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="400" fill="${theme.colors.text}" text-anchor="end">${escapeText(cause.text)}</text>`)
+      parts.push(`<line x1="${x(cause.x - tick)}" y1="${y(cause.y)}" x2="${x(cause.x)}" y2="${y(cause.y)}" stroke="${attr(withAlpha(rib.colour, 0.8))}" stroke-width="1.1"/>`)
+      parts.push(`<text x="${x(cause.x - tick - textGap)}" y="${round(y(cause.y) - 5)}" font-family="${escapeText(m.family)}" font-size="${m.small}" font-weight="400" fill="${attr(theme.colors.text)}" text-anchor="end">${escapeText(cause.text)}</text>`)
     }
   })
 
@@ -952,6 +1059,7 @@ export async function renderDiagram(specInput: unknown, options: DiagramRenderOp
   const { theme, fonts } = options
   const issues: Issue[] = []
   let ascii = ""
+  let asciiSource: string | undefined
   let frame: FrameContent
 
   if (spec.dsl) {
@@ -961,9 +1069,10 @@ export async function renderDiagram(specInput: unknown, options: DiagramRenderOp
     }
     // A direction in the spec wins over the one in the header, so a recipe can restyle a saved dsl without editing it.
     if (spec.direction) source = source.replace(/^(graph|flowchart)\s+(?:TD|TB|LR|BT|RL)\b/, (_whole, kind: string) => `${kind} ${spec.direction}`)
-    const rendered = renderMermaidSource(source, theme, fonts)
+    const rendered = renderMermaidSource(source, theme, fonts, { nodes: pointer(["dsl"]), edges: pointer(["dsl"]) }, options.mermaidAscii ?? "inline")
     frame = rendered.content
     ascii = rendered.ascii
+    asciiSource = rendered.asciiSource
   } else {
     switch (spec.kind) {
       case "mindmap": {
@@ -987,9 +1096,10 @@ export async function renderDiagram(specInput: unknown, options: DiagramRenderOp
         break
       }
       case "architecture": {
-        const rendered = renderMermaidSource(architectureDsl(spec), theme, fonts)
+        const rendered = renderMermaidSource(architectureDsl(spec), theme, fonts, { nodes: pointer(["nodes"]), edges: pointer(["edges"]) }, options.mermaidAscii ?? "inline")
         frame = rendered.content
         ascii = rendered.ascii
+        asciiSource = rendered.asciiSource
         break
       }
       default:
@@ -1008,7 +1118,7 @@ export async function renderDiagram(specInput: unknown, options: DiagramRenderOp
   }
   if (!ascii.trim()) ascii = spec.kind === "fishbone" ? `Cause-and-effect: ${plainLabel(spec.effect ?? spec.title ?? "Effect")}` : (spec.title ?? spec.kind ?? "diagram")
 
-  return { svg: composed.svg, ascii, width: composed.width, height: composed.height, issues }
+  return { svg: composed.svg, ascii, width: composed.width, height: composed.height, issues, ...(asciiSource !== undefined ? { asciiSource } : {}) }
 }
 
 /** The warning a cut link raises: the nodes still draw, hung from the root, and the reader is told why. */

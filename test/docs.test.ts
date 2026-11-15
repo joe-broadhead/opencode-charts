@@ -79,9 +79,10 @@ function balanced(text: string, from: number): string {
 }
 
 describe("the tested hosts", () => {
-  test("every \"tested on\" list in the docs is TESTED_HOSTS, 2.2.6 included", () => {
+  test("every \"tested on\" list in the docs is TESTED_HOSTS, 2.2.7 and 2.3.0 included", () => {
     const expected = `${TESTED_HOSTS.slice(0, -1).join(", ")} and ${TESTED_HOSTS.at(-1)}`
-    expect(expected).toContain("2.2.6")
+    expect(expected).toContain("2.2.7")
+    expect(expected).toContain("2.3.0")
     let found = 0
     for (const document of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md", "CHANGELOG.md"]) {
       const text = read(document).replace(/\s+/g, " ")
@@ -92,8 +93,9 @@ describe("the tested hosts", () => {
     }
     expect(found).toBeGreaterThan(2)
     // The untested example: inside the range, and not on the list.
-    expect(inRange("2.2.99", HOST_RANGE)).toBe(true)
-    expect(TESTED_HOSTS).not.toContain("2.2.99")
+    expect(inRange("2.3.99", HOST_RANGE)).toBe(true)
+    expect(inRange("2.4.0", HOST_RANGE)).toBe(false)
+    expect(TESTED_HOSTS).not.toContain("2.3.99")
   })
 })
 

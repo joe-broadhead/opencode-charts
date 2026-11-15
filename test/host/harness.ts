@@ -11,7 +11,7 @@ import { join, resolve } from "node:path"
 import { randomBytes, randomUUID } from "node:crypto"
 
 /** The versions the family tests. A missing binary skips that version with a line in the test output. */
-export const TESTED_HOSTS = ["2.2.3", "2.2.4", "2.2.5", "2.2.6"] as const
+export const TESTED_HOSTS = ["2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.3.0"] as const
 /** A folder holding one `<version>/node_modules` tree of stock releases, when the environment names one. */
 const STOCK_ROOT = process.env.OPENCODE_STOCK_ROOT
 const platform = `@opencode/cli-${process.platform}-${process.arch}`

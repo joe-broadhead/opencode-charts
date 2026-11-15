@@ -143,10 +143,38 @@ export function checkRenderedSvg(svg: string) {
       const name = attribute[1]!.toLowerCase(), value = (attribute[2] ?? "").replace(/^["']|["']$/g, "").trim()
       if (/^on[a-z]+$/.test(name)) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains an event handler attribute.", "Remove it from the spec.")
       if ((name === "href" || name === "xlink:href") && !value.startsWith("#")) throw new ChartsError("SPEC_UNSAFE", "The rendered chart links to an external resource.", "Remove the href channel from the spec.")
+      // Text attributes (an aria-label, a table cell's data-tsv) are data a reader sees, never fetched; every other
+      // attribute value is presentation, which an SVG renderer may resolve as CSS.
+      if (!TEXT_ATTRIBUTE.test(name) && externalCssReference(decodeEntities(value))) throw new ChartsError("SPEC_UNSAFE", `The rendered chart has a "${name}" attribute that refers to an external resource.`, "Use colours as #hex, rgb() or a colour name, and remove url() and @import from the spec.")
     }
     return ""
   })
+  // A <style> element's text is CSS too: the same rule holds there.
+  for (const style of svg.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)) {
+    if (externalCssReference(decodeEntities(style[1]!.replace(/<!\[CDATA\[|\]\]>/g, "")))) throw new ChartsError("SPEC_UNSAFE", "The rendered chart has a style that refers to an external resource.", "Remove url() and @import from the spec.")
+  }
   if (rest.replace(/<\/[A-Za-z][^\s>]*\s*>|<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?xml[^>]*\?>/g, "").includes("<")) throw new ChartsError("SPEC_UNSAFE", "The rendered chart contains markup that could not be checked.", "Simplify the labels and titles, then render again.")
+}
+/**
+ * Whether CSS or an attribute value refers to anything outside the document: a `url()` whose target is not an internal
+ * `#id`, `@import`, or `image-set()`/`image()`. CSS escapes are decoded first, so `u\72l(` is read as `url(`.
+ */
+function externalCssReference(raw: string): boolean {
+  const value = raw
+    .replace(/\\([0-9a-f]{1,6})\s?/gi, (_whole, hex: string) => String.fromCodePoint(Math.min(0x10ffff, parseInt(hex, 16) || 0xfffd)))
+    .replace(/\\([\s\S])/g, "$1")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+  if (/@import|\bimage(?:-set)?\s*\(/i.test(value)) return true
+  for (const match of value.matchAll(/url\s*\(\s*(['"]?)\s*([^'")\s]*)/gi)) if (!match[2]!.startsWith("#")) return true
+  return false
+}
+const TEXT_ATTRIBUTE = /^(?:aria-[a-z-]+|data-[a-z0-9-]+|alt|label|placeholder|title|id|class|role|lang|xml:lang|tabindex|d|points|transform|viewbox|xmlns(?::[a-z]+)?|version)$/
+/** The XML entities an attribute value may carry, decoded the way a reader decodes them before CSS sees the text. */
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]+);?/gi, (_whole, hex: string) => String.fromCodePoint(Math.min(0x10ffff, parseInt(hex, 16))))
+    .replace(/&#(\d+);?/g, (_whole, dec: string) => String.fromCodePoint(Math.min(0x10ffff, Number(dec))))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
 }
 const SVG_TAG = /<[A-Za-z][^\s/<>]*((?:\s+[^\s=/<>"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'<>]+))?)*)\s*\/?>/g
 const SVG_ATTRIBUTE = /([^\s=/<>"']+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'<>]+))?/g

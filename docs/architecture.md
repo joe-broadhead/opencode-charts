@@ -30,10 +30,11 @@ folder, then runs `runTool` (`src/tools.ts`):
 3. **Safety** (`src/safety.ts`). Size, depth and expression caps, and every external reference refused. Then the
    preflight: the PNG scales, the output folder (confined, not created), and the runtimes the requested formats need;
    `charts_validate` reports a problem here as an invalid result.
-4. **Engine** (`src/engines/`). Vega-Lite and Vega render in one warm worker thread with a time and memory limit
-   (`vega-pool.ts`); ECharts renders server-side to SVG; Observable Plot runs against a headless document with a
-   seeded random; tables (`table.ts`) and diagrams (`diagram.ts`) are measured and drawn in-process, Mermaid source
-   through `beautiful-mermaid`. Text is measured and drawn with the bundled fonts only (`src/fonts.ts`).
+4. **Engine** (`src/engines/`). Vega-Lite, Vega and diagrams render in one warm worker thread with a time and memory
+   limit (`vega-pool.ts`); ECharts renders server-side to SVG; Observable Plot runs against a headless document with a
+   seeded random; tables (`table.ts`) are measured and drawn in-process. A diagram (`diagram.ts`, Mermaid source through
+   `beautiful-mermaid`) has its size checked before any layout, and its ASCII outline is a second worker job with its
+   own 2 s deadline. Text is measured and drawn with the bundled fonts only (`src/fonts.ts`).
 5. **Checks.** Validation with JSON paths and did-you-mean, lint, and layout checks on the drawn SVG (overlaps,
    clipping, duplicate ticks).
 6. **The figure** (`src/figure.ts`). One measurement of the drawn SVG gives both the layout facts and the figure

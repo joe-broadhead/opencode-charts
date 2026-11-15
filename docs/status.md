@@ -39,6 +39,10 @@ would go stale, the tool is the source of truth.
   `stateDiagram-v2`, `classDiagram` and `erDiagram`, and the structured recipes cover `mindmap`, `org_chart`,
   `fishbone` and `architecture`. Other Mermaid kinds (`gantt`, `pie`, `journey`, `gitGraph`) are refused with the
   kinds that work rather than drawn badly.
+- **A Mermaid diagram has a size limit.** 150 nodes and 200 edges, checked before any layout, because Mermaid's layout
+  grows much faster than its input (within the limits a layout takes up to about 7 s and 370 MB, always inside the
+  default 10 s deadline; 600 edges take more than 30 s). The ASCII outline is drawn up to 40 nodes and 60 edges and within 2 s; past that it is the title line,
+  and an outline stopped at its deadline is reported with a warning.
 - **Interactive HTML differs from the SVG by a pixel or two of text layout.** The browser measures text its own way;
   the SVG, the PNG and the figure tree carry the exact promise.
 - **The word cloud places horizontal and vertical words only** (the deterministic replacement for Vega's canvas
@@ -71,7 +75,7 @@ would go stale, the tool is the source of truth.
 - **The tools RPC follows the same default.** Every method is allowed, so a script renders without a prompt; `access:
   "read-only"` denies the seven writers, and a saved "Always allow" from an interactive session does not authorize a
   script.
-- **Host support is `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6.** The host suite runs on every one.
+- **Host support is `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.** The host suite runs on every one.
 
 ## Decisions that are not gaps
 
@@ -84,7 +88,7 @@ These are decisions, not gaps: each is deliberate, and `charts_capabilities` rep
 - **Five Mermaid kinds are supported, the rest are deferred.** `charts_diagram` draws flowcharts, sequence, state,
   class and ER diagrams; `gantt`, `pie`, `journey` and `gitGraph` are outside its layout model and are refused with
   the kinds that work. Rune's `crates/rune-mermaid` remains the reference for a wider DOM-free layout later.
-- **`opencode.host` is `>=2.2.3 <2.3.0`**, the family's line, and the host suite proves every tested release.
+- **`opencode.host` is `>=2.2.3 <2.4.0`**, the family's line, and the host suite proves every tested release.
 
 ## How this page is kept true
 
