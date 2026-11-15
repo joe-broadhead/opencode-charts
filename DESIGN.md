@@ -287,7 +287,7 @@ Both write to `outputs/`, so both become saved files the same way.
 - **Eval.** `bun eval/run.ts <dir>`: 42 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
 - **Advice eval.** `bun eval/recommend.ts`: 21 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
 - **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2× PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.
-- **Footprint.** About 12.5 MB unpacked, no runtime dependencies, and `dist/index.js` about 5.2 MB: Vega, Vega-Lite, ECharts, Observable Plot, the table and diagram engines, and the PNG rasteriser are all bundled, so a render needs no network. `dist/resvg.wasm` is 2.4 MB of that.
+- **Footprint.** About 14.5 MB unpacked, no runtime dependencies, `dist/index.js` about 5.2 MB and the render worker about 2.8 MB: Vega, Vega-Lite, ECharts, Observable Plot, the table and diagram engines, and the PNG rasteriser are all bundled, so a render needs no network. `dist/resvg.wasm` is 2.4 MB of that.
 
 ## 12. Known limits
 
