@@ -236,7 +236,7 @@ projections of it. `test/registry.test.ts` fails when any of them drifts.
 that carries `output` from a tool that declares none (0.0.3's fix). The schema is a real one — the fields the tool
 returns, with `additionalProperties` open so a later field cannot fail a call — and the tools RPC validates each
 script's result against the same object, which also enforces the shared module's rule that an owned output schema may
-carry no `pattern`. Host cases on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 call the tools and assert every result is accepted
+carry no `pattern`. Host cases on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 call the tools and assert every result is accepted
 against the output schema it declares.
 
 **The tools RPC.** `charts.tools`, v2.1 of the family module, makes every tool a method with its class, so a script
@@ -284,7 +284,7 @@ Both write to `outputs/`, so both become saved files the same way.
   - the registry's projections of every surface (registry, palette, recommend, figure, RPC);
   - the tools RPC called through the fake host.
 - **Gallery.** `bun scripts/gallery.ts <dir>`: 97 charts (all 79 types, cycling the 9 themes, plus two charts in every theme), with an HTML contact sheet and contact-sheet PNGs.
-- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
+- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
 - **Eval.** `bun eval/run.ts <dir>`: 42 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
 - **Advice eval.** `bun eval/recommend.ts`: 21 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
 - **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2× PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.

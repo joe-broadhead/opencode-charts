@@ -9,7 +9,7 @@ import type { ThemeSources } from "./themes/store.js"
 
 /** The OpenCode releases this plugin supports, as package.json's `opencode.host` says, and the ones its checks run on. */
 export const HOST_RANGE = ">=2.2.3 <2.4.0"
-export const TESTED_HOSTS: readonly string[] = ["2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.3.0"]
+export const TESTED_HOSTS: readonly string[] = ["2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.3.0", "2.3.1", "2.3.2"]
 
 export const COMMANDS = { status: "charts-status" } as const
 export const NOTHING_TO_DO = "Nothing to do."
