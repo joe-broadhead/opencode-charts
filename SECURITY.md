@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Charts is tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. Inside `>=2.2.3 <2.4.0` an untested release still starts and
+Charts is tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. Inside `>=2.2.3 <2.4.0` an untested release still starts and
 status says the host is untested; outside the range the plugin reports `HOST_UNTESTED`.
 
 ## Reporting a vulnerability

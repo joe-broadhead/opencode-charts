@@ -79,13 +79,16 @@ function balanced(text: string, from: number): string {
 }
 
 describe("the tested hosts", () => {
-  test("every \"tested on\" list in the docs is TESTED_HOSTS, 2.2.7 and 2.3.0 included", () => {
+  test("every \"tested on\" list in the docs is TESTED_HOSTS, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 included", () => {
     const expected = `${TESTED_HOSTS.slice(0, -1).join(", ")} and ${TESTED_HOSTS.at(-1)}`
     expect(expected).toContain("2.2.7")
     expect(expected).toContain("2.3.0")
+    expect(expected).toContain("2.3.2")
     let found = 0
+    // A released CHANGELOG section states the list as it was then; only the Unreleased section states today's.
+    const current = (document: string) => (document === "CHANGELOG.md" ? (/\n## \[[^\]]+\][^\n]*([\s\S]*?)(?=\n## |$)/.exec(read(document))?.[1] ?? "") : read(document))
     for (const document of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md", "CHANGELOG.md"]) {
-      const text = read(document).replace(/\s+/g, " ")
+      const text = current(document).replace(/\s+/g, " ")
       for (let at = text.indexOf("tested on "); at !== -1; at = text.indexOf("tested on ", at + 1)) {
         found += 1
         expect({ document, after: text.slice(at + "tested on ".length, at + "tested on ".length + expected.length) }).toEqual({ document, after: expected })

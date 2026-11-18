@@ -10,7 +10,7 @@ Unofficial; not affiliated with OpenCode or Anomaly.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
+- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
 - macOS or Linux.
 - No network, no system fonts and no provider: every render is local and deterministic.
 
@@ -335,7 +335,7 @@ resvg (MPL-2.0), and the fonts (OFL-1.1).
 - **PNG and HTML need the packaged runtime.** A missing runtime is reported as `PNG_UNAVAILABLE` or `HTML_UNAVAILABLE`; reinstalling the plugin restores it.
 - **Some catalogue examples have rough edges.** Close-set ticks in the histogram and binned heatmap examples.
 - **Package size.** The package is about 14.5 MB unpacked: the plugin is about 5.3 MB (`dist/index.js`, which every engine start loads, is about 170 KB; the renderer it loads on the first call is the rest) and the render worker `dist/vega-worker.js` about 2.8 MB (it carries Vega and, since 0.0.5, the diagram engine): Vega, Vega-Lite, ECharts, Observable Plot, the diagram and table engines, and the PNG rasteriser are bundled, so a render needs no network.
-- **Host range.** OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0.
+- **Host range.** OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
 - **The first chart after OpenCode starts takes longer.** Starting OpenCode loads only the tool list; the first tool call (or script call) loads the chart engines, once, which adds well under a second. A render's deadline starts after that load.
 - **Stop doesn't interrupt a render already running.** It runs to its deadline: 10 s by default (`CHARTS_RENDER_TIMEOUT_MS`).
 - In Jelly, the `access` setting is drawn as a choice of three, which needs a Jelly that reads declared choices: an
