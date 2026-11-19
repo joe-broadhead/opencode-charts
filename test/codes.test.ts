@@ -10,7 +10,7 @@ import { CHART_CODES, RPC_CODES } from "../src/errors.ts"
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8")
 
 /** The shared tools RPC copy: a pinned part of the family's module, with its own code type. */
-const SHARED = "src/host/tools-rpc.ts"
+const SHARED = "node_modules/@we-the-rebel-alliance/source-contract/dist/tools-rpc.d.ts"
 
 function files(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
@@ -73,9 +73,9 @@ describe("the code table", () => {
     expect(tableCodes(section(SCRIPTING, "## Refusals")).sort()).toEqual([...RPC_CODES].sort())
     // Every code in the pinned copy's own `Code` type is either one of those or one only an MCP method or an account
     // can produce, which Charts never has.
-    const shared = /type Code =([\s\S]*?)\n\n/.exec(read(SHARED))?.[1] ?? ""
+    const shared = /export type Code =([^;]+);/.exec(read(SHARED))?.[1] ?? ""
     const declared = [...shared.matchAll(/"([A-Z][A-Z0-9_]{2,})"/g)].map((match) => match[1]!)
-    const impossible = ["ACCOUNT_UNKNOWN", "AUTH_REQUIRED", "CONNECTING", "CONNECTION_FAILED", "DISABLED", "NOT_REGISTERED", "SERVER_CONFLICT"]
+    const impossible = ["ACCOUNT_UNKNOWN", "AUTH_REQUIRED", "CONNECTING", "CONNECTION_FAILED", "DISABLED", "NOT_REGISTERED", "RESOURCE_UNRESOLVED", "SERVER_CONFLICT"]
     expect(declared.filter((code) => !(RPC_CODES as readonly string[]).includes(code)).sort()).toEqual(impossible.sort())
   })
 })

@@ -210,8 +210,7 @@ export const CHART_CODES: readonly ChartsCode[] = [
 
 /**
  * The codes the shared tools RPC module returns for a script's call, which `docs/scripting.md` documents beside the
- * plugin's own. `src/host/tools-rpc.ts` is a pinned copy of the family's module and is never edited here; its
- * `Code` union has seven more that only an MCP method or a per-account server can return, and Charts has neither.
+ * plugin's own. The transport is the source contract package, bundled into `dist/index.js`. Its `Code` union has codes only an MCP method, a per-account server or a resource resolver can return, and Charts has none of those.
  */
 export type RpcCode =
   | "CANCELLED"
