@@ -9,7 +9,7 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 | @resvg/resvg-wasm | 2.6.2 | MPL-2.0 | licenses/MPL-2.0.txt (source: github.com/thx/resvg-js, tag v2.6.2) |
 | @ui-sdk/core | 0.1.0-beta.1 | Apache-2.0 | licenses/packages/@ui-sdk__core@0.1.0-beta.1.txt |
 | @ui-sdk/web | 0.1.0-beta.1 | Apache-2.0 | licenses/packages/@ui-sdk__web@0.1.0-beta.1.txt |
-| @we-the-rebel-alliance/source-contract | 0.2.0 | MIT | licenses/packages/@we-the-rebel-alliance__source-contract@0.2.0.txt |
+| @we-the-rebel-alliance/source-contract | 0.3.0 | MIT | licenses/packages/@we-the-rebel-alliance__source-contract@0.3.0.txt |
 | beautiful-mermaid | 1.1.3 | MIT | licenses/packages/beautiful-mermaid@1.1.3.txt |
 | boolbase | 2.0.0 | ISC | licenses/packages/boolbase@2.0.0.txt |
 | css-select | 7.0.0 | BSD-2-Clause | licenses/packages/css-select@7.0.0.txt |
