@@ -2,15 +2,13 @@
 //   node scripts/check-copies.mjs          check the copies this plugin has
 //   node scripts/check-copies.mjs --print  print each copy's hash, after a change made in every plugin at once
 // Each plugin keeps its own copy, because each bundle and each test suite stands alone. The hashes below name the one
-// version all plugins carry: the tools RPC outside its PLUGIN-SPECIFIC block, the declaration test kit whole, and Jelly's setting rules whole.
+// version all plugins carry: the declaration test kit whole, and Jelly's setting rules whole. The tools RPC is not a copy
+// here: it comes from the source contract package, pinned in package-lock.json and bundled into dist/index.js.
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync } from "node:fs"
 
-const BEGIN = "// >>> PLUGIN-SPECIFIC >>>"
-const END = "// <<< PLUGIN-SPECIFIC <<<"
 
 const COPIES = [
-  { path: "src/host/tools-rpc.ts", optional: false, sha256: "15d82caa53aaae7ad9efb88dddb97056d3895c4dbf49b8efbb85b743871b2a6d", part: sharedPart },
   { path: "test/support/jelly-kit.ts", optional: false, sha256: "de4bed563f37e39a596ba50908cac32f596a1d616b068daa327c2942e3f0aed5", part: (text) => text },
   // Jelly's setting rules, restated without zod (the file's header says what it restates and how to update it).
   { path: "test/support/jelly-settings.ts", optional: false, sha256: "966aeac7eddce490da51e8e46780f1fbcfaf9b3e892bd62f2c3952c2a6111383", part: (text) => text },
@@ -34,12 +32,6 @@ const COPIES = [
   { path: "scripts/tested-hosts.mjs", optional: false, sha256: "370b2d6d7243cbc55ef435682bd75f113d0e18e5f7e063dd35407324362ce381", part: (text) => text },
 ]
 
-function sharedPart(text, path) {
-  const begin = text.indexOf(BEGIN)
-  const end = text.indexOf(END)
-  if (begin === -1 || end === -1 || end < begin) throw new Error(`${path}: the PLUGIN-SPECIFIC markers are missing or out of order`)
-  return text.slice(0, begin) + text.slice(end + END.length)
-}
 
 const print = process.argv.includes("--print")
 let failed = 0

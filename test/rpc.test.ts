@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { ROOT, workspace } from "./helpers.js"
 import { ChartsError } from "../src/errors.js"
-import { pluginError, TOOLS_RPC_ID } from "../src/host/tools-rpc.js"
+import { pluginError, TOOLS_RPC_ID } from "../src/tools-rpc.js"
 
 /**
  * The tools RPC: `<plugin id>.tools`, with every tool a method and a class, callable with no model.

@@ -3,9 +3,10 @@ import type { Environment } from "../pipeline.js"
 import type { ToolName } from "../registry.js"
 import { inputJsonSchema, NAMESPACE, TOOL_ENTRIES, type ToolEntry } from "../tool-table.js"
 import { renderer } from "../renderer-load.js"
-import { METHODS, registerToolsRpc, type ToolCall, type ToolsRpcContext } from "./tools-rpc.js"
+import { registerToolsRpc, type ToolCall, type ToolsRpcContext } from "@we-the-rebel-alliance/source-contract/tools-rpc"
+import { METHODS, PLUGIN } from "../tools-rpc.js"
 
-export { pluginError, TOOLS_RPC_ID } from "./tools-rpc.js"
+export { pluginError, TOOLS_RPC_ID } from "../tools-rpc.js"
 
 /**
  * Charts' tools as RPC methods, so a script can draw or check a chart with no model.
@@ -78,5 +79,5 @@ export function ownedSpecs({ ctx, env, envForSession }: OwnedSpecOptions) {
 
 /** Registers `<plugin id>.tools` and returns its stop function. */
 export async function registerChartsRpc(ctx: ToolsRpcContext, options: OwnedSpecOptions) {
-  return registerToolsRpc(ctx, { methods: [...METHODS, ...ownedSpecs(options)] })
+  return registerToolsRpc(ctx, { plugin: PLUGIN, methods: [...METHODS, ...ownedSpecs(options)] })
 }

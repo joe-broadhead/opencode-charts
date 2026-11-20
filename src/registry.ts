@@ -12,7 +12,7 @@ import { ThemeDefinitionOverridesSchema } from "./document/schema.js"
  * The registry: every tool of this plugin, defined once.
  *
  * The model's tool registration (`src/plugin.ts`), the Jelly declaration (`package.json` `jelly.tools`), the tools RPC
- * table (`src/host/tools-rpc.ts`), `charts_capabilities` and `docs/tool-parity.md` are all projections of this list.
+ * table (`src/tools-rpc.ts`), `charts_capabilities` and `docs/tool-parity.md` are all projections of this list.
  * A capability that exists on only one surface is a defect, not a feature, so a test asserts the projections agree
  * (`test/registry.test.ts`).
  *

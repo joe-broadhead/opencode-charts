@@ -4,8 +4,7 @@ This repository builds `@joe-broadhead/opencode-charts`, an unofficial OpenCode 
 diagram and dashboard documents (Vega-Lite, Vega, ECharts, Observable Plot, tables, diagrams) to SVG, PNG, GIF and
 offline HTML. The README is for users; `docs/` is the reference.
 
-- **Host.** Public `@opencode/plugin` APIs only; the tools RPC is the shared v2 module (`57377eb3…`), and its shared
-  part is never edited here. `opencode.host` is `>=2.2.3 <2.4.0`, and `TESTED_HOSTS` in `src/status.ts` is the one list
+- **Host.** Public `@opencode/plugin` APIs only; the tools RPC transport is `@we-the-rebel-alliance/source-contract/tools-rpc`, bundled into `dist/index.js`; Charts' part is `src/tools-rpc.ts`. `opencode.host` is `>=2.2.3 <2.4.0`, and `TESTED_HOSTS` in `src/status.ts` is the one list
   of tested releases: tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
 - **Errors.** `CODE: what happened. Next step: what to do.` (`formatFailure` in `src/errors.ts`), with a JSON path for
   spec problems, and one typed code set the docs table mirrors.
