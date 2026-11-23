@@ -128,8 +128,6 @@ export interface RenderResult {
   /** The 1x PNG, for the model to look at; not written anywhere. */
   readonly preview?: Uint8Array
   readonly svg: string
-  /** The written HTML page's own text, so a caller can hand it to the host's artifact surface without reading the file. */
-  readonly html?: string
   /** A diagram's Unicode outline, for a terminal. */
   readonly ascii?: string
   readonly resolvedSpec: Json
@@ -362,7 +360,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   }
 
   const files: { svg?: string; png: string[]; gif?: string; html?: string; spec?: string; document?: string } = { png: [] }
-  let preview: Uint8Array | undefined, htmlText: string | undefined
+  let preview: Uint8Array | undefined
   const name = slug(request.name ?? title)
   const defaultFamily = fonts.resolveFamily(theme.font.family)
   // A PNG over the pixel limit is known from the drawing's size: refuse it before any file is made.
@@ -428,8 +426,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     }
     if (formats.has("html")) {
       step("html")
-      htmlText = page()
-      artifacts.push({ kind: "html", file: `${name}.html`, bytes: htmlText })
+      artifacts.push({ kind: "html", file: `${name}.html`, bytes: page() })
     }
     if (formats.has("spec")) {
       step("spec")
@@ -465,7 +462,7 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
     ...(shown ? { markdown: `![${title.replace(/[\[\]]/g, "")}](${shown})` } : {}),
     summary: [description, profile ? `Data: ${dataSource ?? "inline"}; ${describeProfile(profile)}` : ""].filter(Boolean).join(" "),
     issues, notes, layout, ms: Math.round(performance.now() - started), ...(preview ? { preview } : {}), svg,
-    ...(htmlText ? { html: htmlText } : {}), ...(ascii ? { ascii } : {}),
+    ...(ascii ? { ascii } : {}),
     resolvedSpec, figure, ...(plot ? { plot } : {}), ...(generation ? { generation } : {}),
   }
 }

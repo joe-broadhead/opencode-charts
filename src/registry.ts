@@ -171,8 +171,6 @@ const RENDER_OUTPUT = {
     spec: { type: "object", additionalProperties: true },
     /** A diagram's Unicode outline, for a terminal. */
     ascii: { type: "string", description: "A diagram's Unicode outline: the same structure as the drawing, in text." },
-    /** The host's artifact URL, when an HTML page was published and the host minted one. */
-    artifactUrl: { type: "string", description: "The host's artifact URL for a published HTML page, when the host offers the artifact surface." },
     // Chart documents only (document or documentPath, or document output from a legacy call).
     revision: { type: "string", description: "The document's revision, sha256: and 64 hex digits." },
     fingerprint: { type: "string", description: "The written bundle's render fingerprint, sha256: and 64 hex digits; not returned by charts_validate." },
@@ -233,7 +231,6 @@ const OUTPUTS: Record<string, Record<string, unknown>> = {
       panels: NUMBER,
       rows: NUMBER,
       ms: NUMBER,
-      artifactUrl: { type: "string", description: "The host's artifact URL for the published dashboard page, when the host offers the artifact surface." },
     },
     required: ["engine", "theme", "title", "files", "ms", "panels", "rows"],
     additionalProperties: true,
