@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-charts",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": true,
   "description": "Offline deterministic charts, plots, cartograms, tables, diagrams, animated GIFs and interactive dashboards for OpenCode, across Vega-Lite, Vega, ECharts and Observable Plot.",
   "keywords": [
