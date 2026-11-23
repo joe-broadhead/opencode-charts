@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
+### Fixed
+
+- HTML charts remain offline files. The plugin no longer tries to register an experimental host artifact provider on each render; this did not publish a shareable URL on supported hosts.
+
 ### Changed
 
 - The tools RPC transport is source-contract's `tools-rpc` module, pinned at

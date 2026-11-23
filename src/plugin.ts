@@ -7,7 +7,6 @@ import { registerChartsRpc } from "./host/rpc.js"
 import { formatFailure, isChartsError } from "./errors.js"
 import type { Access } from "./permissions.js"
 import { permissionOf, registerDefaultRules, type Rule } from "./permissions.js"
-import type { Json } from "./engines/common.js"
 import { registerStatusRpc } from "./status-rpc.js"
 import { buildStatus, commandTransform, formatStatus } from "./status.js"
 // The tool table only (plain data, src/tool-table.ts): the renderer and the tools' zod schemas load on the first call
@@ -15,7 +14,6 @@ import { buildStatus, commandTransform, formatStatus } from "./status.js"
 import type { ToolName } from "./registry.js"
 import { deferredInput, DESCRIPTIONS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, toolEntry } from "./tool-table.js"
 import { loadedRenderer, renderer } from "./renderer-load.js"
-import { publishHtmlArtifact } from "./artifact-bridge.js"
 import { effectiveThemeInput, registerDeferredThemeRpc, type HostThemeStore } from "./theme-session.js"
 import type { ThemeOverrides } from "./themes/tokens.js"
 
@@ -130,17 +128,7 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
               await assert(permissionOf(name), ["*"])
               try {
                 const { runTool } = await renderer()
-                const result = await runTool(env, name, input)
-                // A written HTML page is offered to the host's artifact surface when this release has one; the file is
-                // already on disk, so a host without it, or a publish that fails, changes nothing the caller sees.
-                let output = result.output
-                if (result.artifact) {
-                  try {
-                    const published = await publishHtmlArtifact(ctx, result.artifact)
-                    if (published?.url) output = { ...(output as Record<string, unknown>), artifactUrl: published.url } as Json
-                  } catch { /* the page stays a file */ }
-                }
-                return { output, content: result.content }
+                return await runTool(env, name, input)
               } catch (error) {
                 if (isChartsError(error)) throw new ToolError({ message: error.message, metadata: { code: error.code, hint: error.hint, ...(error.path ? { path: error.path } : {}) } })
                 if (error && typeof error === "object" && "issues" in error && (error as { name?: string }).name === "ZodError") throw new ToolError({ message: formatFailure("INPUT_INVALID", `The input does not match the tool's parameters: ${(error as unknown as Error).message}`, "Check the tool's parameters and call it again."), metadata: { code: "INPUT_INVALID" } })

@@ -1,5 +1,5 @@
 // The terminal and GUI surfaces: the Braille/block renderers, the fence parser, the TUI code-block registration and
-// its streaming cache, the GUI card builder and its plugin wiring, and the artifact bridge.
+// its streaming cache, the GUI card builder and its plugin wiring.
 import { describe, expect, test } from "bun:test"
 import { build } from "esbuild"
 import { join } from "node:path"
@@ -16,7 +16,6 @@ import {
   default as guiPlugin,
   setupGui,
 } from "../src/gui.ts"
-import { artifactDomain, publishHtmlArtifact } from "../src/artifact-bridge.ts"
 import { ROOT } from "./helpers.ts"
 
 const BRAILLE = /[\u2800-\u28ff]/
@@ -481,7 +480,7 @@ describe("the GUI chart plugin", () => {
   })
 })
 
-describe("the artifact bridge", () => {
+describe("chart fences in rendered messages", () => {
   test("parses the chart fence a model writes, and refuses a backtick that closes it early", () => {
     const fence = "```chart\n" + JSON.stringify({ type: "bar", data: [{ x: "a", y: 1 }] }) + "\n```"
     expect(parseChartFence(fence)?.type).toBe("bar")
@@ -489,41 +488,4 @@ describe("the artifact bridge", () => {
     expect(parseChartFence("```chart\n[]\n```")).toBeUndefined()
   })
 
-  test("finds the artifact domain under either name", () => {
-    expect(artifactDomain({ experimental: { artifact: {} } })).toEqual({})
-    expect(artifactDomain({ artifact: {} })).toEqual({})
-    expect(artifactDomain({})).toBeUndefined()
-    expect(artifactDomain(undefined)).toBeUndefined()
-  })
-
-  test("uses a direct create method when the host has one", async () => {
-    const ctx = { experimental: { artifact: { create: async () => ({ url: "https://example.invalid/a" }) } } }
-    expect(await publishHtmlArtifact(ctx, { id: "a", title: "A", html: "<p>a</p>" })).toEqual({ url: "https://example.invalid/a" })
-  })
-
-  test("registers a provider through transform, with the HTML and SVG it was given", async () => {
-    let added: Record<string, unknown> | undefined
-    const ctx = {
-      experimental: {
-        artifact: {
-          transform: async (callback: (editor: { add: (definition: Record<string, unknown>) => void }) => void) => {
-            callback({ add: definition => void (added = definition) })
-            return { dispose: async () => undefined }
-          },
-        },
-      },
-    }
-    expect(await publishHtmlArtifact(ctx, { id: "chart", title: "Chart", html: "<p>hi</p>", svg: "<svg/>" })).toEqual({})
-    expect(added?.capabilities).toEqual(["html"])
-    const read = added?.read as () => Promise<Record<string, Uint8Array>>
-    const files = await read()
-    expect(new TextDecoder().decode(files["index.html"]!)).toBe("<p>hi</p>")
-    expect(new TextDecoder().decode(files["chart.svg"]!)).toBe("<svg/>")
-  })
-
-  test("returns undefined when there is no artifact surface or the input is empty", async () => {
-    expect(await publishHtmlArtifact({}, { id: "a", title: "A", html: "<p>a</p>" })).toBeUndefined()
-    expect(await publishHtmlArtifact({ experimental: { artifact: {} } }, { id: "a", title: "A", html: "" })).toBeUndefined()
-    expect(await publishHtmlArtifact({ experimental: { artifact: { create: async () => { throw new Error("no") } } } }, { id: "a", title: "A", html: "<p>a</p>" })).toBeUndefined()
-  })
 })

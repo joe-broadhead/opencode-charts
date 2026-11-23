@@ -34,8 +34,6 @@ export type Content = { type: "text"; text: string } | { type: "file"; uri: stri
 export interface ToolOutput {
   readonly output: Json
   readonly content: Content[]
-  /** The HTML page a render wrote, so the plugin can publish it to the host's artifact surface without reading the file. */
-  readonly artifact?: { readonly id: string; readonly title: string; readonly html: string; readonly svg?: string }
 }
 
 const SAVE_HINT = "To hand a file to the person, save it with your host's file-saving tool (in Jelly: jelly_file_save with the path); files under outputs/ are also kept when the turn ends."
@@ -91,9 +89,7 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
     }
     const content: Content[] = [{ type: "text", text: describeResult(result, write, issues) + (shape.note ? `\n${shape.note}` : "") + (extra.spec ? `\nSpec used (refine it with charts_render):\n${JSON.stringify(extra.spec)}` : "") }]
     if (show && result.preview) content.push(image(result.preview, `${result.title}.png`))
-    // The page a render just wrote is offered to the host's artifact surface; a host without one publishes nothing.
-    const artifact = write && result.html && result.files.html ? { id: `charts-${result.files.html.replace(/[^\w.-]+/g, "-")}`, title: result.title, html: result.html, svg: result.svg } : undefined
-    return { output, content, ...(artifact ? { artifact } : {}) }
+    return { output, content }
   } catch (error) {
     // A preflight issue of the shared pipeline already carries a tool path; spec issues are pointed into the call.
     if (error instanceof SpecInvalid && !write) return invalid([...(shape.preflight ?? []), ...error.issues.map(map)])
