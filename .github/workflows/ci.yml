@@ -15,37 +15,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  workflows:
-    name: workflows
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # actionlint parses the workflows as workflows, not as YAML. Version 1.7.12 knows the macos-26 runner labels; 1.7.7 does not.
-      - name: actionlint
-        run: |
-          set -euo pipefail
-          version=1.7.12
-          base="https://github.com/rhysd/actionlint/releases/download/v${version}"
-          curl -sSfLO "${base}/actionlint_${version}_linux_amd64.tar.gz"
-          curl -sSfLO "${base}/actionlint_${version}_checksums.txt"
-          grep " actionlint_${version}_linux_amd64.tar.gz$" "actionlint_${version}_checksums.txt" | sha256sum -c -
-          tar xzf "actionlint_${version}_linux_amd64.tar.gz" actionlint
-          ./actionlint -color .github/workflows/ci.yml .github/workflows/release.yml
-  check:
-    name: check (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        # Public GitHub-hosted runners: Linux x64 and arm64, macOS arm64. The same input must give the same
-        # bytes on each, so the golden SVGs are checked on all three.
-        # A pull request runs the two Linux runners; a push to master, or a run by hand, runs three: macOS arm64 too. macOS
-        # runs on master and for releases only, and the release planner requires that push run with every runner.
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04","ubuntu-24.04-arm"]' || '["ubuntu-24.04","ubuntu-24.04-arm","macos-26"]') }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+  ci:
+    name: ci
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (vars.CI_RUNNER_PUBLIC || 'ubuntu-24.04') || 'ubuntu-24.04' }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,29 +30,30 @@ jobs:
           cache-dependency-path: package-lock.json
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.4 # the Bun inside stock OpenCode 2.2.3 to 2.2.7 and 2.3.0 to 2.3.2
+          bun-version: 1.4.4 # the Bun the build and the unit, browser and eval stages run with
+      - name: Lint the workflows
+        run: |
+          set -euo pipefail
+          version=1.7.12
+          base="https://github.com/rhysd/actionlint/releases/download/v${version}"
+          curl -sSfLO "${base}/actionlint_${version}_linux_amd64.tar.gz"
+          curl -sSfLO "${base}/actionlint_${version}_checksums.txt"
+          grep " actionlint_${version}_linux_amd64.tar.gz$" "actionlint_${version}_checksums.txt" | sha256sum -c -
+          tar xzf "actionlint_${version}_linux_amd64.tar.gz" actionlint
+          ./actionlint -color .github/workflows/ci.yml .github/workflows/release.yml
       - run: npm ci --ignore-scripts
       # The browser stage's headless Chromium: the build that playwright-core's exact version in package-lock.json pins.
       # On Linux, --with-deps installs the system libraries it needs.
       - name: Headless Chromium for the browser stage
-        run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            npx --no-install playwright-core install --with-deps --only-shell chromium
-          else
-            npx --no-install playwright-core install --only-shell chromium
-          fi
-      # The stock binaries the host stage spawns, so every tested release really runs in CI (R11): one for each release in
-      # TESTED_HOSTS (src/status.ts), read by scripts/tested-hosts.mjs as the release workflow reads it.
-      - name: Stock OpenCode binaries
+        run: npx --no-install playwright-core install --with-deps --only-shell chromium
+      # The one stock binary the host stage spawns: the release `tested on` in the docs and in TESTED_HOSTS (src/status.ts).
+      - name: Stock OpenCode 2.4.1 binary
         run: |
           platform="$(node -p 'process.platform')-$(node -p 'process.arch')"
-          hosts="$(node scripts/tested-hosts.mjs)"
-          for version in $(node -p 'JSON.parse(process.argv[1].replace(/^hosts=/, "")).join(" ")' "$hosts"); do
-            dir="$RUNNER_TEMP/stock-$version"
-            mkdir -p "$dir"
-            (cd "$dir" && npm init -y >/dev/null && npm install "@opencode/cli@$version" "@opencode/cli-$platform@$version" --omit=optional --ignore-scripts --no-audit --no-fund)
-            echo "OPENCODE_BIN_${version//./_}=$dir/node_modules/@opencode/cli-$platform/bin/opencode" >> "$GITHUB_ENV"
-          done
+          dir="$RUNNER_TEMP/stock-2.4.1"
+          mkdir -p "$dir"
+          (cd "$dir" && npm init -y >/dev/null && npm install "@opencode/cli@2.4.1" "@opencode/cli-$platform@2.4.1" --omit=optional --ignore-scripts --no-audit --no-fund)
+          echo "OPENCODE_BIN_2_4_1=$dir/node_modules/@opencode/cli-$platform/bin/opencode" >> "$GITHUB_ENV"
       - run: npm run check
       # The build regenerates THIRD_PARTY_NOTICES.md and licenses/; both are committed, so they must not change.
       - name: The generated files are committed

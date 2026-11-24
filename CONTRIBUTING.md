@@ -50,17 +50,14 @@ that tag. The release is one commit on top of a `master` head that CI passed, an
 workflow makes both, in GitHub Actions: nobody builds, commits or tags a release on their own machine, and no personal
 key signs it.
 
-While changes land, their notes go under `## [Unreleased]` at the top of `CHANGELOG.md`. Each earlier GitHub release is
-a `## [x.y.z] - YYYY-MM-DD` heading below it, newest first, and the npm history stays last, under
-`## Earlier releases on npm`.
+The first release is `v0.0.0`, and it is cut with the plugin kit, which writes `CHANGELOG.md` one section per release.
+Until then the notes live under `## 0.0.0 (unreleased)` at the top of the file.
 
 1. On `master`, set `version` in `package.json` to the new version, and change every install spec in the README,
-   `CONTRIBUTING.md` and `docs/` to `#v<version>` (`test/docs.test.ts` fails until they match). Then run
-   `node scripts/changelog.mjs release`: it turns `## [Unreleased]` into `## [<version>] - <today>`, above the earlier
-   releases, and refuses a CHANGELOG it cannot shape. Run `npm run check`.
-2. Push that commit to `master`, and wait for CI to pass on it. A pull request's CI runs the Linux runners only; the
-   push to `master` runs every runner, Apple-silicon macOS (`macos-26`) too, and the release stands on that run. An
-   Intel Mac (`macos-26-intel`) is not required.
+   `CONTRIBUTING.md` and `docs/` to `#v<version>`. The plugin kit writes the release's CHANGELOG section; run
+   `npm run check`.
+2. Push that commit to `master`, and wait for CI to pass on it. CI is one job, named `ci`, on one Linux runner, and the
+   release stands on its successful push run.
 3. Start the release with that commit's full sha:
    `gh workflow run release.yml --ref master -f sha=<full sha>`, or from Actions → release →
    Run workflow, on `master`.
@@ -111,7 +108,7 @@ Before the approval, the workflow:
 - **verifies** on a fresh runner: the commit's identity, one parent on `master`, `package.json` exactly the parent's
   without the lifecycle scripts, only regular files in the allowed paths, no `package.json` under `dist/`, and a second,
   independent build of the parent (its own job) equal to the committed `dist/` byte for byte;
-- **installs** the release commit with `plugin add` on each stock OpenCode host (2.2.3 to 2.2.7 and 2.3.0 to 2.3.2);
+- **installs** the release commit with `plugin add` on the one tested stock OpenCode host (2.4.1);
 - **packs** the commit before installing anything, keeps that tarball and records its sha256, then runs the pack stage
   against a copy;
 - **runs the conformance kit** on the parent, for a plugin that declares sources (above), and uploads only its report;
@@ -141,7 +138,7 @@ exact `package.json`, the allowed paths and the byte-for-byte rebuild. Never rel
 **A rejected, expired or failed run** leaves nothing behind: the `cleanup` job deletes `release/v<version>` when it points
 at the parent or at that run's commit, and never touches another branch. No tag exists before the approval, so the
 version is not burned: fix `master` and start again. If `cleanup` itself failed, the next run refuses until the branch
-is deleted: `gh api -X DELETE repos/joe-broadhead/opencode-charts/git/refs/heads/release/v<version>`.
+is deleted: `gh api -X DELETE repos/we-the-rebel-alliance/charts-plugin/git/refs/heads/release/v<version>`.
 
 **Resume.** If the run fails after creating the tag and before the Release is complete, start it again with the same `sha`. The plan finds the kit's tag on a release commit on that sha with no published Release, and resumes:
 it makes no new commit, checks and installs the tagged commit, stages the files, and after a new approval reuses the tag
@@ -156,7 +153,7 @@ tag, and restores the ruleset exactly as it was.
 **Known limit: a `v*` tag pushed by hand.** No ruleset limits who creates a `v*` tag, so anyone with write access can
 push one by hand, pointing at any commit. Such a tag has no published Release, the forward-only check ignores it, and
 Jelly installs only a published Release whose `SHA256SUMS` it verifies. But a user who installs
-`github:joe-broadhead/opencode-charts#v<x>` directly gets whatever that tag points at. Only the release workflow makes
+`github:we-the-rebel-alliance/charts-plugin#v<x>` directly gets whatever that tag points at. Only the release workflow makes
 release tags; never push one by hand.
 
 The release kit is these files, the same in every plugin: `scripts/release-rules.mjs`, `scripts/release-commit.mjs`,
@@ -168,10 +165,10 @@ pins each of the scripts whole by its sha256, so a plugin whose copy differs fro
 change the kit in every plugin at once, with the new hashes. Do not re-run the older `apply-release-kit.mjs`: it writes
 back the kit that could release only `v0.0.0`.
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-charts#v<old version>`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-charts#v<version>`.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:we-the-rebel-alliance/charts-plugin#v<old version>`, then add the new tag with `opencode plugin add github:we-the-rebel-alliance/charts-plugin#v<version>`. Until the 0.0.0 release is cut, install `github:we-the-rebel-alliance/charts-plugin` without a tag.
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-charts#v0.0.8" }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/charts-plugin" }] }
 ```

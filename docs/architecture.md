@@ -1,6 +1,6 @@
 # Architecture
 
-`@joe-broadhead/opencode-charts` turns a chart, table, diagram or dashboard document into files. It reads only the
+`@we-the-rebel-alliance/charts-plugin` turns a chart, table, diagram or dashboard document into files. It reads only the
 data files a call names inside the workspace, writes only under the output folder and `.charts/`, and opens no network
 connection: no URL, loader, image or CDN, at run time or in any output. The same input gives the same bytes on the
 same platform; across platforms a coordinate computed with trigonometry can differ in its last digits. The design

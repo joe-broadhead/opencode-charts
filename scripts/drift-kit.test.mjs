@@ -359,7 +359,7 @@ describe("jelly-kit.ts: the declaration's cost and admin lines", () => {
     try {
       const declare = (lines) => {
         const jelly = { title: "Kit test", summary: "Kit test's records.", icon: "assets/icon.svg", tools: [{ name: "kit.read", permission: "kit_read", effect: "allow", readOnly: true }], ...lines }
-        writeFileSync(join(root, "package.json"), JSON.stringify({ name: "@joe-broadhead/opencode-kit-test", version: "0.0.1", files: ["assets"], jelly }))
+        writeFileSync(join(root, "package.json"), JSON.stringify({ name: "@we-the-rebel-alliance/kittest-plugin", version: "0.0.1", files: ["assets"], jelly }))
         mkdirSync(join(root, "assets"), { recursive: true })
         writeFileSync(join(root, "assets", "icon.svg"), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>')
         return declarationProblems(new URL(`file://${root}/`), { effectOf: () => "allow" })

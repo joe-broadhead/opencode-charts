@@ -47,7 +47,7 @@ const tools = new Map(), rpcs = new Map(), commands = new Map()
 const agents = [{ id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] }]
 const context = { signal: new AbortController().signal, error: (type, message, data) => ({ type, message, data }) }
 const ctx = {
-  app: { version: "2.3.0" }, options: {},
+  app: { version: "2.4.1" }, options: {},
   location: { directory: ws, project: { directory: ws } },
   agent: { transform: async (fn) => fn({ list: () => agents, update: () => undefined }), list: async () => ({ data: agents }), get: async () => ({ data: agents[0] }) },
   command: { transform: async (fn) => fn({ add: (c) => commands.set(c.name, c) }) },

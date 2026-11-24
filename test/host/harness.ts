@@ -10,8 +10,8 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { randomBytes, randomUUID } from "node:crypto"
 
-/** The versions the family tests. A missing binary skips that version with a line in the test output. */
-export const TESTED_HOSTS = ["2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.3.0", "2.3.1", "2.3.2"] as const
+/** The one OpenCode release this repository tests: `TESTED_HOSTS` in `src/status.ts` is the list it reports. */
+export const TESTED_HOST = "2.4.1"
 /** A folder holding one `<version>/node_modules` tree of stock releases, when the environment names one. */
 const STOCK_ROOT = process.env.OPENCODE_STOCK_ROOT
 const platform = `@opencode/cli-${process.platform}-${process.arch}`
@@ -47,7 +47,7 @@ export interface Host {
   close(): Promise<void>
 }
 
-/** A project agent's rules: `reader` allows the reads, `writer` also allows the four that write, `locked` denies. */
+/** A project agent's rules: `reader` allows the four reads the host tests use, `writer` everything, `locked` denies. */
 const AGENTS = {
   reader: {
     description: "charts host test reader",

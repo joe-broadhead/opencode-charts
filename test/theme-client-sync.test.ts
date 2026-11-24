@@ -362,7 +362,7 @@ describe("the plugin's theme RPC", () => {
     return {
       editor,
       ctx: {
-        app: { version: "2.2.5" },
+        app: { version: "2.4.1" },
         options: {},
         location: { directory: dir, project: { directory: dir } },
         agent: { transform: async (fn: (value: typeof editor) => void) => fn(editor), list: async () => ({ data: [] }) },

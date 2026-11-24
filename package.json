@@ -1,6 +1,6 @@
 {
-  "name": "@joe-broadhead/opencode-charts",
-  "version": "0.0.8",
+  "name": "@we-the-rebel-alliance/charts-plugin",
+  "version": "0.0.0",
   "private": true,
   "description": "Offline deterministic charts, plots, cartograms, tables, diagrams, animated GIFs and interactive dashboards for OpenCode, across Vega-Lite, Vega, ECharts and Observable Plot.",
   "keywords": [
@@ -17,13 +17,13 @@
     "gif",
     "dashboard"
   ],
-  "homepage": "https://github.com/joe-broadhead/opencode-charts#readme",
+  "homepage": "https://github.com/we-the-rebel-alliance/charts-plugin#readme",
   "bugs": {
-    "url": "https://github.com/joe-broadhead/opencode-charts/issues"
+    "url": "https://github.com/we-the-rebel-alliance/charts-plugin/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/joe-broadhead/opencode-charts.git"
+    "url": "git+https://github.com/we-the-rebel-alliance/charts-plugin.git"
   },
   "license": "MIT",
   "type": "module",
@@ -50,7 +50,7 @@
     "CHANGELOG.md"
   ],
   "opencode": {
-    "host": ">=2.2.3 <2.4.0",
+    "host": ">=2.4.1 <2.5.0",
     "icons": [
       {
         "src": "assets/icon.svg",
@@ -91,8 +91,8 @@
   },
   "devDependencies": {
     "@observablehq/plot": "0.6.19",
-    "@opencode/plugin": "2.2.5",
-    "@opencode/sdk": "2.2.5",
+    "@opencode/plugin": "2.4.1",
+    "@opencode/sdk": "2.4.1",
     "@opentui/core": "0.8.0",
     "@opentui/solid": "0.8.0",
     "@resvg/resvg-wasm": "2.6.2",

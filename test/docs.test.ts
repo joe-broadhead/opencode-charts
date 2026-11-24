@@ -5,6 +5,7 @@ import { ACCESS_VALUES, defaultRules } from "../src/permissions.ts"
 import { DESCRIPTORS, NAMESPACE, TOOL_NAMES } from "../src/registry.ts"
 import { HOST_RANGE, TESTED_HOSTS, inRange } from "../src/status.ts"
 import { ROOT } from "./helpers.ts"
+import { TESTED_HOST } from "./host/harness.ts"
 
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8")
 const readme = read("README.md")
@@ -79,14 +80,14 @@ function balanced(text: string, from: number): string {
 }
 
 describe("the tested hosts", () => {
-  test("every \"tested on\" list in the docs is TESTED_HOSTS, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 included", () => {
-    const expected = `${TESTED_HOSTS.slice(0, -1).join(", ")} and ${TESTED_HOSTS.at(-1)}`
-    expect(expected).toContain("2.2.7")
-    expect(expected).toContain("2.3.0")
-    expect(expected).toContain("2.3.2")
+  test("every \"tested on\" list in the docs is TESTED_HOSTS, which is 2.4.1 alone", () => {
+    expect([...TESTED_HOSTS]).toEqual(["2.4.1"])
+    // The host suite runs the same release the status reports; a second list would silently test another.
+    expect(TESTED_HOST).toBe(TESTED_HOSTS[0]!)
+    const expected = TESTED_HOSTS.join(", ")
     let found = 0
-    // A released CHANGELOG section states the list as it was then; only the Unreleased section states today's.
-    const current = (document: string) => (document === "CHANGELOG.md" ? (/\n## \[[^\]]+\][^\n]*([\s\S]*?)(?=\n## |$)/.exec(read(document))?.[1] ?? "") : read(document))
+    // A released CHANGELOG section would state the list as it was then; the unreleased section states today's.
+    const current = (document: string) => (document === "CHANGELOG.md" ? (/\n## 0\.0\.0 \(unreleased\)([\s\S]*?)(?=\n## |$)/.exec(read(document))?.[1] ?? "") : read(document))
     for (const document of ["README.md", "AGENTS.md", "SECURITY.md", "docs/configuration.md", "CHANGELOG.md"]) {
       const text = current(document).replace(/\s+/g, " ")
       for (let at = text.indexOf("tested on "); at !== -1; at = text.indexOf("tested on ", at + 1)) {
@@ -95,10 +96,11 @@ describe("the tested hosts", () => {
       }
     }
     expect(found).toBeGreaterThan(2)
-    // The untested example: inside the range, and not on the list.
-    expect(inRange("2.3.99", HOST_RANGE)).toBe(true)
-    expect(inRange("2.4.0", HOST_RANGE)).toBe(false)
-    expect(TESTED_HOSTS).not.toContain("2.3.99")
+    // Inside the range but untested, and outside it.
+    expect(inRange("2.4.99", HOST_RANGE)).toBe(true)
+    expect(inRange("2.5.0", HOST_RANGE)).toBe(false)
+    expect(inRange("2.3.2", HOST_RANGE)).toBe(false)
+    expect(TESTED_HOSTS).not.toContain("2.4.99")
   })
 })
 

@@ -28,7 +28,7 @@ beforeAll(async () => {
   expect(existsSync(join(ROOT, "dist/index.js"))).toBe(true)
   const plugin = (await import(join(ROOT, "dist/index.js"))).default
   const ctx = {
-    app: { version: "2.2.5" },
+    app: { version: "2.4.1" },
     options: { theme: "light" },
     location: { directory: ws.dir, project: { directory: ws.dir } },
     agent: {
@@ -172,7 +172,7 @@ describe("/charts-status", () => {
       "Skills: charts, charts-cookbook",
       "Tools: 12 of 12 visible to this agent",
       "Agents without default rules: none",
-      "OpenCode: 2.2.5",
+      "OpenCode: 2.4.1",
       `Version: ${(await Bun.file(join(ROOT, "package.json")).json()).version}`,
       "Next step: Nothing to do.",
     ])

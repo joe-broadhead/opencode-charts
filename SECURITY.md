@@ -2,13 +2,13 @@
 
 ## Supported versions
 
-Charts is tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. Inside `>=2.2.3 <2.4.0` an untested release still starts and
-status says the host is untested; outside the range the plugin reports `HOST_UNTESTED`.
+Charts supports OpenCode `>=2.4.1 <2.5.0`, and is tested on 2.4.1. Inside the range an untested release still starts and
+status says the host is untested; outside it status says so and names the supported range.
 
 ## Reporting a vulnerability
 
 Report privately through GitHub's vulnerability reporting on
-<https://github.com/joe-broadhead/opencode-charts/security/advisories/new>. Do not open a public issue for a
+<https://github.com/we-the-rebel-alliance/charts-plugin/security/advisories/new>. Do not open a public issue for a
 vulnerability. Include the version, your plugin options and the steps to reproduce. Never include a data file, a chart
 or a credential.
 

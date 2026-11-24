@@ -1,6 +1,6 @@
 ---
 name: charts
-description: Make clear, truthful, publication-grade charts, data tables, diagrams, animated GIFs and interactive dashboards with the charts_* tools (12 tools; 79 tested types across Vega-Lite, Vega, ECharts, Observable Plot, tables and offline Mermaid/structured diagrams), revise saved charts without changing their data, and know when to use code on the machine instead. Use for any chart, graph, plot, map, cartogram, KPI table, diagram or dashboard of data. Not for photo/image editing, 3-D scientific rendering (use Python), slide-deck layout, or reading values out of a raster image.
+description: Truthful, publication-grade charts, tables, diagrams, GIFs and dashboards with the charts tools, and revising saved charts. Use for any chart, graph, plot, map, KPI table, diagram or dashboard of data. Not for photo editing, 3-D rendering (Python) or slide layout.
 ---
 
 # Charts

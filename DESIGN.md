@@ -1,4 +1,4 @@
-# opencode-charts — design
+# charts-plugin — design
 
 An OpenCode plugin (and Jelly plugin) that turns a chart spec into themed, checked, deterministic files: SVG, PNG at
 1–3x, optional self-contained interactive HTML, and the resolved spec. It is the *deterministic* way to chart; an
@@ -53,7 +53,7 @@ Read at `joe-broadhead/open-cowork@master` (shallow clone).
 
 Read on the `jelly` branches of `opencode-tavily` (fe5ba2b), `opencode-utilities` and `opencode-gws` (ee21aa2).
 
-- **Package.** Each is published as `@joe-broadhead/opencode-<name>`, `type: module`, with `exports["."] = ./dist/index.js`. `files` is a whitelist, and there are no install scripts. `opencode.host` is an exact minor range (`>=2.2.3 <2.4.0`). All dependencies are devDependencies and bundled.
+- **Package.** Each is published as `@we-the-rebel-alliance/<name>-plugin`, `type: module`, with `exports["."] = ./dist/index.js`. `files` is a whitelist, and there are no install scripts. `opencode.host` is an exact minor range (`>=2.4.1 <2.5.0`). All dependencies are devDependencies and bundled.
 - **Entry.** `Plugin.define({ id, setup(ctx) })` (utilities `src/index.ts`, `src/host/plugin.ts`). Tools come from `ctx.tool.transform` with `editor.namespace` and `editor.add({ name, description, input: zod, options: { namespace, permission } })` (utilities `src/host/tools.ts`).
 - **Behaviour.**
   - Skills come from `skills/<id>/SKILL.md` through `ctx.skill.transform` (utilities `src/host/skills.ts`).
@@ -90,7 +90,7 @@ From Jelly's plugin contract.
   - The owner's plugins already declared them on their `jelly` branches (now merged into each default branch), and so does this one: `jelly.summary` is "Charts, maps and diagrams…" and `jelly.icon` is `assets/icon.svg`, a clean SVG of `rect`, `path` and `circle` only, checked by `test/plugin.test.ts`.
   - **Jelly hard-codes nothing:** the title, summary and icon all come from the package.
 - **Sign-ins.** `plugin-sign-ins.ts`: none declared (`signIns: []`).
-- **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `recommend`, `capabilities`, `catalogue` and `themes` are `readOnly: true`, and the seven writers (`render`, `quick`, `update`, `board`, `table`, `diagram`, `theme_save`) are not. Every one is declared `allow`, the product decision recorded in `docs/jelly.md`: Jelly writes no `ask`, and the host's own rules and the plugin's `access` option do the narrowing. The plugin's own default block (`src/permissions.ts`) gives the same effects in plain OpenCode, and each call still asserts its own action and file rules.
+- **Effects.** `docs/architecture/tools-and-connections.md` §npm plugins: a declared `ask`/`deny` becomes the tool's default on Jelly agents, and a declared `allow` writes nothing. Read-only helpers are denied every tool not marked `readOnly`. So `validate`, `recommend`, `capabilities`, `catalogue` and `themes` are `readOnly: true`, and the seven writers (`render`, `quick`, `update`, `board`, `table`, `diagram`, `theme_save`) are not. Every one is declared `allow`: Jelly writes no `ask`, and the host's own rules and the plugin's `access` option do the narrowing. The plugin's own default block (`src/permissions.ts`) gives the same effects in plain OpenCode, and each call still asserts its own action and file rules.
 - **Saved files.** Jelly's `jelly_file_save` (called `jelly_artifact_save` until Jelly's rd266) reaches the host through the `jelly.core` RPC, which only Jelly's first-party plugin family can use. **A third-party plugin cannot save a file itself.** It does not need to: `docs/architecture/protocol.md` ("A file the agent wrote under `outputs/` in its workspace is kept when the turn settles") makes every file under `outputs/charts/` a saved file. The tool result also says how to save one now: "save it with your host's file-saving tool (in Jelly: `jelly_file_save` with the path)". OpenCode 2.2.5 has `ctx.experimental.artifact`, but the owner's plugins forbid it (utilities `AGENTS.md` Forbidden list), and Jelly's saved files are Jelly's own.
 - **Inline display.** This version ships the PNG, SVG, GIF and self-contained HTML; Jelly draws the markdown image line, and the `./tui` and `./gui-experimental` surfaces draw a `chart` fence inline.
   - Every result carries `markdown: "![title](outputs/charts/<name>.png)"`. The PNG is pixel-exact everywhere; SVG text depends on the viewer's fonts unless `svgText: "paths"` or `"embed"` is used.
@@ -236,7 +236,7 @@ projections of it. `test/registry.test.ts` fails when any of them drifts.
 that carries `output` from a tool that declares none (0.0.3's fix). The schema is a real one — the fields the tool
 returns, with `additionalProperties` open so a later field cannot fail a call — and the tools RPC validates each
 script's result against the same object, which also enforces the shared module's rule that an owned output schema may
-carry no `pattern`. Host cases on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 call the tools and assert every result is accepted
+carry no `pattern`. Host cases on 2.4.1 call the tools and assert every result is accepted
 against the output schema it declares.
 
 **The tools RPC.** `charts.tools`, v2.1 of the family module, makes every tool a method with its class, so a script
@@ -284,7 +284,7 @@ Both write to `outputs/`, so both become saved files the same way.
   - the registry's projections of every surface (registry, palette, recommend, figure, RPC);
   - the tools RPC called through the fake host.
 - **Gallery.** `bun scripts/gallery.ts <dir>`: 97 charts (all 79 types, cycling the 9 themes, plus two charts in every theme), with an HTML contact sheet and contact-sheet PNGs.
-- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 binaries, seven cases a version — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
+- **Host tests.** `npm run check` runs the `host` stage: the tools RPC on the isolated stock 2.4.1 binary, the permission cases — a read runs, a deny refuses, a write that would ask writes nothing, an allowed write lands, a bad spec comes back as findings, and an unknown session names the header.
 - **Eval.** `bun eval/run.ts <dir>`: 42 natural-language requests, each with a scripted call and checked properties (marks, engine, theme, formatting, spec paths, no overlaps or clipping, no unexpected warnings). `--answers model.jsonl` grades a real model's calls against the same expectations.
 - **Advice eval.** `bun eval/recommend.ts`: 21 cases for `charts_recommend`, graded by musts and must-nots, gated on zero violations, top-3 recall ≥ 0.90, paraphrase stability ≥ 0.95 and a committed baseline. Both evals run in `npm run check`.
 - **Performance.** `bun eval/perf.ts`: warm medians of 33–208 ms wall time and 37–151 ms CPU per chart, including the SVG, the 2× PNG and the spec file, on a shared Mac at load average 40. The first call loads the engines in 280 ms.

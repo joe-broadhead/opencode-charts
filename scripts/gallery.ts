@@ -37,7 +37,7 @@ for (const job of jobs) {
     if (process.env.TRACE) console.log("FAILED"); failures.push(`${job.id} (${job.theme}): ${(error as Error).message}`)
   }
 }
-writeFileSync(join(out, "index.html"), `<!doctype html><meta charset=utf-8><title>opencode-charts gallery</title><style>body{font:14px system-ui;margin:24px;background:#f6f6f4}main{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:20px}figure{margin:0;background:#fff;padding:10px;border:1px solid #ddd}img{width:100%;height:auto}figcaption{margin-top:6px;color:#333}.w{color:#a40}</style><h1>opencode-charts gallery — ${jobs.length} charts</h1><main>${cards.join("\n")}</main>`)
+writeFileSync(join(out, "index.html"), `<!doctype html><meta charset=utf-8><title>charts-plugin gallery</title><style>body{font:14px system-ui;margin:24px;background:#f6f6f4}main{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:20px}figure{margin:0;background:#fff;padding:10px;border:1px solid #ddd}img{width:100%;height:auto}figcaption{margin-top:6px;color:#333}.w{color:#a40}</style><h1>charts-plugin gallery — ${jobs.length} charts</h1><main>${cards.join("\n")}</main>`)
 writeFileSync(join(out, "report.json"), JSON.stringify({ failures, report }, null, 1))
 console.log(`${report.length} rendered, ${failures.length} failed`)
 for (const f of failures) console.log("FAIL", f)
@@ -59,7 +59,7 @@ for (let page = 0; page * COLS * ROWS_PER < entries.length; page++) {
     return `<rect x="${x - 1}" y="${y - 1}" width="${W + 2}" height="${H + 2}" fill="#fff" stroke="#ddd"/><image x="${x + (W - pw * scale) / 2}" y="${y + (H - ph * scale) / 2}" width="${pw * scale}" height="${ph * scale}" href="data:image/png;base64,${png.toString("base64")}"/><text x="${x}" y="${y + H + 22}" font-family="Inter" font-size="14" fill="#222">${esc(e.name)} · ${e.theme} · ${e.ms} ms${e.issues.length ? " · " + esc(e.issues.map(i => i.split(":")[0]!).join(", ")) : ""}</text>`
   }).join("")
   const width = COLS * (W + 20) + 20, height = ROWS_PER * (H + 50) + 70
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#F3F3F1"/><text x="20" y="36" font-family="Inter" font-weight="600" font-size="20" fill="#111">opencode-charts gallery — page ${page + 1} of ${Math.ceil(entries.length / (COLS * ROWS_PER))}</text>${cells}</svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#F3F3F1"/><text x="20" y="36" font-family="Inter" font-weight="600" font-size="20" fill="#111">charts-plugin gallery — page ${page + 1} of ${Math.ceil(entries.length / (COLS * ROWS_PER))}</text>${cells}</svg>`
   const { png } = await svgToPng(root, svg, bundledFonts(root), 1, "Inter")
   writeFileSync(join(out, `contact-${String(page + 1).padStart(2, "0")}.png`), png)
 }

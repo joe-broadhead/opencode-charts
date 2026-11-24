@@ -52,9 +52,10 @@ export interface ToolDescriptor {
   readonly description: string
   readonly input: z.ZodType
   /**
-   * The tool's output, as JSON Schema. OpenCode 2.2.5 fails a result that carries `output` from a tool that declares
-   * none, so every tool declares one; the tools RPC validates each script's result against the same object, which
-   * also enforces the shared module's rule that an owned output schema may carry no `pattern`.
+   * The tool's output, as JSON Schema. OpenCode 2.4.1 dies with "Tool result declared output without an output schema"
+   * when a result carries `output` and the tool declares none (`@opencode/core` 2.4.1, tool execute), so every tool
+   * declares one; the tools RPC validates each script's result against the same object, which also enforces the
+   * shared module's rule that an owned output schema may carry no `pattern`.
    */
   readonly output: Record<string, unknown>
   /** Sections that document it; `docs/tool-parity.md` is checked against these. */

@@ -21,12 +21,6 @@ export { PLUGIN_ID } from "./constants.js"
 import { PLUGIN_ID } from "./constants.js"
 export const SKILLS = ["charts", "charts-cookbook"] as const
 
-/**
- * The creation tools Code Mode shows in its top-level catalog: draw a chart, draw a standard chart, draw a dashboard,
- * a table or a diagram. The other tools (validate, update, recommend, capabilities, catalogue, themes) stay searchable.
- */
-export const PINNED: ReadonlySet<ToolName> = new Set<ToolName>(["quick", "render", "board", "table", "diagram"])
-
 /** Plugin options (opencode.json `plugin` entry options). */
 export interface ChartsOptions {
   /** Default theme for every chart. */
@@ -114,11 +108,12 @@ export function createPlugin({ packageRoot }: { packageRoot: string }): Plugin.P
             // A Standard Schema whose JSON Schema is the table's and whose validation is the tool's zod schema,
             // loaded with the renderer on the first call.
             input: deferredInput(name, async () => (await renderer()).INPUTS),
-            // Each tool returns structured output, so it declares its output schema: OpenCode 2.2.5 fails a result
-            // that carries `output` from a tool that declares none. The schema is the registry's, which the tools RPC
-            // validates the same result against.
+            // Each tool returns structured output, so it declares its output schema: OpenCode 2.4.1 dies with "Tool
+            // result declared output without an output schema" when a result carries `output` and none is declared
+            // (@opencode/core 2.4.1, tool execute). The schema is the registry's, which the tools RPC validates the
+            // same result against.
             output: toolEntry(name).output,
-            options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}`, ...(PINNED.has(name) ? { pinned: true } : {}) },
+            options: { namespace: NAMESPACE, permission: `${NAMESPACE}_${name}` },
             execute: async (input: unknown, context: { sessionID: string; agent: string; messageID: string; id: string }) => {
               const assert = (action: string, resources: readonly string[]) =>
                 ctx.permission.assert({ sessionID: context.sessionID, agent: context.agent, source: { type: "tool", messageID: context.messageID, id: context.id }, action, resources: [...resources], save: ["*"] } as never)
