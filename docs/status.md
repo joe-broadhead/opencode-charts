@@ -92,7 +92,7 @@ These are decisions, not gaps: each is deliberate, and `charts_capabilities` rep
 
 ## How this page is kept true
 
-`test/registry.test.ts` fails when `docs/tool-parity.md`, the Jelly declaration, the default permission rules or the
+`test/registry.test.ts` fails when `docs/tool-parity.md`, the package declaration, the default permission rules or the
 README's tool table disagree with the registry. `charts_capabilities` computes the formats from the files actually
 present, so a build that lost `resvg.wasm` reports `png: false` rather than claiming PNG. The known-limits list is one
 array in `src/capabilities.ts`, returned to the agent and mirrored above by hand — the one pair in this repository that

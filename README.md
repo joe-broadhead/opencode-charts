@@ -15,22 +15,24 @@ Unofficial; not affiliated with OpenCode or Anomaly.
 
 ## Install
 
-The 0.0.0 release is not cut yet, so install `master`; once it is, an install names its release tag.
+Install from a release:
 
 ```sh
-opencode plugin add github:we-the-rebel-alliance/charts-plugin
+opencode plugin add github:we-the-rebel-alliance/charts-plugin#v<version>
 ```
+
+The first release on plugin-contract is v0.0.0 (phase 4b).
 
 Or add it to `opencode.json` with the same spec:
 
 ```json
-{ "plugins": ["github:we-the-rebel-alliance/charts-plugin"] }
+{ "plugins": ["github:we-the-rebel-alliance/charts-plugin#v<version>"] }
 ```
 
 Run `opencode reload`, or restart OpenCode, then run `/charts-status`. Options (all optional) go on the plugin's entry:
 
 ```json
-{ "plugins": [["github:we-the-rebel-alliance/charts-plugin", { "theme": "light", "locale": "en-GB", "outDir": "outputs/charts" }]] }
+{ "plugins": [["github:we-the-rebel-alliance/charts-plugin#v<version>", { "theme": "light", "locale": "en-GB", "outDir": "outputs/charts" }]] }
 ```
 
 Every option and its default is in [docs/configuration.md](docs/configuration.md).
@@ -90,7 +92,7 @@ described in [docs/documents.md](docs/documents.md).
 | `charts_themes` | The built-in and saved themes and their tokens; with a `seed`, a preview of a synthesised theme and its paired light and dark variants. |
 | `charts_theme_save` | Save a custom theme by name in the workspace (`.charts/themes/<name>.json`), after checking its tokens and their contrast. |
 
-`src/registry.ts` defines each tool once; the plugin's tool registration, the Jelly declaration, the tools RPC and
+`src/registry.ts` defines each tool once; the plugin's tool registration, the package declaration, the tools RPC and
 `docs/tool-parity.md` are projections of it, and a test fails when they drift.
 
 ## Permissions

@@ -29,7 +29,7 @@ delete a stage to get a green run.
   that did not run is not evidence.
 - `evals` renders every catalogue example and checks the advice gates against the committed baseline.
 
-`npm run drift` compares the Jelly declaration's tool list in `package.json` with the tool table in `src/registry.ts`, prints each difference by name and exits 1 when there is one. It is a manual check, not part of `npm run check`.
+`npm run drift` compares the package declaration's tool list in `package.json` with the tool table in `src/registry.ts`, prints each difference by name and exits 1 when there is one. It is a manual check, not part of `npm run check`.
 
 ## Adding or changing a chart
 
@@ -152,7 +152,7 @@ tag, and restores the ruleset exactly as it was.
 
 **Known limit: a `v*` tag pushed by hand.** No ruleset limits who creates a `v*` tag, so anyone with write access can
 push one by hand, pointing at any commit. Such a tag has no published Release, the forward-only check ignores it, and
-Jelly installs only a published Release whose `SHA256SUMS` it verifies. But a user who installs
+The release installer installs only a published Release whose `SHA256SUMS` it verifies. But a user who installs
 `github:we-the-rebel-alliance/charts-plugin#v<x>` directly gets whatever that tag points at. Only the release workflow makes
 release tags; never push one by hand.
 
@@ -165,10 +165,10 @@ pins each of the scripts whole by its sha256, so a plugin whose copy differs fro
 change the kit in every plugin at once, with the new hashes. Do not re-run the older `apply-release-kit.mjs`: it writes
 back the kit that could release only `v0.0.0`.
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:we-the-rebel-alliance/charts-plugin#v<old version>`, then add the new tag with `opencode plugin add github:we-the-rebel-alliance/charts-plugin#v<version>`. Until the 0.0.0 release is cut, install `github:we-the-rebel-alliance/charts-plugin` without a tag.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:we-the-rebel-alliance/charts-plugin#v<old version>`, then add the new tag with `opencode plugin add github:we-the-rebel-alliance/charts-plugin#v<version>`. Until the 0.0.0 release is cut there is no release to install; the first release on plugin-contract is v0.0.0 (phase 4b).
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:we-the-rebel-alliance/charts-plugin" }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/charts-plugin#v<version>" }] }
 ```

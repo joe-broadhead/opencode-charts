@@ -81,7 +81,7 @@ describe("the plugin", () => {
     const result = await call("render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal", sort: "-y" }, y: { field: "v", type: "quantitative", title: "Value (n)" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, title: "Plugin test" })
     expect(result.output.files).toEqual({ png: ["outputs/charts/plugin-test.png"], svg: "outputs/charts/plugin-test.svg", spec: "outputs/charts/plugin-test.vl.json" })
     expect(result.output.markdown).toBe("![Plugin test](outputs/charts/plugin-test.png)")
-    expect(result.content[0]!.text).toContain("jelly_file_save")
+    expect(result.content[0]!.text).toContain("your host's file-saving tool")
     expect(asserts).toContainEqual({ action: "charts_render", resources: ["*"] })
     expect(asserts).toContainEqual({ action: "edit", resources: ["outputs/charts/*"] })
     expect(existsSync(join(ws.dir, "outputs/charts/plugin-test.png"))).toBe(true)

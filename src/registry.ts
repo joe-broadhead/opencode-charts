@@ -11,7 +11,7 @@ import { ThemeDefinitionOverridesSchema } from "./document/schema.js"
 /**
  * The registry: every tool of this plugin, defined once.
  *
- * The model's tool registration (`src/plugin.ts`), the Jelly declaration (`package.json` `jelly.tools`), the tools RPC
+ * The model's tool registration (`src/plugin.ts`), the package declaration (`package.json` `jelly.tools`), the tools RPC
  * table (`src/tools-rpc.ts`), `charts_capabilities` and `docs/tool-parity.md` are all projections of this list.
  * A capability that exists on only one surface is a defect, not a feature, so a test asserts the projections agree
  * (`test/registry.test.ts`).
@@ -46,7 +46,7 @@ export type ToolClass = "read" | "export"
 export interface ToolDescriptor {
   readonly name: string
   readonly class: ToolClass
-  /** A tool that only reads. Jelly denies every other tool to a read-only agent. */
+  /** A tool that only reads. The declaration denies every other tool to a read-only agent. */
   readonly readOnly: boolean
   /** Model-facing text: what it does, when to use it, and what it cannot do. */
   readonly description: string
@@ -486,7 +486,7 @@ export function inputSchema(name: ToolName): Record<string, unknown> {
   return z.toJSONSchema(descriptor(name).input, { io: "input", unrepresentable: "any" }) as Record<string, unknown>
 }
 
-/** The registry as data: what `docs/tool-parity.md` and the Jelly declaration are checked against. */
+/** The registry as data: what `docs/tool-parity.md` and the package declaration are checked against. */
 export function manifest(version: string) {
   return {
     contract_version: CONTRACT_VERSION,

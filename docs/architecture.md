@@ -158,7 +158,7 @@ The promise has two forms, exact and within a tolerance, and they are not the sa
 ## The registry
 
 `src/registry.ts` defines each tool once: its name, class (`read` or `export`), read-only flag, description, zod input
-and documentation anchor. The plugin's tool registration, the Jelly declaration, the tools RPC table,
+and documentation anchor. The plugin's tool registration, the package declaration, the tools RPC table,
 `charts_capabilities` and `docs/tool-parity.md` are projections of it, and `test/registry.test.ts` fails when any of
 them drifts. A tool that exists on one surface and not another is a defect, not a feature.
 
