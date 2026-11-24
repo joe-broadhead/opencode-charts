@@ -28,7 +28,7 @@ beforeAll(async () => {
   expect(existsSync(join(ROOT, "dist/index.js"))).toBe(true)
   const plugin = (await import(join(ROOT, "dist/index.js"))).default
   const ctx = {
-    app: { version: "2.2.5" },
+    app: { version: "2.4.1" },
     options: { theme: "light" },
     location: { directory: ws.dir, project: { directory: ws.dir } },
     agent: {
@@ -81,7 +81,7 @@ describe("the plugin", () => {
     const result = await call("render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal", sort: "-y" }, y: { field: "v", type: "quantitative", title: "Value (n)" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, title: "Plugin test" })
     expect(result.output.files).toEqual({ png: ["outputs/charts/plugin-test.png"], svg: "outputs/charts/plugin-test.svg", spec: "outputs/charts/plugin-test.vl.json" })
     expect(result.output.markdown).toBe("![Plugin test](outputs/charts/plugin-test.png)")
-    expect(result.content[0]!.text).toContain("jelly_file_save")
+    expect(result.content[0]!.text).toContain("your host's file-saving tool")
     expect(asserts).toContainEqual({ action: "charts_render", resources: ["*"] })
     expect(asserts).toContainEqual({ action: "edit", resources: ["outputs/charts/*"] })
     expect(existsSync(join(ws.dir, "outputs/charts/plugin-test.png"))).toBe(true)
@@ -172,7 +172,7 @@ describe("/charts-status", () => {
       "Skills: charts, charts-cookbook",
       "Tools: 12 of 12 visible to this agent",
       "Agents without default rules: none",
-      "OpenCode: 2.2.5",
+      "OpenCode: 2.4.1",
       `Version: ${(await Bun.file(join(ROOT, "package.json")).json()).version}`,
       "Next step: Nothing to do.",
     ])

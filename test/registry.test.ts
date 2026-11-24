@@ -24,9 +24,9 @@ describe("the registry", () => {
     expect(pkg.jelly.tools.map(tool => tool.name)).toEqual(TOOL_NAMES.map(name => `${NAMESPACE}.${name}`))
     for (const tool of pkg.jelly.tools) expect(tool.permission).toBe(`${NAMESPACE}_${tool.name.split(".")[1]!}`)
     for (const descriptor of DESCRIPTORS) expect(pkg.jelly.tools.find(tool => tool.name === `${NAMESPACE}.${descriptor.name}`)?.readOnly).toBe(descriptor.readOnly)
-    // Jelly's read-only helper is denied every tool that is not marked readOnly, so the flag is the same fact twice.
+    // The declaration's read-only helper is denied every tool that is not marked readOnly, so the flag is the same fact twice.
     expect(pkg.jelly.tools.filter(tool => tool.readOnly).map(tool => tool.permission).sort()).toEqual([...KNOWN_READS].sort())
-    // Every tool is allowed by default; the read-only flag is still the one fact Jelly's helper reads.
+    // Every tool is allowed by default; the read-only flag is still the one fact the declaration's helper reads.
     expect(defaultRules().filter(rule => rule.effect === "allow").map(rule => rule.action)).toContain(`${NAMESPACE}_*`)
     for (const name of KNOWN_READS) expect(defaultRules("read-only")).toContainEqual({ action: name, resource: "*", effect: "allow" })
   })
@@ -72,7 +72,7 @@ describe("the registry", () => {
     }
   })
 
-  test("charts_update is one writer on every surface: registry, Jelly, permissions, RPC schema and parity table", () => {
+  test("charts_update is one writer on every surface: registry, declaration, permissions, RPC schema and parity table", () => {
     const update = DESCRIPTORS.find(d => d.name === "update")!
     expect({ class: update.class, readOnly: update.readOnly }).toEqual({ class: "export", readOnly: false })
     expect(pkg.jelly.tools.find(tool => tool.name === "charts.update")).toEqual({ name: "charts.update", permission: "charts_update", effect: "allow", readOnly: false })
@@ -99,13 +99,13 @@ describe("the registry", () => {
   })
 
   test("docs/tool-parity.md is generated from the registry and matches it row for row", () => {
-    const rows = [...parity.matchAll(/^\| `([a-z_]+)` \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$/gm)].map(m => ({ name: m[1]!, audience: m[2]!.trim(), class: m[3]!.trim(), rpc: m[4]!.trim(), Jelly: m[5]!.trim() }))
+    const rows = [...parity.matchAll(/^\| `([a-z_]+)` \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$/gm)].map(m => ({ name: m[1]!, audience: m[2]!.trim(), class: m[3]!.trim(), rpc: m[4]!.trim(), declared: m[5]!.trim() }))
     expect(rows.map(row => row.name)).toEqual([...TOOL_NAMES])
     for (const row of rows) {
       const descriptor = DESCRIPTORS.find(d => d.name === row.name)!
       expect(row.class).toBe(descriptor.class)
       expect(row.rpc).toBe("yes")
-      expect(row.Jelly).toBe("yes")
+      expect(row.declared).toBe("yes")
       expect(row.audience).toBe("model")
     }
   })

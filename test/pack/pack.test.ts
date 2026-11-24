@@ -78,7 +78,7 @@ describe("the packed tarball", () => {
       const tools = new Map(), commands = new Map(), asserts = []
       const editor = { namespace() {}, add(item) { (item.execute.length === 1 ? commands : tools).set(item.name, item) } }
       const ctx = {
-        app: { version: "2.2.5" }, options: {}, location: { directory: ${JSON.stringify(workspace)}, project: { directory: ${JSON.stringify(workspace)} } },
+        app: { version: "2.4.1" }, options: {}, location: { directory: ${JSON.stringify(workspace)}, project: { directory: ${JSON.stringify(workspace)} } },
         agent: { transform: async fn => fn({ list: () => [], update() {} }), list: async () => ({ data: [] }), get: async () => ({ data: { id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] } }) },
         command: { transform: async fn => fn({ add: item => commands.set(item.name, item) }) },
         session: { synthetic: async input => { console.log(JSON.stringify({ status: input.text })) }, get: async () => ({ id: "s", agent: "build", permissions: [] }) },

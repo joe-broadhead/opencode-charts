@@ -20,7 +20,7 @@ WP4 (`fc1133c`) and the layout monotonicity fix (`c30942a`). WP5 is the branch `
 | `feat(discovery)` | `charts_capabilities` reports document versions, the 14 recipe contracts and the layout profiles; `charts_catalogue` marks the recipe types and returns each one's contract and exact `charts_quick` document calls; `charts_recommend` drafts a recipe document on the caller's columns, with an explicit medium as its layout target, and withholds it when the aggregate would be guessed. All derived from the recipe registry. |
 | `docs(documents)` | `docs/documents.md`; the cookbook generated from the catalogue and the recipe registry, and `test/generated.test.ts`, which fails when the cookbook or the recipe table is stale (the cookbook script claimed such a test; none existed). |
 | `fix(documents)` | An empty recipe dataset is `DATA_EMPTY` at `/document/chart/data` (it was `SPEC_INVALID` blaming the compiled spec's fields), and `charts_validate` returns `valid: false` for a spec-level problem found while fitting instead of throwing. |
-| `docs(charts)` | The skill, README, architecture (document layers, the future UI boundary), status, scripting and Jelly pages describe the shipped behaviour. |
+| `docs(charts)` | The skill, README, architecture (document layers, the future UI boundary), status, scripting and package-declaration pages describe the shipped behaviour. |
 | `feat(registry)` | `CONTRACT_VERSION` 1.0.0 → 1.1.0, with the compatibility note in `src/registry.ts`. |
 | `docs(changelog)` | One `## [Unreleased]` section for WP0–WP5, with the security fix. |
 | `docs(engineering)` | `eval/README.md` points at the agent corpus; this report. |

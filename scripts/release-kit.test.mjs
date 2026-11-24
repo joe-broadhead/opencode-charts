@@ -1947,7 +1947,7 @@ describe("package.json: private, and in the canonical form", () => {
   })
 })
 
-describe("CI: macOS on pushes to master and for releases, never on pull requests", () => {
+describe("CI: the matrix rule the kit's release planner reads", () => {
   test("ciMatrix: a pull request's matrix has no macOS entry, and a master push's does", () => {
     assert.deepEqual(ciMatrix(CI_YML), { pullRequest: ["ubuntu-24.04", "ubuntu-24.04-arm"], push: RUNNERS, problems: [] })
     const include = [
@@ -1974,11 +1974,12 @@ describe("CI: macOS on pushes to master and for releases, never on pull requests
     assert.deepEqual(ciJobsProblems(undefined, ["macos-26"]), ["no successful job on macos-26"])
   })
 
-  test("this repository's ci.yml: a pull request's matrix has no macOS entry, and a master push's does (npm run check)", () => {
-    const matrix = ciMatrix(readFileSync(join(SCRIPTS, "..", ".github", "workflows", "ci.yml"), "utf8"))
-    assert.deepEqual(matrix.problems, [])
-    assert.equal(matrix.pullRequest.some((runner) => /^macos-/.test(runner)), false)
-    assert.ok(matrix.push.includes("macos-26"), `a push to master runs ${matrix.push.join(", ")}`)
+  test("this repository's ci.yml: one job, named ci, on the one runner rule (npm run check)", () => {
+    const text = readFileSync(join(SCRIPTS, "..", ".github", "workflows", "ci.yml"), "utf8")
+    const jobs = [...text.matchAll(/^  ([a-z][\w-]*):\n    name: (\S+)$/gm)].map((match) => ({ id: match[1], name: match[2] }))
+    assert.deepEqual(jobs, [{ id: "ci", name: "ci" }])
+    assert.match(text, /^    runs-on: \$\{\{ \(github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.head\.repo\.full_name == github\.repository\) && \(vars\.CI_RUNNER_PUBLIC \|\| 'ubuntu-24\.04'\) \|\| 'ubuntu-24\.04' \}\}$/m)
+    assert.match(text, /^permissions:\n  contents: read$/m)
   })
 })
 

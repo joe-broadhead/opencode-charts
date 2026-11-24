@@ -75,7 +75,7 @@ would go stale, the tool is the source of truth.
 - **The tools RPC follows the same default.** Every method is allowed, so a script renders without a prompt; `access:
   "read-only"` denies the seven writers, and a saved "Always allow" from an interactive session does not authorize a
   script.
-- **Host support is `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.** The host suite runs on every one.
+- **Host support is `>=2.4.1 <2.5.0`, tested on 2.4.1.** The host suite runs on that release.
 
 ## Decisions that are not gaps
 
@@ -88,11 +88,11 @@ These are decisions, not gaps: each is deliberate, and `charts_capabilities` rep
 - **Five Mermaid kinds are supported, the rest are deferred.** `charts_diagram` draws flowcharts, sequence, state,
   class and ER diagrams; `gantt`, `pie`, `journey` and `gitGraph` are outside its layout model and are refused with
   the kinds that work. Rune's `crates/rune-mermaid` remains the reference for a wider DOM-free layout later.
-- **`opencode.host` is `>=2.2.3 <2.4.0`**, the family's line, and the host suite proves every tested release.
+- **`opencode.host` is `>=2.4.1 <2.5.0`**, and the host suite proves every tested release.
 
 ## How this page is kept true
 
-`test/registry.test.ts` fails when `docs/tool-parity.md`, the Jelly declaration, the default permission rules or the
+`test/registry.test.ts` fails when `docs/tool-parity.md`, the package declaration, the default permission rules or the
 README's tool table disagree with the registry. `charts_capabilities` computes the formats from the files actually
 present, so a build that lost `resvg.wasm` reports `png: false` rather than claiming PNG. The known-limits list is one
 array in `src/capabilities.ts`, returned to the agent and mirrored above by hand — the one pair in this repository that

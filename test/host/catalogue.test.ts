@@ -1,6 +1,6 @@
-// The Code Mode catalogue stock OpenCode renders for Charts stays within 1,000 tokens (characters ÷ 4).
-// A filler pin spends the engine's inline budget, so the charts section is the namespace line plus any
-// pinned signatures: what is sent even when other plugins fill the budget.
+// The Code Mode catalogue stock OpenCode renders for Charts stays within the 400-character namespace line.
+// A filler pin spends the engine's inline budget, so the charts section is the namespace line alone: Charts
+// pins nothing, and its tools are found with search({ namespace: "charts", query }) and the skills.
 import "./isolate.js"
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { mkdirSync, readFileSync } from "node:fs"
@@ -14,7 +14,6 @@ const SDK = HOST_SDK_DIR ? join(HOST_SDK_DIR, "node_modules", "@opencode", "sdk"
 const HOST_VERSION = (JSON.parse(readFileSync(join(SDK, "package.json"), "utf8")) as { version: string }).version
 const OPENAI_COMPATIBLE = ["@opencode", "ai", "providers", "openai-compatible"].join("/")
 setDefaultTimeout(120_000)
-const tokens = (text: string) => Math.round(text.length / 4)
 
 function startMock() {
   let captured = ""
@@ -54,7 +53,7 @@ describe("the Code Mode catalogue", () => {
     mock.stop()
   })
 
-  test("the charts section is at most 1,000 tokens", async () => {
+  test("the charts section is the namespace line alone, within 400 characters", async () => {
     const pluginPath = fileURLToPath(new URL("../../dist/index.js", import.meta.url))
     const charts = (await import(pathToFileURL(pluginPath).href)).default as Plugin.Plugin
     const filler = Plugin.define({
@@ -108,7 +107,9 @@ describe("the Code Mode catalogue", () => {
     for (let i = start + 1; i < lines.length && lines[i]!.startsWith("  "); i++) taken.push(lines[i]!)
     const text = taken.join("\n")
     expect(text.startsWith("- charts (")).toBe(true)
-    expect(tokens(text)).toBeLessThanOrEqual(1000)
+    // Nothing is pinned: no indented signature follows the namespace line, even when another plugin spends the budget.
+    expect(taken).toHaveLength(1)
+    expect(text.length).toBeLessThanOrEqual(400)
     expect(text).toContain("charts skill")
     expect(text).toContain('search({ namespace: "charts", query })')
   }, 120_000)

@@ -4,7 +4,7 @@
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs"
 import { join, resolve } from "node:path"
 
-/** A folder whose node_modules holds another @opencode/sdk 2.2.x, such as 2.2.4, to host the suite instead. */
+/** A folder whose node_modules holds another @opencode/sdk 2.4.x, to host the suite instead. */
 export const HOST_SDK_DIR = process.env.HOST_SDK_DIR ? resolve(process.env.HOST_SDK_DIR) : undefined
 export const ROOT = realpathSync(mkdtempSync(join(realpathSync("/tmp"), "charts-host-")))
 const home = join(ROOT, "home")

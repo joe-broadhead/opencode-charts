@@ -74,7 +74,7 @@ export function hasDefaultRules(rules: readonly Rule[], access: Access = "all"):
 }
 
 /**
- * Inserts the block right after the agent's first base allow, once. An agent without a base allow (Jelly's agents, or
+ * Inserts the block right after the agent's first base allow, once. An agent without a base allow (some host agents, or
  * a read-only helper) gets nothing: there, unlisted tools are not allowed anyway, and the block's `ask` would loosen a
  * default deny.
  */

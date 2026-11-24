@@ -5,10 +5,10 @@ fails when this table and the registry disagree, and its failure message names t
 `DESCRIPTORS` rather than editing them by hand.
 
 **Class** is the worst thing a tool does: `read` reads only, `export` writes a local file. It never decides whether a
-call runs — the permission rules do — but it is what `describe` reports on the tools RPC and what Jelly needs in order
+call runs — the permission rules do — but it is what `describe` reports on the tools RPC and what the declaration needs in order
 to hide a writer from a read-only agent.
 
-| Tool | Audience | Class | RPC | Jelly |
+| Tool | Audience | Class | RPC | Declaration |
 |---|---|---|---|---|
 | `render` | model | export | yes | yes |
 | `quick` | model | export | yes | yes |

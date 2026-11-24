@@ -1,6 +1,6 @@
 # Architecture
 
-`@joe-broadhead/opencode-charts` turns a chart, table, diagram or dashboard document into files. It reads only the
+`@we-the-rebel-alliance/charts-plugin` turns a chart, table, diagram or dashboard document into files. It reads only the
 data files a call names inside the workspace, writes only under the output folder and `.charts/`, and opens no network
 connection: no URL, loader, image or CDN, at run time or in any output. The same input gives the same bytes on the
 same platform; across platforms a coordinate computed with trigonometry can differ in its last digits. The design
@@ -158,7 +158,7 @@ The promise has two forms, exact and within a tolerance, and they are not the sa
 ## The registry
 
 `src/registry.ts` defines each tool once: its name, class (`read` or `export`), read-only flag, description, zod input
-and documentation anchor. The plugin's tool registration, the Jelly declaration, the tools RPC table,
+and documentation anchor. The plugin's tool registration, the package declaration, the tools RPC table,
 `charts_capabilities` and `docs/tool-parity.md` are projections of it, and `test/registry.test.ts` fails when any of
 them drifts. A tool that exists on one surface and not another is a defect, not a feature.
 

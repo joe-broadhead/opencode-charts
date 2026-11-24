@@ -66,7 +66,7 @@ from an `opencode-evals` checkout, with this repository built (`npm run build`):
 
 ```
 evals run --plugin charts --iteration <name> --model <provider>/<model> --auth <profile> \
-  --set corpus --trials 3 --arm <this checkout> --world worlds/charts --host 2.2.5
+  --set corpus --trials 3 --arm <this checkout> --world worlds/charts --host 2.4.1
 evals trace --iteration <name> --plugin charts && evals grade --iteration <name> --plugin charts
 ```
 

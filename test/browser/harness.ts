@@ -33,7 +33,7 @@ export async function startPlugin(root = ROOT): Promise<Plugin & { asserts: { ac
   const asserts: { action: string; resources: string[] }[] = []
   const agents = [{ id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] }]
   const cleanup = await plugin.setup({
-    app: { version: "2.2.5" },
+    app: { version: "2.4.1" },
     options: { theme: "light" },
     location: { directory: dir, project: { directory: dir } },
     agent: {

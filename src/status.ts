@@ -8,8 +8,8 @@ import { THEME_DIR } from "./constants.js"
 import type { ThemeSources } from "./themes/store.js"
 
 /** The OpenCode releases this plugin supports, as package.json's `opencode.host` says, and the ones its checks run on. */
-export const HOST_RANGE = ">=2.2.3 <2.4.0"
-export const TESTED_HOSTS: readonly string[] = ["2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.3.0", "2.3.1", "2.3.2"]
+export const HOST_RANGE = ">=2.4.1 <2.5.0"
+export const TESTED_HOSTS: readonly string[] = ["2.4.1"]
 
 export const COMMANDS = { status: "charts-status" } as const
 export const NOTHING_TO_DO = "Nothing to do."
@@ -73,7 +73,7 @@ function nextStep(view: Omit<StatusView, "nextStep">, shipped: number, png: Char
   if (missing) return "Reinstall the plugin, since a skill it ships did not load."
   if (view.unguardedAgents.length > 0) return AGENT_FIX
   if (!view.host.supported) return `Use OpenCode ${TESTED_HOSTS.join(" or ")}, since Charts supports OpenCode ${HOST_RANGE} and this is ${view.host.version ?? "of no known version"}.`
-  if (view.tools.visible < view.tools.total) return "Check the agent's permissions, since some Charts tools are denied to it; a read-only helper is denied the four that write."
+  if (view.tools.visible < view.tools.total) return "Check the agent's permissions, since some Charts tools are denied to it; a read-only helper is denied the seven that write."
   return NOTHING_TO_DO
 }
 export async function buildStatus(sources: StatusSources): Promise<StatusView> {

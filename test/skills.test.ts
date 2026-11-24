@@ -33,7 +33,7 @@ describe("shipped plugin skills", () => {
     for (const skill of [charts, cookbook]) {
       expect(skill.fields.description).toBeDefined()
       expect(skill.fields.description!.includes("\n")).toBe(false)
-      expect(skill.fields.description!.length).toBeLessThanOrEqual(1024)
+      expect(skill.fields.description!.length).toBeLessThanOrEqual(300)
     }
     expect(charts.fields.description).toContain("Use for")
     expect(charts.fields.description).toContain("Not for")

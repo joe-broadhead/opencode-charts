@@ -167,7 +167,7 @@ ${JSON.stringify(BOARD_COOKBOOK_EXAMPLE)}
 
   return `---
 name: charts-cookbook
-description: Idiomatic, tested examples for every chart, table, diagram and dashboard the charts_* tools draw - typed recipe documents for the 14 standard types, specs and native calls for the other 65 catalogue types across Vega-Lite, Vega, ECharts, Observable Plot, tables and diagrams, plus a BoardDocumentV1 dashboard - grouped by purpose, with when to use each. Read before writing a chart document, board or spec by hand.
+description: Tested examples for every chart, table, diagram and dashboard the charts tools draw (recipe documents, engine specs, board documents), grouped by purpose. Read before writing a chart document, board or spec by hand.
 ---
 
 # Charts cookbook

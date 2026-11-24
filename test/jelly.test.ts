@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
 import { ACCESS_VALUES, KNOWN_READS, defaultRules, permissionOf } from "../src/permissions.ts"
 import { SKILLS, options } from "../src/plugin.ts"
 import { TOOLS, type ToolName } from "../src/tools.ts"
-import { type Declaration, type DeclaredTool, declarationProblems, docProblems, effectFromRules, readPackage } from "./support/jelly-kit.ts"
+import { type Declaration, type DeclaredTool, declarationProblems, effectFromRules, readPackage } from "./support/jelly-kit.ts"
 import { ACCESS_CHOICES, settingChoices, type PluginSetting, settingsProblems, settingValueIssue } from "./support/jelly-settings.ts"
 
 /**
@@ -17,7 +16,6 @@ const ROOT = new URL("../", import.meta.url)
 const pkg = readPackage(ROOT)
 const jelly = pkg.jelly as Declaration & { title: string; tools: DeclaredTool[]; skills: string[]; signIns: unknown[]; rpc: unknown[]; views: unknown[]; contributes: { homeFeeds: unknown[]; homeWidgets: unknown[]; workKinds: unknown[]; settings: PluginSetting[] } }
 const { settings } = jelly.contributes
-const doc = readFileSync(new URL("docs/jelly.md", ROOT), "utf8")
 const names = Object.keys(TOOLS) as ToolName[]
 
 describe("the jelly declaration", () => {
@@ -74,23 +72,5 @@ describe("the jelly declaration", () => {
     expect<string>(options({}).access).toBe(access.default as string)
     expect(settingValueIssue(access, "write")).not.toBeNull()
     expect(() => options({ access: "write" })).toThrow("OPTIONS_INVALID")
-  })
-})
-
-describe("docs/jelly.md", () => {
-  test("follows the plugin authors' standard", () => {
-    expect(docProblems(ROOT)).toEqual([])
-  })
-
-  test("names every tool, and the status command", () => {
-    for (const tool of jelly.tools) expect(doc).toContain(`\`${tool.name}\``)
-    expect(doc).toContain("/charts-status")
-  })
-
-  test("says each tool runs as declared at Allowed", () => {
-    expect(jelly.tools.every((tool) => tool.effect === "allow")).toBe(true)
-    expect(doc).toContain("- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode")
-    expect(jelly.tools).toHaveLength(12)
-    expect(doc).not.toMatch(/^- (Ask|Off): `/m)
   })
 })

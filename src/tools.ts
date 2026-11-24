@@ -36,7 +36,7 @@ export interface ToolOutput {
   readonly content: Content[]
 }
 
-const SAVE_HINT = "To hand a file to the person, save it with your host's file-saving tool (in Jelly: jelly_file_save with the path); files under outputs/ are also kept when the turn ends."
+const SAVE_HINT = "To hand a file to the person, save it with your host's file-saving tool; files under outputs/ are also kept when the turn ends."
 
 function describeResult(r: RenderResult, wrote: boolean, issues: readonly Issue[] = r.issues): string {
   const warnings = issues.filter(i => i.level === "warning")

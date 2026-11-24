@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// check-icons.mjs -- the icon contract for the @joe-broadhead OpenCode plugins.
+// check-icons.mjs -- the icon contract for the plugin family.
 //
 // Contract: CONTRACT.md revision 2 (2026-11-12), in the family's icon kit
 //   (the family's shared icon set). Copy this file verbatim into a plugin as
@@ -267,7 +267,7 @@ const OWN_PACKAGES = new Set([
   "@joe-broadhead/opencode-utilities",
   "@joe-broadhead/opencode-history",
   "@joe-broadhead/opencode-jobs",
-  "@joe-broadhead/opencode-charts",
+  "@we-the-rebel-alliance/charts-plugin",
   "@joe-broadhead/opencode-mem",
   "@joe-broadhead/opencode-voice",
 ])

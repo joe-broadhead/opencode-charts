@@ -9,8 +9,8 @@ import { pluginError, TOOLS_RPC_ID } from "../src/tools-rpc.js"
  * The tools RPC: `<plugin id>.tools`, with every tool a method and a class, callable with no model.
  *
  * This is the unit suite — the fake host from `test/plugin.test.ts` registers the contract, and each method is called
- * the way the host calls it. The host suite (`test/host/tools-rpc.host.test.ts`) proves the same on the stock 2.2.3,
- * 2.2.4 and 2.2.5 binaries, where the permission rules are the host's.
+ * the way the host calls it. The host suite (`test/host/tools-rpc.host.test.ts`) proves the same on the stock 2.4.1
+ * binary, where the permission rules are the host's.
  */
 
 interface Registration {
@@ -34,7 +34,7 @@ beforeAll(async () => {
   const plugin = (await import(join(ROOT, "dist/index.js"))).default
   const agents = [{ id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] }]
   const ctx = {
-    app: { version: "2.2.5" },
+    app: { version: "2.4.1" },
     options: {},
     location: { directory: ws.dir, project: { directory: ws.dir } },
     agent: { transform: async (fn: (editor: unknown) => void) => fn({ list: () => agents, update: () => undefined }), list: async () => ({ data: agents }), get: async () => ({ data: agents[0] }) },

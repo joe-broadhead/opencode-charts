@@ -15,8 +15,8 @@ const EXPORTS = { ".": "./dist/index.js", "./tui": "./dist/tui.js", "./gui-exper
 // rasteriser, the GUI part and the runtimes inlined into HTML.
 const DIST = ["browser", "chunks", "gui.cjs", "index.js", "renderer.js", "resvg.wasm", "tui.js", "vega-worker.js"]
 // The supported OpenCode line. The host provides @opencode/plugin, so the package declares no peers.
-const HOST_RANGE = ">=2.2.3 <2.4.0"
-const HOST_DEV_PIN = "2.2.5"
+const HOST_RANGE = ">=2.4.1 <2.5.0"
+const HOST_DEV_PIN = "2.4.1"
 const ABSENT_FIELDS = ["dependencies", "optionalDependencies", "bundleDependencies", "bundledDependencies", "peerDependencies", "peerDependenciesMeta", "engines", "overrides"]
 const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "preprepare", "prepare", "postprepare", "prepublish", "prepublishOnly", "prepack", "postpack", "publish", "postpublish"]
 
@@ -41,8 +41,8 @@ const stages = {
   // The evals: every catalogue example renders to a checked picture, and the advice passes its gates against the
   // committed baseline. Both are deterministic and need no model.
   evals: () => run("bun", ["eval/run.ts", join(root, ".eval", "render")]) || run("bun", ["eval/recommend.ts", join(root, ".eval", "recommend")]),
-  // The host suite: the tools RPC on the isolated stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 binaries. A version without a stock
-  // binary is skipped with a line, so this stage passes on a machine that has only one of them.
+  // The host suite: the tools RPC on the isolated stock 2.4.1 binary, from OPENCODE_BIN_2_4_1 or $OPENCODE_STOCK_ROOT/2.4.1.
+  // A missing binary is skipped with a line on a laptop and fails in CI, where a release that did not run is not evidence.
   host: () => run("bun", ["test", "./test/host"]),
 }
 

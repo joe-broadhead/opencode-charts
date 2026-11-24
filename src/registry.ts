@@ -11,7 +11,7 @@ import { ThemeDefinitionOverridesSchema } from "./document/schema.js"
 /**
  * The registry: every tool of this plugin, defined once.
  *
- * The model's tool registration (`src/plugin.ts`), the Jelly declaration (`package.json` `jelly.tools`), the tools RPC
+ * The model's tool registration (`src/plugin.ts`), the package declaration (`package.json` `jelly.tools`), the tools RPC
  * table (`src/tools-rpc.ts`), `charts_capabilities` and `docs/tool-parity.md` are all projections of this list.
  * A capability that exists on only one surface is a defect, not a feature, so a test asserts the projections agree
  * (`test/registry.test.ts`).
@@ -46,15 +46,16 @@ export type ToolClass = "read" | "export"
 export interface ToolDescriptor {
   readonly name: string
   readonly class: ToolClass
-  /** A tool that only reads. Jelly denies every other tool to a read-only agent. */
+  /** A tool that only reads. The declaration denies every other tool to a read-only agent. */
   readonly readOnly: boolean
   /** Model-facing text: what it does, when to use it, and what it cannot do. */
   readonly description: string
   readonly input: z.ZodType
   /**
-   * The tool's output, as JSON Schema. OpenCode 2.2.5 fails a result that carries `output` from a tool that declares
-   * none, so every tool declares one; the tools RPC validates each script's result against the same object, which
-   * also enforces the shared module's rule that an owned output schema may carry no `pattern`.
+   * The tool's output, as JSON Schema. OpenCode 2.4.1 dies with "Tool result declared output without an output schema"
+   * when a result carries `output` and the tool declares none (`@opencode/core` 2.4.1, tool execute), so every tool
+   * declares one; the tools RPC validates each script's result against the same object, which also enforces the
+   * shared module's rule that an owned output schema may carry no `pattern`.
    */
   readonly output: Record<string, unknown>
   /** Sections that document it; `docs/tool-parity.md` is checked against these. */
@@ -485,7 +486,7 @@ export function inputSchema(name: ToolName): Record<string, unknown> {
   return z.toJSONSchema(descriptor(name).input, { io: "input", unrepresentable: "any" }) as Record<string, unknown>
 }
 
-/** The registry as data: what `docs/tool-parity.md` and the Jelly declaration are checked against. */
+/** The registry as data: what `docs/tool-parity.md` and the package declaration are checked against. */
 export function manifest(version: string) {
   return {
     contract_version: CONTRACT_VERSION,
