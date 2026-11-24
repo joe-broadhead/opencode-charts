@@ -45,9 +45,15 @@ jobs:
           ./actionlint -color .github/workflows/ci.yml .github/workflows/release.yml
       - run: npm ci --ignore-scripts
       # The browser stage's headless Chromium: the build that playwright-core's exact version in package-lock.json pins.
-      # On Linux, --with-deps installs the system libraries it needs.
+      # A GitHub-hosted runner needs --with-deps for the system libraries; the self-hosted public runner already has
+      # them and has no passwordless sudo, so it installs only the browser.
       - name: Headless Chromium for the browser stage
-        run: npx --no-install playwright-core install --with-deps --only-shell chromium
+        run: |
+          if [ "$RUNNER_ENVIRONMENT" = "github-hosted" ]; then
+            npx --no-install playwright-core install --with-deps --only-shell chromium
+          else
+            npx --no-install playwright-core install --only-shell chromium
+          fi
       # The one stock binary the host stage spawns: the release `tested on` in the docs and in TESTED_HOSTS (src/status.ts).
       - name: Stock OpenCode 2.4.1 binary
         run: |
