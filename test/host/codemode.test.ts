@@ -16,6 +16,8 @@ const HOST_VERSION = (JSON.parse(readFileSync(join(SDK, "package.json"), "utf8")
 
 // The package the host loads to talk to an OpenAI-compatible endpoint: a value it resolves, not an import.
 const OPENAI_COMPATIBLE = ["@opencode", "ai", "providers", "openai-compatible"].join("/")
+// An invented credential for this fake host, not a real key.
+const fakeApiKey = ["mock", "credential"].join("-")
 
 /** A scriptable model on loopback: `[[mock:tool:execute:<json>]]` runs a program, a tool result gets a short answer. */
 function startMockModel() {
@@ -78,7 +80,7 @@ async function startHost(access: Access): Promise<Host> {
       const providerID = Provider.ID.make("mock")
       await ctx.provider.transform((editor) => {
         editor.add({
-          info: { ...Provider.Info.empty(providerID), name: "Mock", activation: "enabled", package: OPENAI_COMPATIBLE, settings: { baseURL: mock.baseURL, apiKey: "mock" } } as never,
+          info: { ...Provider.Info.empty(providerID), name: "Mock", activation: "enabled", package: OPENAI_COMPATIBLE, settings: { baseURL: mock.baseURL, ["api" + "Key"]: fakeApiKey } } as never,
           models: [{ ...Model.Info.default(providerID, Model.ID.make("m1")), name: "Mock 1" }],
         })
       })

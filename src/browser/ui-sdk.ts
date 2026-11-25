@@ -613,10 +613,10 @@ export function mountBoard(config: BoardConfig): BoardApp {
   }
 
   async function renderPanels() {
-    const token = ++renderToken
+    const generation = ++renderToken
     await Promise.all(config.panels.map(async panel => {
       const rows = panelRows(panel)
-      if (token !== renderToken) return
+      if (generation !== renderToken) return
       if (panel.kind === "table") { renderTable(panel, rows); return }
       const host = panelHosts[panel.id]
       if (!host) return

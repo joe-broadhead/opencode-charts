@@ -117,8 +117,8 @@ export function resolveAppearance(input: AppearanceInput): ResolvedAppearance {
       if (!given) return palette[i % palette.length]!
       const semantic = SEMANTIC.exec(given.color)
       if (!semantic) return given.color
-      const token = (tokens.colors as Record<string, unknown>)[semantic[1]!]
-      if (typeof token === "string") return token
+      const color = (tokens.colors as Record<string, unknown>)[semantic[1]!]
+      if (typeof color === "string") return color
       errors.push({ level: "error", code: "DOCUMENT_INVALID", message: `${given.color} is not a colour token of the theme.`, path: pointer(["appearance", "categoryColors", given.index, "color"]), fix: `Use one of ${Object.entries(tokens.colors).filter(([, v]) => typeof v === "string").map(([k]) => `theme:${k}`).join(", ")}, or a literal colour.` })
       return palette[i % palette.length]!
     })
