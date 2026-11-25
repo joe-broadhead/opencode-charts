@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Charts supports OpenCode `>=2.4.1 <2.5.0` and is tested on 2.4.1. Outside the range the plugin refuses to start with
+Charts supports OpenCode `>=2.4.1 <2.5.0` and is tested on 2.4.1. Outside the range the plugin refuses to start with `HOST_UNTESTED`.
 
 ## Reporting a vulnerability
 
@@ -34,7 +34,7 @@ or a credential.
 `register` generates one rule per method after each agent's base allow. `all` runs the methods, `ask-changes` asks for
 the writes, `read-only` denies them. `theme_save`, `theme_sync` and `theme_clear` ask even under `all`. Every call
 passes one permission gate on `charts.<method>`; a handler also asserts the host's `read` and `edit` rules for the files
-it touches. An output folder outside the project needs the host's own `external_directory` allow. A non-read method
+it touches. A path outside the project is refused. A non-read method
 over RPC needs a fresh permission ask or a host-signed action grant; a saved "Always allow" from a tool door is not a
 confirmation.
 

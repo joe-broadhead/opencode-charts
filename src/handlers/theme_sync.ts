@@ -1,5 +1,6 @@
 import type { Json } from "../engines/common.js"
 import { hostThemeName, type HostThemeStore } from "../themes/host.js"
+import { THEME_DIR } from "../themes/store.js"
 import { THEME_SYNC_INPUT, THEME_SYNC_OUTPUT } from "./theme-schemas.js"
 import type { MethodHandler } from "./types.js"
 
@@ -17,6 +18,8 @@ export function themeSyncHandler(store: HostThemeStore): MethodHandler {
     output: THEME_SYNC_OUTPUT,
     async run(env, raw, call) {
       const input = raw as { theme?: string | Record<string, unknown>; mode?: "light" | "dark"; revision?: string }
+      // A named theme resolves through the saved-theme chain, which reads `.charts/themes/`; ask for that read first.
+      if (typeof input.theme === "string") await env.assertFiles("read", [`${THEME_DIR}/*`])
       const { syncHostTheme } = await import("../theme-rpc.js")
       const sources = { workspace: env.workspace, configured: env.configuredThemes }
       return (await syncHostTheme(store, sources, call.sessionID, input)) as unknown as Json

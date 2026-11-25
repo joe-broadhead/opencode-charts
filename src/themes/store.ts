@@ -323,15 +323,18 @@ function validate(tokens: ThemeTokens): ThemeTokens {
 }
 
 /** Saves tokens (or a seed or a pair) as a named workspace theme, after checking that they resolve. */
-export function saveTheme(sources: ThemeSources, name: string, overrides: ThemeDefinition) {
+export function saveTheme(sources: ThemeSources, name: string, overrides: ThemeDefinition, plan?: { theme(relative: string, bytes: string): string }) {
   const BUILTIN_THEMES = builtinThemes()
   if (!NAME.test(name)) throw new ChartsError("THEME_NAME_INVALID", `"${name}" is not a theme name.`, "Use lowercase letters, digits and dashes, such as acme-brand.")
   if (BUILTIN_THEMES[name]) throw new ChartsError("THEME_NAME_TAKEN", `"${name}" is a built-in theme.`, "Pick another name, and set extends to it to start from it.")
   const resolved = resolveTheme(sources, { ...overrides, name })
-  ensureDirectory(sources.workspace, THEME_DIR)
   const file = savedFile(sources, name)
   savedThemeExists(file, name)
-  writeFileSync(file.absolute, JSON.stringify({ ...overrides, name }, null, 2) + "\n")
+  const bytes = JSON.stringify({ ...overrides, name }, null, 2) + "\n"
+  if (plan === undefined) {
+    ensureDirectory(sources.workspace, THEME_DIR)
+    writeFileSync(file.absolute, bytes)
+  } else plan.theme(file.relative, bytes)
   return { file: file.relative, theme: resolved }
 }
 

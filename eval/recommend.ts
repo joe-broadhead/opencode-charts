@@ -105,7 +105,7 @@ writeFileSync(join(out, "report.md"), [
 ].join("\n") + "\n")
 
 if (updateBaseline) {
-  writeFileSync(BASELINE, JSON.stringify({ measured: "see docs/status.md", versions, top1Accuracy: Number(top1Accuracy.toFixed(3)), gates: Object.fromEntries(gates.map(g => [g.gate, g.value])), perCase: Object.fromEntries(results.map(r => [r.id, r.ok])) }, null, 1) + "\n")
+  writeFileSync(BASELINE, JSON.stringify({ measured: "the committed eval baseline", versions, top1Accuracy: Number(top1Accuracy.toFixed(3)), gates: Object.fromEntries(gates.map(g => [g.gate, g.value])), perCase: Object.fromEntries(results.map(r => [r.id, r.ok])) }, null, 1) + "\n")
   console.log(`baseline written: ${BASELINE}`)
 }
 

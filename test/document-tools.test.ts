@@ -607,7 +607,7 @@ describe("recipe documents are fitted by the layout planner", () => {
 describe("typed theme tokens through the one theme reader", () => {
   test("charts_theme_save's input is the typed definition of the canonical tokens, strict at every depth", async () => {
     const { inputSchema } = await import("../src/registry.ts")
-    const theme = (inputSchema("theme_save").properties as Record<string, any>).theme
+    const theme = (inputSchema("plan_theme_save").properties as Record<string, any>).theme
     expect(theme.additionalProperties).toBe(false)
     expect(Object.keys(theme.properties).sort()).toEqual(["axis", "colors", "description", "extends", "font", "layout", "legend", "marks", "mode", "name", "seed", "variants"])
     expect(theme.properties.colors.additionalProperties).toBe(false)

@@ -29,11 +29,11 @@ export async function runThemes(env: ToolEnvironment, input: Record<string, unkn
 
 /** tools.charts.theme_save: a named theme written to the workspace, checked and with its contrast findings. */
 export async function runThemeSave(env: ToolEnvironment, input: Record<string, unknown>): Promise<Json> {
-  await env.assertFiles("edit", [`${THEME_DIR}/${input.name}.json`])
+  if (env.plan === undefined) await env.assertFiles("edit", [`${THEME_DIR}/${input.name}.json`])
   const sources = { workspace: env.workspace, configured: env.configuredThemes }
   // The themes it extends are read with permission first; the store reads only those.
   const approved = await approveThemeChain(sources, input.theme as never, paths => env.assertFiles("read", paths))
-  const { file, theme } = saveTheme({ ...sources, approved }, String(input.name), input.theme as never)
+  const { file, theme } = saveTheme({ ...sources, approved }, String(input.name), input.theme as never, env.plan)
   const { themeContrastIssues } = await import("../themes/contrast.js")
   const issues: Issue[] = themeContrastIssues(theme)
   return { file, theme: theme as unknown as Json, warnings: issues as unknown as Json }

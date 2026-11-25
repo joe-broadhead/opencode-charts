@@ -56,10 +56,18 @@ export async function startPlugin(root = ROOT): Promise<Plugin & { asserts: { ac
     },
     skill: { transform: async (fn: (editor: unknown) => void) => { fn({ add: () => undefined }); return { dispose: async () => undefined } }, list: async () => ({ data: [] }) },
   })
+  const context = { sessionID: "ses_browser", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => undefined, codemode: false }
+  const writes = new Set(["render", "quick", "update", "board", "table", "diagram", "theme_save", "theme_sync", "theme_clear"])
   return {
     dir,
     asserts,
-    call: (name, input) => tools.get(name)!.execute(input, { sessionID: "ses_browser", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => undefined, codemode: false }),
+    call: async (name, input) => {
+      if (!writes.has(name)) return tools.get(name)!.execute(input, context)
+      const plan = await tools.get(`plan_${name}`)!.execute(input, context)
+      const planId = (plan.output as { planId?: unknown }).planId
+      if (typeof planId !== "string") throw new Error(`plan_${name} answered no planId: ${JSON.stringify(plan.output).slice(0, 300)}`)
+      return tools.get(name)!.execute({ planId }, context)
+    },
     close: async () => { await cleanup?.(); rmSync(dir, { recursive: true, force: true }) },
   }
 }

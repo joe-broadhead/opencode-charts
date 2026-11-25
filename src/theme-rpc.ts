@@ -1,6 +1,6 @@
 import { ChartsError, suggest } from "./errors.js"
 import { checkThemeDefinition, resolveThemeAsked } from "./themes/chain.js"
-import type { HostThemeStore, HostThemeValue } from "./themes/host.js"
+import type { HostThemeStore, HostThemeValue, SyncedHostTheme } from "./themes/host.js"
 import { hostThemeName, hostThemeRevision } from "./themes/host.js"
 import { builtinThemes, savedThemeNames, type ThemeSources } from "./themes/store.js"
 
@@ -12,9 +12,9 @@ import { builtinThemes, savedThemeNames, type ThemeSources } from "./themes/stor
  */
 
 /** The polarity a synced theme draws in: the caller's, else the theme's own resolved mode. */
-async function modeOf(sources: ThemeSources, input: { readonly theme: HostThemeValue; readonly mode?: string }): Promise<"light" | "dark"> {
+async function modeOf(sources: ThemeSources, input: { readonly theme: HostThemeValue; readonly mode?: string }, assertRead?: (paths: readonly string[]) => Promise<void>): Promise<"light" | "dark"> {
   if (input.mode === "light" || input.mode === "dark") return input.mode
-  const resolved = await resolveThemeAsked(sources, input.theme as never)
+  const resolved = await resolveThemeAsked(sources, input.theme as never, assertRead)
   return resolved.mode
 }
 
@@ -29,13 +29,15 @@ function checkThemeName(sources: ThemeSources, name: string): void {
   throw new ChartsError("THEME_NOT_FOUND", `There is no theme "${name}".${close.length ? ` Did you mean ${close.map((entry) => `"${entry}"`).join(" or ")}?` : ""}`, `Use one of: ${all.join(", ")}; or sync the theme's own tokens as an object.`, "/theme")
 }
 
-/** The theme a host syncs for a session, checked, stored and reported back. */
-export async function syncHostTheme(
-  store: HostThemeStore,
+/**
+ * The theme a host asks to sync, checked and resolved without storing it: a planning call reports exactly what the
+ * commit will apply, and the commit stores it.
+ */
+export async function resolveHostTheme(
   sources: ThemeSources,
-  sessionID: string,
   input: { readonly theme?: HostThemeValue; readonly mode?: "light" | "dark"; readonly revision?: string },
-): Promise<{ ok: true; applied: true; revision: string; mode: "light" | "dark"; themeName: string }> {
+  assertRead?: (paths: readonly string[]) => Promise<void>,
+): Promise<SyncedHostTheme> {
   const theme = input.theme
   if (theme === undefined) throw new ChartsError("THEME_INVALID", "A theme sync needs a theme.", 'Sync a theme name, or the theme object itself.', "/theme")
   let stored: HostThemeValue
@@ -52,8 +54,19 @@ export async function syncHostTheme(
     throw new ChartsError("THEME_INVALID", "The synced theme must be a theme name or a theme object.", 'Sync a name such as "dark", or an object with colors, a seed, or variants.', "/theme")
   }
   // The theme is resolved here, so the polarity a saved dark theme draws in is read from the theme itself.
-  const mode = await modeOf(sources, { theme: stored, ...(input.mode === undefined ? {} : { mode: input.mode }) })
+  const mode = await modeOf(sources, { theme: stored, ...(input.mode === undefined ? {} : { mode: input.mode }) }, assertRead)
   const revision = typeof input.revision === "string" && input.revision.trim() !== "" ? input.revision.trim() : hostThemeRevision(stored, mode)
-  const synced = store.sync(sessionID, { theme: stored, mode, revision })
+  return { theme: stored, mode, revision }
+}
+
+/** The theme a host syncs for a session, checked, stored and reported back. */
+export async function syncHostTheme(
+  store: HostThemeStore,
+  sources: ThemeSources,
+  sessionID: string,
+  input: { readonly theme?: HostThemeValue; readonly mode?: "light" | "dark"; readonly revision?: string },
+): Promise<{ ok: true; applied: true; revision: string; mode: "light" | "dark"; themeName: string }> {
+  const resolved = await resolveHostTheme(sources, input)
+  const synced = store.sync(sessionID, resolved)
   return { ok: true, applied: true, revision: synced.revision, mode: synced.mode, themeName: hostThemeName(synced.theme) }
 }

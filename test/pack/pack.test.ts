@@ -88,15 +88,19 @@ describe("the packed tarball", () => {
       }
       const stop = await plugin.setup(ctx)
       const call = { sessionID: "s", agent: "build", messageID: "m", id: "c", signal: new AbortController().signal, progress: async () => undefined, codemode: false }
-      const result = await tools.get("render").execute({ spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, title: "Pack test", formats: ["svg", "png", "html"] }, call)
-      const made = await tools.get("quick").execute({ document: { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, bindings: { category: "k", value: "v" } }, title: "Pack document" }, formats: ["svg", "document"] }, call)
-      const updated = await tools.get("update").execute({ documentPath: made.output.files.document, expectedRevision: made.output.revision, patch: { appearance: { theme: "dark" } }, formats: ["svg", "html", "document"] }, call)
+      const planThen = async (name, input) => {
+        const plan = await tools.get("plan_" + name).execute(input, call)
+        return tools.get(name).execute({ planId: plan.output.planId }, call)
+      }
+      const result = await planThen("render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, title: "Pack test", formats: ["svg", "png", "html"] })
+      const made = await planThen("quick", { document: { version: 1, chart: { kind: "recipe", recipe: "bar", data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, bindings: { category: "k", value: "v" } }, title: "Pack document" }, formats: ["svg", "document"] })
+      const updated = await planThen("update", { documentPath: made.output.files.document, expectedRevision: made.output.revision, patch: { appearance: { theme: "dark" } }, formats: ["svg", "html", "document"] })
       // The v2 tools, from the packed build: a publication table, a diagram and its outline, a dashboard, and a seed.
-      const table = await tools.get("table").execute({ data: { rows: [{ region: "North", revenue: 120, status: "Ahead" }] }, columns: [{ field: "region" }, { field: "revenue", cell: "bar" }, { field: "status", cell: "badge" }], formats: ["svg", "png", "html"], name: "pack-table" }, call)
-      const diagram = await tools.get("diagram").execute({ dsl: "flowchart LR\\n  a[Start] --> b[Done]", formats: ["svg", "png"], name: "pack-diagram" }, call)
-      const board = await tools.get("board").execute({ board: { version: 1, title: "Pack board", datasets: { sales: { rows: [{ region: "North", revenue: 120 }, { region: "South", revenue: 95 }] } }, panels: [{ id: "rev", title: "Revenue", dataset: "sales", chart: { quick: { type: "bar", x: "region", y: "revenue" } } }] }, name: "pack-board", inspect: false }, call)
-      const saved = await tools.get("theme_save").execute({ name: "pack-seed", theme: { seed: { background: "#FAF8F5", foreground: "#1A1A18", accent: "#C2410C" } } }, call)
-      const seeded = await tools.get("render").execute({ spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, theme: { seed: { background: "#FAF8F5", foreground: "#1A1A18", accent: "#C2410C" }, variants: { light: { seed: { background: "#FAF8F5", foreground: "#1A1A18", accent: "#C2410C" } }, dark: { seed: { background: "#141413", foreground: "#F5F3EE", accent: "#FB923C" } } } }, formats: ["svg"], name: "pack-seed-render" }, call)
+      const table = await planThen("table", { data: { rows: [{ region: "North", revenue: 120, status: "Ahead" }] }, columns: [{ field: "region" }, { field: "revenue", cell: "bar" }, { field: "status", cell: "badge" }], formats: ["svg", "png", "html"], name: "pack-table" })
+      const diagram = await planThen("diagram", { dsl: "flowchart LR\\n  a[Start] --> b[Done]", formats: ["svg", "png"], name: "pack-diagram" })
+      const board = await planThen("board", { board: { version: 1, title: "Pack board", datasets: { sales: { rows: [{ region: "North", revenue: 120 }, { region: "South", revenue: 95 }] } }, panels: [{ id: "rev", title: "Revenue", dataset: "sales", chart: { quick: { type: "bar", x: "region", y: "revenue" } } }] }, name: "pack-board", inspect: false })
+      const saved = await planThen("theme_save", { name: "pack-seed", theme: { seed: { background: "#FAF8F5", foreground: "#1A1A18", accent: "#C2410C" } } })
+      const seeded = await planThen("render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, theme: { seed: { background: "#FAF8F5", foreground: "#1A1A18", accent: "#C2410C" }, variants: { light: { seed: { background: "#FAF8F5", foreground: "#1A1A18", accent: "#C2410C" } }, dark: { seed: { background: "#141413", foreground: "#F5F3EE", accent: "#FB923C" } } } }, formats: ["svg"], name: "pack-seed-render" })
       const status = await tools.get("status").execute({}, call)
       console.log(JSON.stringify({ tools: [...tools.keys()].sort(), files: result.output.files, asserts, status: status.output, update: { from: made.output.revision, to: updated.output.revision, files: updated.output.files, generation: updated.output.generation }, v2: { table: table.output.files, diagram: { files: diagram.output.files, ascii: diagram.output.ascii }, board: board.output, seed: saved.output.file, seeded: seeded.output.files } }))
       await stop()
@@ -110,7 +114,7 @@ describe("the packed tarball", () => {
       v2: { table: Record<string, string>; diagram: { files: Record<string, string>; ascii: string }; board: { files: Record<string, string>; panels: number; warnings: unknown[] }; seed: string; seeded: Record<string, string> }
     }
     // Every declared method is a tool, including status and the three theme methods.
-    expect(out.tools).toEqual(["board", "capabilities", "catalogue", "diagram", "quick", "recommend", "render", "status", "table", "theme_clear", "theme_get", "theme_save", "theme_sync", "themes", "update", "validate"])
+    expect(out.tools).toEqual(["board", "capabilities", "catalogue", "diagram", "plan_board", "plan_diagram", "plan_quick", "plan_render", "plan_table", "plan_theme_clear", "plan_theme_save", "plan_theme_sync", "plan_update", "quick", "recommend", "render", "state", "status", "table", "theme_clear", "theme_get", "theme_save", "theme_sync", "themes", "update", "validate"])
     // The contract gate asserts each method's own action, then the handler asserts the host's file rules.
     for (const action of ["charts.render", "charts.quick", "charts.update", "charts.table", "charts.diagram", "charts.board", "charts.theme_save", "read", "edit"]) expect(out.asserts).toContain(action)
     // The status answer is the contract's shape, with no account.

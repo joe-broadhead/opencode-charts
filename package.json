@@ -123,8 +123,26 @@
         "class": "read",
         "accounts": "none"
       },
+      "state": {
+        "class": "read",
+        "accounts": "none",
+        "operations": [
+          "file.read"
+        ]
+      },
+      "plan_render": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_render",
+          "charts.render",
+          "file.read"
+        ]
+      },
       "render": {
         "class": "write",
+        "commits": "plan_render",
         "accounts": "none",
         "operations": [
           "charts.render",
@@ -132,13 +150,163 @@
           "file.write"
         ]
       },
+      "plan_quick": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_quick",
+          "charts.quick",
+          "file.read"
+        ]
+      },
       "quick": {
         "class": "write",
+        "commits": "plan_quick",
         "accounts": "none",
         "operations": [
           "charts.quick",
           "file.read",
           "file.write"
+        ]
+      },
+      "plan_update": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_update",
+          "charts.update",
+          "file.read"
+        ]
+      },
+      "update": {
+        "class": "write",
+        "commits": "plan_update",
+        "accounts": "none",
+        "operations": [
+          "charts.update",
+          "file.read",
+          "file.write"
+        ]
+      },
+      "plan_board": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_board",
+          "charts.board",
+          "file.read"
+        ]
+      },
+      "board": {
+        "class": "write",
+        "commits": "plan_board",
+        "accounts": "none",
+        "operations": [
+          "charts.board",
+          "file.read",
+          "file.write"
+        ]
+      },
+      "plan_table": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_table",
+          "charts.table",
+          "file.read"
+        ]
+      },
+      "table": {
+        "class": "write",
+        "commits": "plan_table",
+        "accounts": "none",
+        "operations": [
+          "charts.table",
+          "file.read",
+          "file.write"
+        ]
+      },
+      "plan_diagram": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_diagram",
+          "charts.diagram",
+          "file.read"
+        ]
+      },
+      "diagram": {
+        "class": "write",
+        "commits": "plan_diagram",
+        "accounts": "none",
+        "operations": [
+          "charts.diagram",
+          "file.read",
+          "file.write"
+        ]
+      },
+      "plan_theme_save": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_theme_save",
+          "charts.theme_save",
+          "file.read"
+        ]
+      },
+      "theme_save": {
+        "class": "write",
+        "commits": "plan_theme_save",
+        "accounts": "none",
+        "effect": "ask",
+        "operations": [
+          "charts.theme_save",
+          "file.read",
+          "file.write"
+        ]
+      },
+      "plan_theme_sync": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_theme_sync",
+          "charts.theme_sync",
+          "file.read"
+        ]
+      },
+      "theme_sync": {
+        "class": "write",
+        "commits": "plan_theme_sync",
+        "accounts": "none",
+        "effect": "ask",
+        "operations": [
+          "charts.theme_sync",
+          "file.read"
+        ]
+      },
+      "plan_theme_clear": {
+        "class": "read",
+        "plans": true,
+        "accounts": "none",
+        "operations": [
+          "charts.plan_theme_clear",
+          "charts.theme_clear"
+        ]
+      },
+      "theme_clear": {
+        "class": "write",
+        "commits": "plan_theme_clear",
+        "accounts": "none",
+        "effect": "ask",
+        "operations": [
+          "charts.theme_clear"
         ]
       },
       "validate": {
@@ -147,42 +315,6 @@
         "operations": [
           "charts.validate",
           "file.read"
-        ]
-      },
-      "update": {
-        "class": "write",
-        "accounts": "none",
-        "operations": [
-          "charts.update",
-          "file.read",
-          "file.write"
-        ]
-      },
-      "board": {
-        "class": "write",
-        "accounts": "none",
-        "operations": [
-          "charts.board",
-          "file.read",
-          "file.write"
-        ]
-      },
-      "table": {
-        "class": "write",
-        "accounts": "none",
-        "operations": [
-          "charts.table",
-          "file.read",
-          "file.write"
-        ]
-      },
-      "diagram": {
-        "class": "write",
-        "accounts": "none",
-        "operations": [
-          "charts.diagram",
-          "file.read",
-          "file.write"
         ]
       },
       "recommend": {
@@ -215,43 +347,41 @@
           "file.read"
         ]
       },
-      "theme_save": {
-        "class": "write",
-        "accounts": "none",
-        "effect": "ask",
-        "operations": [
-          "charts.theme_save",
-          "file.read",
-          "file.write"
-        ]
-      },
-      "theme_sync": {
-        "class": "write",
-        "accounts": "none",
-        "effect": "ask",
-        "operations": [
-          "charts.theme_sync"
-        ]
-      },
       "theme_get": {
         "class": "read",
         "accounts": "none",
         "operations": [
           "charts.theme_get"
         ]
-      },
-      "theme_clear": {
-        "class": "write",
-        "accounts": "none",
-        "effect": "ask",
-        "operations": [
-          "charts.theme_clear"
-        ]
       }
     },
-    "sources": [],
+    "sources": [
+      {
+        "id": "charts.state",
+        "kind": "snapshot",
+        "output": "list",
+        "method": "state",
+        "input": {},
+        "service": {
+          "id": "charts.state",
+          "label": "Charts state"
+        },
+        "operations": [
+          "file.read"
+        ],
+        "signals": [
+          "bus"
+        ],
+        "cost": {
+          "class": "free"
+        },
+        "maxBytes": 65536
+      }
+    ],
     "actions": [],
-    "events": {}
+    "events": {
+      "changed": {}
+    }
   },
   "scripts": {
     "check": "node scripts/check.mjs",

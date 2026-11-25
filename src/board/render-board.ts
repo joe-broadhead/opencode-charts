@@ -858,7 +858,9 @@ export async function renderBoard(input: unknown, env: Environment, write = true
     env.probe?.("document")
     artifacts.push({ kind: "document", file: `${name}.board.json`, bytes: serialiseBoardDocument(document) })
 
-    const written = publish(env.workspace, outDir, artifacts, file => env.probe?.("commit", file))
+    const written = env.plan === undefined
+      ? publish(env.workspace, outDir, artifacts, file => env.probe?.("commit", file))
+      : env.plan.flat(outDir, artifacts)
     artifacts.forEach((artifact, index) => {
       if (artifact.kind === "svg") files.svg = written[index]!
       else if (artifact.kind === "png") files.png = written[index]!

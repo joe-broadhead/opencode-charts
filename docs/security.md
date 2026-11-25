@@ -11,8 +11,7 @@ fonts and data. There is no provider, so there are no scopes, tokens or credenti
 - A `data.path`, a `documentPath` and a theme's font files are resolved inside the session's workspace. `..`, an
   absolute path elsewhere, `~`, a URL, a device file, `.git` and a symlink that leads out are refused with a code and a
   next step; nothing is read first.
-- Outputs go under `outputs/charts/` (or the configured `outDir`), which is created if it is missing. A folder outside
-  the workspace needs the host's own `external_directory` allow.
+- Outputs go under `outputs/charts/` (or the configured `outDir`), which is created if it is missing. A path outside the workspace is refused.
 - The only other file a method writes is `.charts/themes/<name>.json`, through `theme_save`.
 - A synced host theme lives in memory, per session, and is never written to disk.
 
@@ -31,8 +30,13 @@ permission gate on its action `<name>.<method>`, and the file rules (`read` for 
 are asserted separately through the host. A saved "Always allow" from a tool door never confirms an RPC write: a
 non-read method over RPC needs a fresh permission ask or a host-signed action grant.
 
-`theme_save`, `theme_sync` and `theme_clear` are writes and set `effect: "ask"`. Over RPC they therefore prompt; a host
-without a way to ask leaves the server on its configured theme. Nothing is written before a call is allowed.
+Every write is a plan and a commit. The `plan_*` methods are reads: they resolve inputs, assert the `read` rules the
+inputs need, and answer the files and changes the commit will apply without writing; the capture is held in memory, not
+in the workspace. A commit takes only the `planId` its plan answered, asserts `edit` on the planned paths, and publishes
+exactly those bytes. A plan expires after fifteen minutes and commits once; a stale or reused id is `PLAN_INVALID` or
+`PLAN_USED`. `theme_save`, `theme_sync` and `theme_clear` are writes and set `effect: "ask"`. Over RPC they therefore
+prompt; a host without a way to ask leaves the server on its configured theme. Nothing is written before a call is
+allowed.
 
 ## Redaction and status
 

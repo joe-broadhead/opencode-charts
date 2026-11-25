@@ -16,7 +16,9 @@ import { ROOT, workspace } from "./helpers.ts"
  */
 
 const ws = workspace()
-const START_BUDGET_BYTES = 420 * 1024
+// Nine planning tools carry the writes' input shapes as plain data, so the entry starts a little larger. It still
+// evaluates no renderer, no engine and no chart schema.
+const START_BUDGET_BYTES = 640 * 1024
 
 interface Probe {
   atStart: string[]
@@ -72,7 +74,7 @@ const run = async (name, input) => { try { return { ok: true, output: (await too
 const first = await run("capabilities", {})
 const afterFirst = [...loads]
 const second = await run("catalogue", { id: "bar" })
-const invalid = await run("render", { banana: 1 })
+const invalid = await run("plan_render", { banana: 1 })
 const afterAll = [...loads]
 await cleanup()
 console.log(JSON.stringify({ atStart, beforeCall, afterFirst, afterAll, tools: toolsSeen, rpcInputs, status, theme, first, second: { ok: second.ok }, invalid }))

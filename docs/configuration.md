@@ -48,6 +48,5 @@ A named theme from configuration, used with `theme: "acme"`:
 }
 ```
 
-`theme` and `locale` are the defaults every call may override. `outDir` is relative to the workspace; a folder outside
-it is refused unless the host's `external_directory` rule allows it. A `themes` entry is the same theme object a call
+`theme` and `locale` are the defaults every call may override. `outDir` must stay inside the workspace; a path outside it is refused. A `themes` entry is the same theme object a call
 may pass inline or `theme_save` may write.

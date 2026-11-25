@@ -56,6 +56,7 @@ const AGENTS = {
       { action: "charts.catalogue", resource: "*", effect: "allow" },
       { action: "charts.validate", resource: "*", effect: "allow" },
       { action: "charts.recommend", resource: "*", effect: "allow" },
+      { action: "charts.state", resource: "*", effect: "allow" },
       { action: "charts.status", resource: "*", effect: "allow" },
       { action: "charts.themes", resource: "*", effect: "allow" },
       { action: "charts.theme_get", resource: "*", effect: "allow" },
@@ -75,7 +76,7 @@ const AGENTS = {
   asking: { description: "charts host test asking", mode: "primary", permissions: [{ action: "charts.*", resource: "*", effect: "ask" }] },
 }
 
-export async function startHost(version: string): Promise<Host> {
+export async function startHost(version: string, options?: Record<string, unknown>): Promise<Host> {
   const root = mkdtempSync(join(tmpdir(), `charts-rpc-${version}-`))
   const home = join(root, "home")
   const a = join(root, "project")
@@ -121,7 +122,8 @@ export async function startHost(version: string): Promise<Host> {
   if (listed.length < 8 || outside.length) throw new Error(`isolation failed: ${paths}`)
 
   writeFileSync(join(home, ".config/opencode/opencode.json"), JSON.stringify({ agents: AGENTS }, null, 2))
-  writeFileSync(join(a, ".opencode/opencode.json"), JSON.stringify({ plugins: [PLUGIN_DIR], agents: AGENTS }, null, 2))
+  const pluginEntry = options === undefined ? [PLUGIN_DIR] : [{ package: PLUGIN_DIR, options }]
+  writeFileSync(join(a, ".opencode/opencode.json"), JSON.stringify({ plugins: pluginEntry, agents: AGENTS }, null, 2))
 
   let server: ChildProcess | undefined
   const authorization = `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`

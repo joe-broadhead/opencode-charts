@@ -72,4 +72,4 @@ evals trace --iteration <name> --plugin charts && evals grade --iteration <name>
 
 `--model mock/m1 --scripted --auth none --set scripted` runs the harness's scripted model instead: no credential and
 nothing live, which exercises the world, the runs, the traces and the grading. One live baseline (`claude-agent/haiku`, 13 tasks ×
-3 trials) is reported in `docs/engineering/charts-report.md`.
+3 trials) is recorded in the eval report beside the baseline.

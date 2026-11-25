@@ -17,7 +17,10 @@
       "accounts": [],
       "unguardedAgents": [],
       "nextStep": null
-    }
+    },
+    "emitted": [
+      "changed"
+    ]
   },
   "rpc": {
     "inputs": {
@@ -110,7 +113,141 @@
       "theme_sync": {
         "theme": "light"
       },
-      "theme_clear": {}
+      "theme_clear": {},
+      "plan_render": {
+        "spec": {
+          "mark": "bar",
+          "encoding": {
+            "x": {
+              "field": "k",
+              "type": "nominal"
+            },
+            "y": {
+              "field": "v",
+              "type": "quantitative"
+            }
+          }
+        },
+        "data": {
+          "rows": [
+            {
+              "k": "a",
+              "v": 1
+            }
+          ]
+        },
+        "formats": [
+          "svg"
+        ],
+        "inspect": false
+      },
+      "plan_quick": {
+        "type": "bar",
+        "data": {
+          "rows": [
+            {
+              "k": "a",
+              "v": 1
+            }
+          ]
+        },
+        "x": "k",
+        "y": "v",
+        "formats": [
+          "svg"
+        ],
+        "inspect": false
+      },
+      "plan_update": {
+        "documentPath": "fixtures/update-source.chart.json",
+        "expectedRevision": "sha256:7e612e21b31b64a85907fcd63bf75ab365df48512cf687f426398e4d8329d330",
+        "patch": {},
+        "formats": [
+          "svg"
+        ],
+        "outDir": ".tmp/conformance"
+      },
+      "plan_board": {
+        "board": {
+          "version": 1,
+          "title": "Recorded board",
+          "datasets": {
+            "rows": {
+              "rows": [
+                {
+                  "k": "a",
+                  "v": 1
+                }
+              ]
+            }
+          },
+          "panels": [
+            {
+              "id": "p",
+              "title": "Recorded",
+              "dataset": "rows",
+              "chart": {
+                "quick": {
+                  "type": "bar",
+                  "x": "k",
+                  "y": "v"
+                }
+              }
+            }
+          ]
+        },
+        "inspect": false
+      },
+      "plan_table": {
+        "data": {
+          "rows": [
+            {
+              "k": "a",
+              "v": 1
+            }
+          ]
+        },
+        "columns": [
+          {
+            "field": "k"
+          }
+        ],
+        "formats": [
+          "svg"
+        ],
+        "inspect": false
+      },
+      "plan_diagram": {
+        "dsl": "flowchart LR\n  a --> b",
+        "formats": [
+          "svg"
+        ],
+        "inspect": false
+      },
+      "plan_theme_save": {
+        "name": "recorded",
+        "theme": {
+          "extends": "light"
+        }
+      },
+      "plan_theme_sync": {
+        "theme": "light"
+      },
+      "plan_theme_clear": {}
+    }
+  },
+  "sources": {
+    "charts.state": {
+      "snapshot": {
+        "answer": {
+          "data": {
+            "items": [],
+            "editable": false
+          },
+          "asOf": "2026-11-25T00:00:00.000Z",
+          "trust": "untrusted"
+        }
+      }
     }
   }
 }

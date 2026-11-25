@@ -9,25 +9,37 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { rpc, session, startHost, TESTED_HOST, unwrap, refusedCode, type Host } from "./harness.js"
 
+/** A plan's id, from the read method that previews a write. */
+async function planId(host: Host, method: string, sessionID: string, input: unknown): Promise<string> {
+  const planned = await rpc(host, `plan_${method}`, sessionID, input)
+  const answer = unwrap(planned.data)
+  if (planned.status !== 200 || typeof answer.planId !== "string") throw new Error(`plan_${method} answered ${planned.status}: ${JSON.stringify(planned.data).slice(0, 400)}`)
+  return answer.planId
+}
+
 // The stock binary is required: a tested release that did not run is not evidence, so this suite fails when it is
 // missing instead of skipping.
 describe(`the Charts RPC on stock ${TESTED_HOST}`, () => {
   let host: Host
+  let readonlyHost: Host
   let reader = ""
   let writer = ""
   let locked = ""
   let asking = ""
+  let readonly = ""
 
   beforeAll(async () => {
     host = await startHost(TESTED_HOST)
+    readonlyHost = await startHost(TESTED_HOST, { access: "read-only" })
     console.log(`stock OpenCode ${TESTED_HOST}: started`)
     reader = await session(host, "reader")
     writer = await session(host, "writer")
     locked = await session(host, "locked")
     asking = await session(host, "asking")
+    readonly = await session(readonlyHost, "writer")
   }, 240_000)
 
-  afterAll(async () => { await host?.close() })
+  afterAll(async () => { await host?.close(); await readonlyHost?.close() })
 
   test("the one RPC answers status with the contract's shape, and capabilities lists the build", async () => {
     const status = await rpc(host, "status", reader, {})
@@ -51,8 +63,10 @@ describe(`the Charts RPC on stock ${TESTED_HOST}`, () => {
   })
 
   test("a write with only an allow rule is refused (LD-5), and nothing is written", async () => {
+    const input = { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] }, formats: ["svg"] }
     const before = existsSync(join(host.a, "outputs"))
-    const result = await rpc(host, "render", writer, { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] }, formats: ["svg"] })
+    const planned = await planId(host, "render", writer, input)
+    const result = await rpc(host, "render", writer, { planId: planned })
     expect(refusedCode(result.data)).toBe("PERMISSION_DENIED")
     expect(JSON.stringify(result.data)).toContain("confirmation")
     expect(existsSync(join(host.a, "outputs"))).toBe(before)
@@ -61,7 +75,8 @@ describe(`the Charts RPC on stock ${TESTED_HOST}`, () => {
   test("the theme bridge: a read answers not-found, and both writes are non-reads that need a confirmation", async () => {
     expect(unwrap((await rpc(host, "theme_get", reader, {})).data)).toMatchObject({ found: false, revision: null, theme: null, trust: "untrusted" })
     for (const [method, input] of [["theme_sync", { theme: "light" }], ["theme_clear", {}]] as const) {
-      const result = await rpc(host, method, writer, input)
+      const planned = await planId(host, method, writer, input)
+      const result = await rpc(host, method, writer, { planId: planned })
       expect({ method, code: refusedCode(result.data) }).toEqual({ method, code: "PERMISSION_DENIED" })
     }
   })
@@ -78,6 +93,7 @@ describe(`the Charts RPC on stock ${TESTED_HOST}`, () => {
     // The RPC validates each result against the handler's own output schema on the way out, so a 200 is a result the
     // real host accepts and a schema the host's validator accepts.
     const calls: [string, unknown][] = [
+      ["state", {}],
       ["status", {}],
       ["capabilities", {}],
       ["catalogue", {}],
@@ -94,6 +110,16 @@ describe(`the Charts RPC on stock ${TESTED_HOST}`, () => {
       expect(result.status, `${method} was refused: ${JSON.stringify(result.data).slice(0, 300)}`).toBe(200)
       expect(unwrap(result.data), `${method} returned no answer`).toBeDefined()
     }
+  })
+
+  test("access read-only refuses a file write over RPC, and writes nothing", async () => {
+    const input = { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal" }, y: { field: "v", type: "quantitative" } } }, data: { rows: [{ k: "a", v: 1 }] }, formats: ["svg"] }
+    const before = existsSync(join(readonlyHost.a, "outputs"))
+    const planned = await planId(readonlyHost, "render", readonly, input)
+    const result = await rpc(readonlyHost, "render", readonly, { planId: planned })
+    expect(refusedCode(result.data)).toBe("PERMISSION_DENIED")
+    expect(JSON.stringify(result.data)).toContain("read-only")
+    expect(existsSync(join(readonlyHost.a, "outputs"))).toBe(before)
   })
 
   test("a method whose session is unknown is refused with a code and a next step", async () => {

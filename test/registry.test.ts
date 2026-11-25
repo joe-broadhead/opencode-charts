@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { capabilities } from "../src/capabilities.ts"
 import { CATALOGUE } from "../src/catalogue.js"
 import { manifest as installed } from "../src/manifest.js"
-import { CONTRACT_VERSION, DESCRIPTORS, NAMESPACE, TOOL_NAMES, inputSchema, type ToolName } from "../src/registry.js"
+import { DESCRIPTORS, NAMESPACE, TOOL_NAMES, inputSchema, type ToolName } from "../src/registry.js"
 import { QUICK_TYPES } from "../src/quick.js"
 import { TRAITS_BY_ID } from "../src/recommend/traits.js"
 import { ROOT, workspace } from "./helpers.js"
@@ -48,13 +48,13 @@ describe("the registry", () => {
   })
 
   test("the chart tools take the document arms, and document is a format, on every surface's schema", () => {
-    for (const name of ["render", "validate"] as const) {
+    for (const name of ["plan_render", "validate"] as const) {
       const schema = inputSchema(name) as { properties: Record<string, any>; required?: string[] }
       for (const key of ["spec", "document", "documentPath", "expectedRevision"]) expect(Object.keys(schema.properties)).toContain(key)
       expect(schema.required ?? []).not.toContain("spec")
       expect(schema.properties.formats.items.enum).toEqual(["svg", "png", "gif", "html", "spec", "document"])
     }
-    const quick = inputSchema("quick") as { properties: Record<string, any>; required?: string[] }
+    const quick = inputSchema("plan_quick") as { properties: Record<string, any>; required?: string[] }
     expect(Object.keys(quick.properties)).toContain("document")
     expect(Object.keys(quick.properties)).not.toContain("documentPath")
     expect(quick.required ?? []).toEqual([])
@@ -73,7 +73,7 @@ describe("the registry", () => {
     const update = DESCRIPTORS.find(d => d.name === "update")!
     expect({ class: update.class, readOnly: update.readOnly }).toEqual({ class: "write", readOnly: false })
     expect(methods.update).toMatchObject({ class: "write", accounts: "none" })
-    const input = inputSchema("update") as { properties: Record<string, any>; required?: string[]; additionalProperties?: unknown }
+    const input = inputSchema("plan_update") as { properties: Record<string, any>; required?: string[]; additionalProperties?: unknown }
     expect([...(input.required ?? [])].sort()).toEqual(["documentPath", "expectedRevision", "patch"])
     expect(Object.keys(input.properties).sort()).toEqual(["documentPath", "expectedRevision", "formats", "inspect", "marks", "name", "outDir", "patch", "scales", "svgText"])
     expect(input.additionalProperties).toBe(false)
@@ -90,7 +90,6 @@ describe("the registry", () => {
     expect(installed).toEqual(pkgFull.capabilities)
     expect(installed.version).toBe(1)
     expect(pkg.version).toBe("0.0.0")
-    expect(CONTRACT_VERSION.length).toBeGreaterThan(0)
   })
 })
 

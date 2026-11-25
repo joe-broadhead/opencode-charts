@@ -65,7 +65,8 @@ describe("the tested hosts", () => {
 describe("the model-facing text", () => {
   test("no skill or doc says a tool asks under the default, and every write is named as a write", () => {
     const reads = Object.entries(manifest.methods).filter(([, item]) => item.class === "read").map(([name]) => name)
-    expect(reads.sort()).toEqual(["capabilities", "catalogue", "recommend", "status", "theme_get", "themes", "validate"].sort())
+    const plans = ["render", "quick", "update", "board", "table", "diagram", "theme_save", "theme_sync", "theme_clear"].map(name => `plan_${name}`)
+    expect(reads.sort()).toEqual(["capabilities", "catalogue", "recommend", "state", "status", "theme_get", "themes", "validate", ...plans].sort())
     const text = [read("README.md"), read("skills/charts/SKILL.md"), read("docs/capabilities.md")].join("\n")
     expect(text).not.toContain("the writers ask by default")
     for (const name of ["theme_save", "theme_sync", "theme_clear"]) expect(manifest.methods[name]!.effect).toBe("ask")

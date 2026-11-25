@@ -157,7 +157,8 @@ async function code(host: Host, program: string, expected: string, options: { pe
 /** The rendered files in a workspace, if any: a refusal means none. */
 const outputs = (host: Host) => (existsSync(join(host.work, "outputs", "charts")) ? readdirSync(join(host.work, "outputs", "charts")) : [])
 const SPEC = { mark: "bar", encoding: { x: { field: "region", type: "nominal" }, y: { field: "revenue", type: "quantitative", title: "Revenue (k)" } } }
-const RENDER = `tools.charts.render({ spec: ${JSON.stringify(SPEC)}, data: { rows: [{ region: "North", revenue: 120 }, { region: "South", revenue: 80 }] }, formats: ["svg"] })`
+const RENDER_INPUT = `{ spec: ${JSON.stringify(SPEC)}, data: { rows: [{ region: "North", revenue: 120 }, { region: "South", revenue: 80 }] }, formats: ["svg"] }`
+const RENDER = `(async () => { const plan = await tools.charts.plan_render(${RENDER_INPUT}); return tools.charts.render({ planId: plan.planId }) })()`
 
 describe("the Code Mode path", () => {
   test("a read runs inside a program, and a render runs under the default allow", async () => {
@@ -190,6 +191,25 @@ describe("the Code Mode path", () => {
     expect(denied.answered).toEqual([])
     expect(denied.text).toContain("after-tool: refused")
     expect(outputs(host)).toHaveLength(before)
+  })
+
+  // R2: the plugin's own read-only level refuses a file write, with no prompt and nothing written.
+  test("access read-only refuses a file write, with no prompt and nothing written", async () => {
+    const host = await startHost("read-only")
+    const before = outputs(host).length
+    const refused = await code(host, `try { await ${RENDER}; return 'ran' } catch (error) { return 'refused' }`, "refused")
+    expect(refused.answered).toEqual([])
+    expect(outputs(host)).toHaveLength(before)
+  })
+
+  // The theme bridge resolves a named theme through `.charts/themes/`; a denied read must stop it before it reads.
+  test("theme_sync asks for the saved-theme read, and a denied read refuses", async () => {
+    const host = await startHost("all")
+    const denied = await code(host, `try { await tools.charts.plan_theme_sync({ theme: "dark" }); return 'ran' } catch (error) { return 'refused' }`, "refused", {
+      permissions: [{ action: "charts.plan_theme_sync", resource: "*", effect: "allow" }, { action: "charts.theme_sync", resource: "*", effect: "allow" }, { action: "read", resource: "*", effect: "deny" }],
+      decision: "once",
+    })
+    expect(denied.text).toContain("after-tool: refused")
   })
 
   // R2: a name that is not a tool has none to call.

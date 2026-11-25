@@ -27,6 +27,7 @@ const CALL: HandlerCall = {
   signal: new AbortController().signal,
   account: "default",
   door: "tool",
+  bus: { name: "charts", emit: async () => ({ ok: true }) },
   unguardedAgents: async () => ({ ok: true, agents: [] }),
 }
 
@@ -56,11 +57,14 @@ describe("the handler table", () => {
     }
   })
 
-  test("classifies all 16 methods: 7 reads and 9 writes, none pinned, none an account method", () => {
+  test("classifies all 26 methods: 17 reads (eight reads and nine plans) and 9 writes, none pinned, none an account method", () => {
     const methods = Object.entries(manifest.methods)
-    expect(methods).toHaveLength(16)
-    expect(methods.filter(([, item]) => item.class === "read").map(([name]) => name).sort()).toEqual(["capabilities", "catalogue", "recommend", "status", "theme_get", "themes", "validate"].sort())
+    expect(methods).toHaveLength(26)
+    const reads = ["capabilities", "catalogue", "recommend", "state", "status", "theme_get", "themes", "validate"]
+    for (const write of ["render", "quick", "update", "board", "table", "diagram", "theme_save", "theme_sync", "theme_clear"]) reads.push(`plan_${write}`)
+    expect(methods.filter(([, item]) => item.class === "read").map(([name]) => name).sort()).toEqual(reads.sort())
     expect(methods.filter(([, item]) => item.class === "write")).toHaveLength(9)
+    for (const write of ["render", "quick", "update", "board", "table", "diagram", "theme_save", "theme_sync", "theme_clear"]) expect(manifest.methods[write]!.commits).toBe(`plan_${write}`)
     for (const [, item] of methods) {
       expect(item.accounts).toBe("none")
       expect((item as { pinned?: boolean }).pinned).toBeUndefined()
@@ -117,11 +121,13 @@ describe("the status answer", () => {
 describe("the theme bridge", () => {
   test("syncs, reads and clears a theme for the call's session", async () => {
     const table = handlers()
-    const synced = (await table.theme_sync!.run({ theme: "dark" }, CALL)) as Record<string, any>
+    const syncPlan = (await table.plan_theme_sync!.run({ theme: "dark" }, CALL)) as Record<string, any>
+    const synced = (await table.theme_sync!.run({ planId: "plan" }, { ...CALL, plan: syncPlan })) as Record<string, any>
     expect(synced).toMatchObject({ ok: true, applied: true, mode: "dark", themeName: "dark" })
     const found = (await table.theme_get!.run({}, CALL)) as Record<string, any>
     expect(found).toMatchObject({ found: true, mode: "dark", themeName: "dark", theme: { theme: "dark", mode: "dark" } })
-    expect(await table.theme_clear!.run({}, CALL)).toEqual({ cleared: true, trust: "untrusted" })
+    const clearPlan = (await table.plan_theme_clear!.run({}, CALL)) as Record<string, any>
+    expect(await table.theme_clear!.run({ planId: "plan" }, { ...CALL, plan: clearPlan })).toEqual({ cleared: true, trust: "untrusted" })
     expect(await table.theme_get!.run({}, CALL)).toEqual({ found: false, revision: null, theme: null, trust: "untrusted" })
   })
 })
@@ -147,7 +153,9 @@ describe("a tool through the handler", () => {
     const table = handlers(asserts)
     await table.catalogue!.run({}, CALL)
     expect(asserts).toEqual([])
-    await table.theme_save!.run({ name: "asked", theme: { extends: "light" } }, CALL)
+    const plan = (await table.plan_theme_save!.run({ name: "asked", theme: { extends: "light" } }, CALL)) as Record<string, any>
+    expect(asserts).toEqual([])
+    await table.theme_save!.run({ planId: "plan" }, { ...CALL, plan })
     expect(asserts).toEqual([{ action: "edit", resources: [".charts/themes/asked.json"] }])
   })
 })

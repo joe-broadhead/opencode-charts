@@ -11,7 +11,7 @@ import { ECHARTS_UNBUNDLED, HTML_INTERACTIONS, RECIPE_INTERACTIONS, type Runtime
 import { MAX_SERIES, paletteReport } from "./themes/palette.js"
 import { builtinThemes, savedThemeNames } from "./themes/store.js"
 import { LIMITS } from "./safety.js"
-import { CONTRACT_VERSION, DESCRIPTORS, NAMESPACE } from "./registry.js"
+import { DESCRIPTORS, NAMESPACE } from "./registry.js"
 import { ARTIFACT_FORMAT, ARTIFACT_VERSION, DOCUMENT_VERSION, INTERACTION_DEFAULTS, LAYOUT_PROFILE_VERSION, LAYOUT_PROFILES, DEFAULT_LAYOUT_TARGET, type InteractionDefaults, type LayoutProfile } from "./document/defaults.js"
 import { RECIPE_COMPILER_VERSION, recipeContracts } from "./recipes/registry.js"
 
@@ -144,7 +144,7 @@ export function capabilities(env: CapabilitySources): CapabilityView {
   const hasCjk = coverage.scripts.includes("CJK")
   return {
     version: packageVersion(env.packageRoot),
-    contract: CONTRACT_VERSION,
+    contract: "1.0.0",
     namespace: NAMESPACE,
     formats: { svg: true, png, gif: png, html, spec: true, document: true },
     engines: [

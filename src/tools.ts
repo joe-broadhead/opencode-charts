@@ -180,7 +180,7 @@ async function runBoard(env: ToolEnvironment, input: Record<string, unknown>): P
   const paths = Object.values(board.datasets).map(dataset => dataset.path).filter((path): path is string => typeof path === "string")
   if (paths.length) await env.assertFiles("read", paths)
   const outDir = String(input.outDir ?? env.defaults.outDir)
-  await env.assertFiles("edit", [`${outDir}/*`])
+  if (env.plan === undefined) await env.assertFiles("edit", [`${outDir}/*`])
   const requested = Array.isArray(input.scales) ? input.scales as number[] : []
   const scale = (requested[0] ?? 2) as 1 | 2 | 3
   const result = await renderBoard(board, env, true, { ...(input.name !== undefined ? { name: String(input.name) } : {}), outDir, scale })

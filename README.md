@@ -37,10 +37,11 @@ file.
 | `ask-changes` | run | ask first |
 | `read-only` | run | are off |
 
-A read is `validate`, `recommend`, `capabilities`, `catalogue`, `themes`, `status` and `theme_get`. Everything else is a
-write: the seven file writers and `theme_save`, `theme_sync` and `theme_clear`. Those three theme methods ask even under
-`all`, because they change what every later render in the session uses; `theme_save` overwrites a saved theme by name,
-and the other two change the theme a session renders with.
+A read is `validate`, `recommend`, `capabilities`, `catalogue`, `themes`, `status`, `state`, `theme_get` and the nine
+`plan_*` methods. The nine commits (`render`, `quick`, `update`, `board`, `table`, `diagram`, `theme_save`,
+`theme_sync`, `theme_clear`) are writes. Every commit takes only the `planId` its plan answered, so a person confirms
+the files and changes before anything is written; the three theme commits ask even under `all`, because they change
+what every later render in the session uses.
 
 An agent's own rules still narrow the plugin's level, and a per-tool rule wins for that one tool for that account. The
 rules the plugin generates are durable defaults; an agent that already lacks them is named in `status`, and nothing
@@ -72,26 +73,37 @@ Every method, its class and its operations come from the installed manifest.
 | Method | Class | Accounts | Operations |
 |---|---|---|---|
 | `status` | read | none | — |
+| `state` | read | none | `file.read` |
+| `plan_render` | read | none | `charts.plan_render`, `charts.render`, `file.read` |
 | `render` | write | none | `charts.render`, `file.read`, `file.write` |
+| `plan_quick` | read | none | `charts.plan_quick`, `charts.quick`, `file.read` |
 | `quick` | write | none | `charts.quick`, `file.read`, `file.write` |
-| `validate` | read | none | `charts.validate`, `file.read` |
+| `plan_update` | read | none | `charts.plan_update`, `charts.update`, `file.read` |
 | `update` | write | none | `charts.update`, `file.read`, `file.write` |
+| `plan_board` | read | none | `charts.plan_board`, `charts.board`, `file.read` |
 | `board` | write | none | `charts.board`, `file.read`, `file.write` |
+| `plan_table` | read | none | `charts.plan_table`, `charts.table`, `file.read` |
 | `table` | write | none | `charts.table`, `file.read`, `file.write` |
+| `plan_diagram` | read | none | `charts.plan_diagram`, `charts.diagram`, `file.read` |
 | `diagram` | write | none | `charts.diagram`, `file.read`, `file.write` |
+| `plan_theme_save` | read | none | `charts.plan_theme_save`, `charts.theme_save`, `file.read` |
+| `theme_save` | write | none | `charts.theme_save`, `file.read`, `file.write` |
+| `plan_theme_sync` | read | none | `charts.plan_theme_sync`, `charts.theme_sync`, `file.read` |
+| `theme_sync` | write | none | `charts.theme_sync`, `file.read` |
+| `plan_theme_clear` | read | none | `charts.plan_theme_clear`, `charts.theme_clear` |
+| `theme_clear` | write | none | `charts.theme_clear` |
+| `validate` | read | none | `charts.validate`, `file.read` |
 | `recommend` | read | none | `charts.recommend`, `file.read` |
 | `capabilities` | read | none | `charts.capabilities` |
 | `catalogue` | read | none | `charts.catalogue` |
 | `themes` | read | none | `charts.themes`, `file.read` |
-| `theme_save` | write | none | `charts.theme_save`, `file.read`, `file.write` |
-| `theme_sync` | write | none | `charts.theme_sync` |
 | `theme_get` | read | none | `charts.theme_get` |
-| `theme_clear` | write | none | `charts.theme_clear` |
 
 ### Sources
 
 | Source | Kind | Reads or output | Method | Cost |
 |---|---|---|---|---|
+| `charts.state` | snapshot | `list` | `state` | free |
 
 ### Actions
 
@@ -99,7 +111,7 @@ None.
 
 ### Bus events
 
-None.
+`rpc.charts.changed`
 <!-- /generated:capabilities -->
 
 ## Errors
@@ -141,7 +153,7 @@ at and one next step.
   run; `ask-changes` asks for the writes, and `read-only` turns them off. `theme_save`, `theme_sync` and `theme_clear`
   ask even under `all`.
 - **No files appear.** A render writes under `outputs/charts/` (or the configured `outDir`) in the session's workspace.
-  An output folder outside the workspace needs the host's `external_directory` allow; a refusal names it.
+  Charts refuses an output folder outside the workspace; keep `outDir` inside it.
 - **A PNG or HTML file is missing.** The PNG rasteriser and the browser runtimes ship in `dist/`; reinstall the
   release if `capabilities` says one is unavailable.
 - **A saved chart will not update.** `update` needs the `revision` the call that wrote it returned; a stale revision is

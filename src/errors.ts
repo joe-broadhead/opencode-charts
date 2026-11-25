@@ -206,27 +206,6 @@ export const CHART_CODES: readonly ChartsCode[] = [
   "VEGA_WARNING",
 ]
 
-/**
- * The codes the shared tools RPC module returns for a script's call, which `docs/scripting.md` documents beside the
- * plugin's own. The transport is the source contract package, bundled into `dist/index.js`. Its `Code` union has codes only an MCP method, a per-account server or a resource resolver can return, and Charts has none of those.
- */
-export type RpcCode =
-  | "CANCELLED"
-  | "PERMISSION_DENIED"
-  | "SESSION_AGENT_REQUIRED"
-  | "SESSION_UNKNOWN"
-  | "TOOL_UNAVAILABLE"
-  | "UPSTREAM_ERROR"
-
-export const RPC_CODES: readonly RpcCode[] = [
-  "CANCELLED",
-  "PERMISSION_DENIED",
-  "SESSION_AGENT_REQUIRED",
-  "SESSION_UNKNOWN",
-  "TOOL_UNAVAILABLE",
-  "UPSTREAM_ERROR",
-]
-
 /** One failure in the family's form: `CODE: what happened. Next step: what to do.` */
 export function formatFailure(code: ChartsCode, what: string, next: string): string {
   return `${code}: ${what.trimEnd()} Next step: ${next}`

@@ -31,7 +31,7 @@ export default Plugin.define({
     const registration = await register(ctx, manifest, handlers)
     try {
       const skills = await loadSkills(packageRoot, SKILLS)
-      if (skills.length > 0) await ctx.skill.transform((editor) => { for (const skill of skills) editor.add(skill as never) })
+      if (skills.length > 0) await ctx.skill.transform((editor) => { for (const skill of skills) editor.add(skill) })
     } catch (error) {
       await registration.dispose()
       throw error

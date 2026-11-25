@@ -396,12 +396,12 @@ describe("charts_board publishes the dashboard", () => {
 })
 
 describe("charts_capabilities reports the whole build", () => {
-  test("names all twelve tools, six engines, nine themes and the gif format", async () => {
+  test("names every registry tool and plan, six engines, nine themes and the gif format", async () => {
     const t = setup()
     const view = await t.call("capabilities", {})
-    expect(view.contract).toBe("1.2.0")
+    expect(view.contract).toBe("1.0.0")
     expect(view.tools.map((tool: { name: string }) => tool.name)).toEqual([...TOOL_NAMES])
-    expect(view.tools).toHaveLength(12)
+    expect(view.tools).toHaveLength(21)
     expect(view.engines.map((engine: { id: string }) => engine.id)).toEqual(["vega-lite", "vega", "echarts", "plot", "table", "diagram"])
     expect(view.themes).toHaveLength(9)
     expect(view.formats.gif).toBe(view.formats.png)

@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { BOARD_COOKBOOK_EXAMPLE } from "../scripts/cookbook.ts"
 import { parseBoardDocument } from "../src/board/schema.ts"
 import { ChartDocumentV1Schema } from "../src/document/schema.ts"
-import { TOOL_NAMES } from "../src/registry.ts"
+import { manifest } from "../src/manifest.ts"
 import { runTool } from "../src/handlers/index.ts"
 import { ROOT, ROWS, workspace } from "./helpers.ts"
 
@@ -51,8 +51,8 @@ describe("shipped plugin skills", () => {
     }
   })
 
-  test("skills/charts/SKILL.md names all 12 tools and documents the exact interaction enums", () => {
-    for (const name of TOOL_NAMES) expect(charts.body).toContain(`tools.charts.${name}`)
+  test("skills/charts/SKILL.md names all 26 methods and documents the exact interaction enums", () => {
+    for (const name of Object.keys(manifest.methods)) expect(charts.body).toContain(`tools.charts.${name}`)
     for (const value of ['"auto"', '"off"', '"static"', '"highlight"', '"none"', '"x"', '"interval"']) {
       expect(charts.body).toContain(value)
     }

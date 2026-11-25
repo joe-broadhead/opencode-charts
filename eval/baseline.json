@@ -1,5 +1,5 @@
 {
- "measured": "see docs/status.md",
+ "measured": "the committed eval baseline",
  "versions": {
   "catalogueVersion": "79",
   "scoringVersion": "1"
