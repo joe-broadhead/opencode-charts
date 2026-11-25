@@ -66,9 +66,11 @@ jobs:
           (cd "$dir" && npm init -y >/dev/null && npm install "@opencode/cli@2.4.1" "@opencode/cli-$platform@2.4.1" --omit=optional --ignore-scripts --no-audit --no-fund)
           echo "OPENCODE_BIN_2_4_1=$dir/node_modules/@opencode/cli-$platform/bin/opencode" >> "$GITHUB_ENV"
       - run: npm run check
-      # The build regenerates dist/, THIRD_PARTY_NOTICES.md and licenses/; all are committed, so they must not change.
+      # The bundle regenerates dist/, THIRD_PARTY_NOTICES.md and licenses/; all are committed, so they must not change.
       # dist/ is committed because a git-tag install runs with lifecycle scripts disabled and never builds it.
-      - name: The generated files are committed
+      - name: The committed dist and generated files are current
         run: |
+          npm run bundle
+          git diff --exit-code -- dist
           git diff --exit-code
           test -z "$(git status --porcelain -- dist THIRD_PARTY_NOTICES.md licenses)"

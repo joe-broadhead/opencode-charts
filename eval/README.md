@@ -62,7 +62,7 @@ and a cosmetic change after the source CSV changed. Its world saves the revision
 test, and its Charts grading adapter recomputes each saved chart's values from the rows the chart captured. Each run
 records the model, the host, the build's digest and commit, the case set's lock, the fixtures, the tool trace, and
 tokens, cost and latency when the runner supplies them. The harness's `docs/charts.md` has the commands; in short,
-from an `opencode-evals` checkout, with this repository built (`npm run build`):
+from an `opencode-evals` checkout, with this repository built (`npm run bundle`):
 
 ```
 evals run --plugin charts --iteration <name> --model <provider>/<model> --auth <profile> \

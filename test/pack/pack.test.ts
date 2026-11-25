@@ -42,7 +42,7 @@ function pack() {
     copyFileSync(resolve(given), tarball)
   } else {
     // Build first, explicitly: the package has no prepare or prepack hook, and a stale dist/ must never be packed.
-    run("node", [join(root, "scripts", "check.mjs"), "build"], root)
+    run("node", [join(root, "scripts", "check.mjs"), "bundle"], root)
     const result = JSON.parse(run("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", work], root)) as { filename: string }[]
     tarball = join(work, result[0]!.filename)
   }

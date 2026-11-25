@@ -256,7 +256,7 @@
   "scripts": {
     "check": "node scripts/check.mjs",
     "typecheck": "node scripts/check.mjs typecheck",
-    "build": "node scripts/check.mjs build",
+    "bundle": "node scripts/check.mjs bundle",
     "test": "node scripts/check.mjs unit",
     "test:pack": "node scripts/check.mjs pack",
     "gallery": "bun scripts/gallery.ts",

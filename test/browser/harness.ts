@@ -26,7 +26,7 @@ export interface Plugin { dir: string; call: (name: string, input: unknown) => P
 /** The built plugin with a fake host whose workspace is a fresh temp folder; every permission is granted and recorded. */
 /** `root` is the package to load (this checkout by default). */
 export async function startPlugin(root = ROOT): Promise<Plugin & { asserts: { action: string; resources: string[] }[] }> {
-  if (!existsSync(join(root, "dist", "index.js"))) throw new Error("dist/index.js is missing. Run npm run build first (npm run check builds before this stage).")
+  if (!existsSync(join(root, "dist", "index.js"))) throw new Error("dist/index.js is missing. Run npm run bundle first (npm run check builds before this stage).")
   const dir = mkdtempSync(join(tmpdir(), "charts-browser-"))
   const plugin = (await import(join(root, "dist", "index.js"))).default
   const tools = new Map<string, { execute: (input: unknown, ctx: unknown) => Promise<ToolResult> }>()

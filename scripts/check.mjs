@@ -12,8 +12,8 @@ const root = fileURLToPath(new URL("..", import.meta.url))
 const env = { ...process.env, PATH: `${join(root, "node_modules", ".bin")}${delimiter}${process.env.PATH ?? ""}` }
 
 const stages = {
-  // The tests import dist/, so the build comes first: a fresh clone must pass.
-  build: () => run("node", ["scripts/build.mjs"]),
+  // The tests import dist/, so the bundle comes first: a fresh clone must pass.
+  bundle: () => run("node", ["scripts/build.mjs"]),
   typecheck: () => run("tsc", ["-p", "tsconfig.json"]),
   // The contract gate: conformance T0/T1, the doc file set, forbidden text, and no kit in a runtime build.
   kit: () => run("npx", ["--no-install", "plugin-kit", "check"]),
@@ -37,7 +37,7 @@ if (unknown.length) {
   console.error(`check: unknown stage ${unknown.map((name) => `"${name}"`).join(", ")}. Stages: ${Object.keys(stages).join(", ")}.`)
   process.exit(2)
 }
-const order = selected.length ? selected : ["build", "typecheck", "kit", "unit", "browser", "evals", "host", "pack"]
+const order = selected.length ? selected : ["bundle", "typecheck", "kit", "unit", "browser", "evals", "host", "pack"]
 for (const name of order) {
   console.log(`\n[check] ${name}`)
   const code = stages[name]()

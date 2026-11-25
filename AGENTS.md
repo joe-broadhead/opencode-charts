@@ -31,7 +31,7 @@ never touches the network; every file it writes stays inside the workspace.
 | `npx plugin-kit docs` | regenerates the generated doc sections from the manifest |
 | `bun scripts/cookbook.ts` | regenerates `skills/charts-cookbook/SKILL.md` and the recipe table in `docs/documents.md` |
 | `node scripts/data.mjs` | regenerates the bundled locales and atlases |
-| `node scripts/build.mjs` | writes `dist/`: the entry, the lazy renderer, the worker, the TUI and the browser runtimes |
+| `npm run bundle` | writes `dist/`: the entry, the lazy renderer, the worker, the TUI and the browser runtimes |
 
 ## Layout
 
