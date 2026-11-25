@@ -13,14 +13,14 @@ exact `playwright-core` version in `package-lock.json` pins.
 
 ## The one command
 
-`npm run check` runs, in order: build, typecheck, `plugin-kit check`, unit, browser, evals, host and pack. It is the
+`npm run check` runs, in order: bundle, typecheck, `plugin-kit check`, unit, browser, evals, host and pack. It is the
 gate for every commit: never skip, weaken or delete a stage to get a green run.
 
 - `plugin-kit check` is the contract gate: T0 (the namespace line, the skill descriptions, declared tools, generated
   docs) and T1 (the built plugin on OpenCode 2.4.1, its permissions and its clean refusal of an unsupported host),
   plus the required doc files and the forbidden-text scan.
 - `build` writes `dist/`: the entry, the renderer it loads on first use, the Vega worker, the PNG rasteriser, the TUI
-  part and the four browser runtimes. The TUI part is unminified, and the build fails if it is minified.
+  part and the four browser runtimes. The TUI part is unminified, and the bundle fails if it is minified.
 - `browser` opens interactive HTML made through the built plugin in headless Chromium: each page starts under its own
   CSP with no violation and no request.
 - `host` starts a stock OpenCode 2.4.1 and loads the built plugin from a local path; a missing binary fails in CI,

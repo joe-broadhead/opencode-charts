@@ -19,6 +19,8 @@ export async function runThemes(env: ToolEnvironment, input: Record<string, unkn
     return { theme } as unknown as Json
   }
   const builtins = builtinThemes()
+  // The list is a directory read: ask for it before reading the entries, not after.
+  await env.assertFiles("read", [`${THEME_DIR}/*`])
   const saved = savedThemeNames(sources)
   return {
     builtin: Object.values(builtins).map(t => ({ name: t.name, mode: t.mode, description: t.description })),

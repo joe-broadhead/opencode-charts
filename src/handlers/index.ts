@@ -102,7 +102,7 @@ export function createHandlers(parts: HandlerParts): Record<string, DeclaredHand
     const plan = toolEntry(`plan_${name}` as ToolName)
     const commit = toolEntry(name as ToolName)
     methods[`plan_${name}`] = theme ? themePlanHandler(name, write, plan.input, plan.description) : capturePlanHandler(name, write, vault, plan.input, plan.description)
-    methods[name] = theme ? themeCommitHandler(name, write, write.description) : captureCommitHandler(name, write, vault, commit.description)
+    methods[name] = theme ? themeCommitHandler(name, write, write.description, store) : captureCommitHandler(name, write, vault, commit.description)
   }
   const base = {
     workspace: parts.workspace,

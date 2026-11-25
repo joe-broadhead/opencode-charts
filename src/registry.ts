@@ -47,7 +47,7 @@ export interface ToolDescriptor {
    * shared module's rule that an owned output schema may carry no `pattern`.
    */
   readonly output: Record<string, unknown>
-  /** Sections that document it; `docs/tool-parity.md` is checked against these. */
+  /** Real sections that document it: the README's `#tools` heading and `docs/capabilities.md`. */
   readonly docsAnchor: string
   readonly stability: "stable" | "experimental"
 }

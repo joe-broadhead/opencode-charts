@@ -105,6 +105,7 @@ describe("shipped plugin skills", () => {
     }
     for (const [id, body, expected] of [
       ["empty", "---\nname: empty\ndescription: >\n---\n\n# Body\n", /has no frontmatter description/],
+      ["empty-body", "---\nname: empty-body\ndescription: A description.\n---\n\n", /has no content below its frontmatter/],
       ["marker", "---\nname: marker\ndescription: '>'\n---\n\n# Body\n", /only a block marker/],
       ["broken", "---\nname: broken\ndescription: [unclosed\n---\n\n# Body\n", /has frontmatter that is not valid YAML/],
     ] as const) {

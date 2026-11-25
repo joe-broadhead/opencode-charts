@@ -16,7 +16,7 @@
 
 - [ ] `npx plugin-kit check`
 - [ ] `npx plugin-kit docs --check`
-- [ ] `node scripts/check.mjs build typecheck unit browser evals host pack`
+- [ ] `node scripts/check.mjs bundle typecheck unit browser evals host pack`
 
 ## Closes
 

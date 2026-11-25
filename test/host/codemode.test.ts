@@ -212,6 +212,16 @@ describe("the Code Mode path", () => {
     expect(denied.text).toContain("after-tool: refused")
   })
 
+  // The ask path, not only the refusal: approving the theme_sync commit applies it for the session.
+  test("a theme_sync commit runs when the permission ask is approved", async () => {
+    const host = await startHost("all")
+    const applied = await code(host, `const plan = await tools.charts.plan_theme_sync({ theme: "dark" }); const applied = await tools.charts.theme_sync({ planId: plan.planId }); const read = await tools.charts.theme_get({}); return JSON.stringify({ applied, found: read.found, mode: read.mode })`, '"applied":true', { decision: "once" })
+    expect(applied.answered).toContain("charts.theme_sync")
+    expect(applied.text).toContain('"applied":true')
+    expect(applied.text).toContain('"found":true')
+    expect(applied.text).toContain('"mode":"dark"')
+  })
+
   // R2: a name that is not a tool has none to call.
   test("an unknown name is refused inside execute", async () => {
     const host = await startHost("all")

@@ -61,7 +61,7 @@ data, light → dark, inline → presentation → inline, adding x zoom, adding 
 and a cosmetic change after the source CSV changed. Its world saves the revision tasks' charts with the build under
 test, and its Charts grading adapter recomputes each saved chart's values from the rows the chart captured. Each run
 records the model, the host, the build's digest and commit, the case set's lock, the fixtures, the tool trace, and
-tokens, cost and latency when the runner supplies them. The harness's `docs/charts.md` has the commands; in short,
+tokens, cost and latency when the runner supplies them. The harness's README has the commands; in short,
 from an `opencode-evals` checkout, with this repository built (`npm run bundle`):
 
 ```

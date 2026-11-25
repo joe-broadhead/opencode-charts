@@ -63,6 +63,11 @@ patches it behind the person's back.
 Nothing is fetched: the bundled fonts, atlases and locales are the only runtime data, and an interactive page carries
 its own scripts and fonts.
 
+## Tools
+
+Every method is a tool in Code Mode and an RPC method under the one id `charts`; the manifest's table below is the
+authority. The nine writes are plan/commit pairs, and nothing is pinned.
+
 ## Capabilities
 
 Every method, its class and its operations come from the installed manifest.

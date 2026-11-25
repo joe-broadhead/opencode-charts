@@ -3,6 +3,7 @@ import { checkThemeDefinition, resolveThemeAsked } from "./themes/chain.js"
 import type { HostThemeStore, HostThemeValue, SyncedHostTheme } from "./themes/host.js"
 import { hostThemeName, hostThemeRevision } from "./themes/host.js"
 import { builtinThemes, savedThemeNames, type ThemeSources } from "./themes/store.js"
+import type { ThemeTokens } from "./themes/tokens.js"
 
 /**
  * The one non-trivial theme write: resolving and validating a theme a host pushes for its session.
@@ -11,11 +12,9 @@ import { builtinThemes, savedThemeNames, type ThemeSources } from "./themes/stor
  * chain. `theme_get` and `theme_clear` read the in-memory store directly.
  */
 
-/** The polarity a synced theme draws in: the caller's, else the theme's own resolved mode. */
-async function modeOf(sources: ThemeSources, input: { readonly theme: HostThemeValue; readonly mode?: string }, assertRead?: (paths: readonly string[]) => Promise<void>): Promise<"light" | "dark"> {
-  if (input.mode === "light" || input.mode === "dark") return input.mode
-  const resolved = await resolveThemeAsked(sources, input.theme as never, assertRead)
-  return resolved.mode
+/** A theme resolved for a plan: the value the commit stores, its polarity and revision, and the exact tokens. */
+export interface ResolvedHostTheme extends SyncedHostTheme {
+  readonly tokens: ThemeTokens
 }
 
 /** A named theme that a sync may use: a built-in, a saved theme, or one from the plugin's options. */
@@ -37,7 +36,7 @@ export async function resolveHostTheme(
   sources: ThemeSources,
   input: { readonly theme?: HostThemeValue; readonly mode?: "light" | "dark"; readonly revision?: string },
   assertRead?: (paths: readonly string[]) => Promise<void>,
-): Promise<SyncedHostTheme> {
+): Promise<ResolvedHostTheme> {
   const theme = input.theme
   if (theme === undefined) throw new ChartsError("THEME_INVALID", "A theme sync needs a theme.", 'Sync a theme name, or the theme object itself.', "/theme")
   let stored: HostThemeValue
@@ -53,10 +52,21 @@ export async function resolveHostTheme(
   } else {
     throw new ChartsError("THEME_INVALID", "The synced theme must be a theme name or a theme object.", 'Sync a name such as "dark", or an object with colors, a seed, or variants.', "/theme")
   }
-  // The theme is resolved here, so the polarity a saved dark theme draws in is read from the theme itself.
-  const mode = await modeOf(sources, { theme: stored, ...(input.mode === undefined ? {} : { mode: input.mode }) }, assertRead)
+  // Resolve the tokens once, so the plan preview and the commit use exactly the same theme.
+  const tokens = await resolveThemeAsked(sources, stored as never, assertRead)
+  const mode = input.mode ?? tokens.mode
   const revision = typeof input.revision === "string" && input.revision.trim() !== "" ? input.revision.trim() : hostThemeRevision(stored, mode)
-  return { theme: stored, mode, revision }
+  return { theme: stored, mode, revision, tokens }
+}
+
+/** Store exactly the tokens a plan resolved; a later edit to the saved file cannot change what the commit applies. */
+export function applyHostTheme(
+  store: HostThemeStore,
+  sessionID: string,
+  resolved: ResolvedHostTheme,
+): { ok: true; applied: true; revision: string; mode: "light" | "dark"; themeName: string } {
+  const synced = store.sync(sessionID, { theme: resolved.tokens, mode: resolved.mode, revision: resolved.revision })
+  return { ok: true, applied: true, revision: synced.revision, mode: synced.mode, themeName: hostThemeName(synced.theme) }
 }
 
 /** The theme a host syncs for a session, checked, stored and reported back. */

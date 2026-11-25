@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process"
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { basename, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { rpc, session, startHost, TESTED_HOST, unwrap } from "../host/harness.js"
 
 const root = fileURLToPath(new URL("../..", import.meta.url))
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { name: string; version: string; devDependencies: Record<string, string> }
@@ -145,5 +146,24 @@ describe("the packed tarball", () => {
     const seededSvg = readFileSync(join(workspace, out.v2.seeded.svg!), "utf8")
     expect(seededSvg).toContain("--cs-")
     expect(seededSvg).toContain("@media (prefers-color-scheme: dark)")
+  }, 180_000)
+
+  test("the packed tarball installs with opencode plugin add from a local path and starts on 2.4.1", async () => {
+    const repo = join(work, "packed-local-repo")
+    mkdirSync(repo)
+    run("tar", ["-xzf", join(work, pack().filename), "-C", repo, "--strip-components=1"], work)
+    run("git", ["init", "-q"], repo)
+    run("git", ["-c", "user.email=s@s", "-c", "user.name=s", "add", "."], repo)
+    run("git", ["-c", "user.email=s@s", "-c", "user.name=s", "commit", "-qm", "packed"], repo)
+    const host = await startHost(TESTED_HOST, undefined, `git+file://${repo}`)
+    try {
+      const reader = await session(host, "reader")
+      const status = await rpc(host, "status", reader, {})
+      expect(status.status).toBe(200)
+      expect(unwrap(status.data)).toMatchObject({ name: "charts", state: "ready", accounts: [] })
+      const capabilities = await rpc(host, "capabilities", reader, {})
+      expect(capabilities.status).toBe(200)
+      expect(unwrap(capabilities.data).catalogue.count).toBeGreaterThan(50)
+    } finally { await host.close() }
   }, 180_000)
 })

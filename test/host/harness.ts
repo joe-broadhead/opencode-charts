@@ -76,7 +76,7 @@ const AGENTS = {
   asking: { description: "charts host test asking", mode: "primary", permissions: [{ action: "charts.*", resource: "*", effect: "ask" }] },
 }
 
-export async function startHost(version: string, options?: Record<string, unknown>): Promise<Host> {
+export async function startHost(version: string, options?: Record<string, unknown>, install?: string): Promise<Host> {
   const root = mkdtempSync(join(tmpdir(), `charts-rpc-${version}-`))
   const home = join(root, "home")
   const a = join(root, "project")
@@ -122,8 +122,14 @@ export async function startHost(version: string, options?: Record<string, unknow
   if (listed.length < 8 || outside.length) throw new Error(`isolation failed: ${paths}`)
 
   writeFileSync(join(home, ".config/opencode/opencode.json"), JSON.stringify({ agents: AGENTS }, null, 2))
-  const pluginEntry = options === undefined ? [PLUGIN_DIR] : [{ package: PLUGIN_DIR, options }]
-  writeFileSync(join(a, ".opencode/opencode.json"), JSON.stringify({ plugins: pluginEntry, agents: AGENTS }, null, 2))
+  // A pack test installs the package the way a person does; the project then has no plugin entry of its own.
+  if (install !== undefined) execFileSync(bin, ["plugin", "add", install], { env, cwd: a, stdio: "pipe" })
+  if (install === undefined) {
+    const pluginEntry = options === undefined ? [PLUGIN_DIR] : [{ package: PLUGIN_DIR, options }]
+    writeFileSync(join(a, ".opencode/opencode.json"), JSON.stringify({ plugins: pluginEntry, agents: AGENTS }, null, 2))
+  } else {
+    writeFileSync(join(a, ".opencode/opencode.json"), JSON.stringify({ agents: AGENTS }, null, 2))
+  }
 
   let server: ChildProcess | undefined
   const authorization = `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`

@@ -1,7 +1,8 @@
 import { COMMIT_INPUT, RegisterError, refusal } from "@we-the-rebel-alliance/plugin-contract/register"
 import type { Json } from "../engines/common.js"
-import { hostThemeName } from "../themes/host.js"
+import { hostThemeName, type HostThemeStore } from "../themes/host.js"
 import { THEME_DIR } from "../constants.js"
+import type { ResolvedHostTheme } from "../theme-rpc.js"
 import type { PlanVault } from "./plan-vault.js"
 import type { HandlerCall, MethodHandler } from "./types.js"
 
@@ -90,24 +91,32 @@ export function themePlanHandler(method: "theme_sync" | "theme_clear", write: Me
         output: { ok: true, applied: true, revision: resolved.revision, mode: resolved.mode, themeName },
         changes: [`Apply the theme "${themeName}" to this session.`],
         input: raw,
+        // Private plan data: the commit applies these exact tokens, not a re-read of the saved file.
+        resolved: { tokens: resolved.tokens, mode: resolved.mode, revision: resolved.revision },
         trust: "untrusted",
       }
     },
   }
 }
 
-/** A commit for an in-memory theme plan: it runs the write the preview checked, with the input the preview kept. */
-export function themeCommitHandler(method: "theme_sync" | "theme_clear", write: MethodHandler, description: string): MethodHandler {
+/** A commit for an in-memory theme plan: it applies exactly what the preview resolved. */
+export function themeCommitHandler(method: "theme_sync" | "theme_clear", write: MethodHandler, description: string, store: HostThemeStore): MethodHandler {
   return {
     description,
     input: COMMIT_INPUT,
     output: write.output,
     async run(env, _raw, call: HandlerCall) {
       const plan = isRecord(call.plan) ? call.plan : {}
-      if (!isRecord(plan.input)) {
-        throw new RegisterError(refusal("PLAN_INVALID", `${method} has no live plan.`, "Plan the write again, then commit the new planId."))
+      if (method === "theme_clear") {
+        if (!isRecord(plan.input)) throw new RegisterError(refusal("PLAN_INVALID", `${method} has no live plan.`, "Plan the write again, then commit the new planId."))
+        return write.run(env, plan.input, call)
       }
-      return write.run(env, plan.input, call)
+      if (!isRecord(plan.resolved) || !isRecord(plan.resolved.tokens)) {
+        throw new RegisterError(refusal("PLAN_INVALID", `${method} has no resolved theme in its plan.`, "Plan the theme again, then commit the new planId."))
+      }
+      const resolved = plan.resolved as unknown as ResolvedHostTheme
+      const { applyHostTheme } = await import("../theme-rpc.js")
+      return applyHostTheme(store, call.sessionID, resolved) as Json
     },
   }
 }

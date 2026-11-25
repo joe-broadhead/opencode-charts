@@ -66,10 +66,11 @@ export function stateHandler(store: HostThemeStore): MethodHandler {
     async run(env, _input, call) {
       const outDir = env.defaults.outDir
       const directory = join(env.workspace.directory, outDir)
+      // Both lists are directory reads: assert before listing, not after the entries are in hand.
+      await env.assertFiles("read", [`${outDir}/*`])
       const files = outputFiles(outDir, directory)
-      if (files.length > 0) await env.assertFiles("read", [`${outDir}/*`])
+      await env.assertFiles("read", [`${THEME_DIR}/*`])
       const themes = savedThemeNames({ workspace: env.workspace, configured: env.configuredThemes })
-      if (themes.length > 0) await env.assertFiles("read", [`${THEME_DIR}/*`])
       const items: { id: string; text: string }[] = files.map((file) => ({ id: cut(file, 128), text: cut(file, 200) }))
       for (const theme of themes.slice(0, 20)) items.push({ id: cut(`theme:${theme}`, 128), text: cut(`Saved theme ${theme}`, 200) })
       const synced = store.forSession(call.sessionID)

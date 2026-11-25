@@ -4,10 +4,12 @@
 // plugin is installed from the built package rather than called through a fake context. The plugin is loaded only in
 // project A, so the location case is the real one. Every non-read method over RPC needs a permission ask or a grant
 // (contract §8), so the write calls here prove the refusal and the Code Mode suite proves the write.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test"
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { rpc, session, startHost, TESTED_HOST, unwrap, refusedCode, type Host } from "./harness.js"
+
+setDefaultTimeout(30_000)
 
 /** A plan's id, from the read method that previews a write. */
 async function planId(host: Host, method: string, sessionID: string, input: unknown): Promise<string> {
@@ -109,6 +111,15 @@ describe(`the Charts RPC on stock ${TESTED_HOST}`, () => {
       const result = await rpc(host, method, reader, input)
       expect(result.status, `${method} was refused: ${JSON.stringify(result.data).slice(0, 300)}`).toBe(200)
       expect(unwrap(result.data), `${method} returned no answer`).toBeDefined()
+    }
+  })
+
+  test("state and themes assert read before listing saved files, so a denied read refuses", async () => {
+    const noRead = await session(host, "reader", [{ action: "read", resource: "*", effect: "deny" }])
+    for (const method of ["state", "themes"] as const) {
+      const result = await rpc(host, method, noRead, {})
+      expect({ method, refused: ["PERMISSION_DENIED", "UNAVAILABLE"].includes(String(refusedCode(result.data))) }).toEqual({ method, refused: true })
+      expect({ method, denied: JSON.stringify(result.data).includes("Permission denied") }).toEqual({ method, denied: true })
     }
   })
 

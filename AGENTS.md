@@ -26,7 +26,7 @@ never touches the network; every file it writes stays inside the workspace.
 | Command | Does |
 |---|---|
 | `npm ci` | installs dev tooling only; there are no runtime dependencies |
-| `npm run check` | the repository's full gate: build, typecheck, `plugin-kit check`, unit, browser, evals, host, pack |
+| `npm run check` | the repository's full gate: bundle, typecheck, `plugin-kit check`, unit, browser, evals, host, pack |
 | `npx plugin-kit check` | the contract gate: conformance T0/T1, docs, forbidden text, no bundled kit |
 | `npx plugin-kit docs` | regenerates the generated doc sections from the manifest |
 | `bun scripts/cookbook.ts` | regenerates `skills/charts-cookbook/SKILL.md` and the recipe table in `docs/documents.md` |

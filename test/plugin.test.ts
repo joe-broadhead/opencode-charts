@@ -1,11 +1,13 @@
 import { afterAll, describe, expect, test } from "bun:test"
+import { readFileSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 import { rulesFor } from "@we-the-rebel-alliance/plugin-contract/access"
 import { statusAnswer } from "@we-the-rebel-alliance/plugin-contract/accounts"
 import { createHandlers, runTool } from "../src/handlers/index.js"
 import { manifest, version, packageRoot } from "../src/manifest.js"
 import { options } from "../src/options.js"
 import type { HandlerCall } from "../src/handlers/types.js"
-import { BAR, ROWS, workspace } from "./helpers.js"
+import { BAR, ROWS, ROOT, workspace } from "./helpers.js"
 
 /**
  * The handler table and the access rules the register generates: every method declared once, every schema plain JSON,
@@ -125,10 +127,38 @@ describe("the theme bridge", () => {
     const synced = (await table.theme_sync!.run({ planId: "plan" }, { ...CALL, plan: syncPlan })) as Record<string, any>
     expect(synced).toMatchObject({ ok: true, applied: true, mode: "dark", themeName: "dark" })
     const found = (await table.theme_get!.run({}, CALL)) as Record<string, any>
-    expect(found).toMatchObject({ found: true, mode: "dark", themeName: "dark", theme: { theme: "dark", mode: "dark" } })
+    expect(found).toMatchObject({ found: true, mode: "dark", themeName: "dark", theme: { theme: { name: "dark", mode: "dark" }, mode: "dark" } })
     const clearPlan = (await table.plan_theme_clear!.run({}, CALL)) as Record<string, any>
     expect(await table.theme_clear!.run({ planId: "plan" }, { ...CALL, plan: clearPlan })).toEqual({ cleared: true, trust: "untrusted" })
     expect(await table.theme_get!.run({}, CALL)).toEqual({ found: false, revision: null, theme: null, trust: "untrusted" })
+  })
+
+  test("a theme_sync commit applies the tokens the plan resolved, even if the saved file changes", async () => {
+    const table = handlers()
+    const saved = (await table.plan_theme_save!.run({ name: "plan-freeze", theme: { extends: "light", colors: { text: "#111111" } } }, CALL)) as Record<string, any>
+    await table.theme_save!.run({ planId: "plan" }, { ...CALL, plan: saved })
+    const planned = (await table.plan_theme_sync!.run({ theme: "plan-freeze" }, CALL)) as Record<string, any>
+    // Between the preview and the commit, the saved file changes to a different colour.
+    writeFileSync(join(ws.dir, ".charts/themes/plan-freeze.json"), JSON.stringify({ name: "plan-freeze", extends: "light", colors: { text: "#999999" } }, null, 2) + "\n")
+    const applied = (await table.theme_sync!.run({ planId: "plan" }, { ...CALL, plan: planned })) as Record<string, any>
+    expect(applied).toMatchObject({ ok: true, applied: true, themeName: "plan-freeze" })
+    const found = (await table.theme_get!.run({}, CALL)) as Record<string, any>
+    expect(found.theme.theme.colors.text).toBe("#111111")
+  })
+
+  test("a commit emits charts.state changed; a plan emits nothing", async () => {
+    const table = handlers()
+    const emitted: { event: string; data: Record<string, unknown> }[] = []
+    const call = {
+      ...CALL,
+      bus: { name: "charts", emit: async (event: string, data: Record<string, unknown>) => { emitted.push({ event, data }); return { ok: true } } },
+    } as unknown as HandlerCall
+    const plan = (await table.plan_theme_clear!.run({}, call)) as Record<string, any>
+    expect(emitted).toEqual([])
+    await table.theme_clear!.run({ planId: "plan" }, { ...call, plan })
+    expect(emitted).toEqual([{ event: "changed", data: { capability: "charts.state", account: "default", reason: "write" } }])
+    const fixture = JSON.parse(readFileSync(join(ROOT, "fixtures/conformance.json"), "utf8")) as { events: { emitted: string[] } }
+    expect(fixture.events.emitted).toEqual(emitted.map(entry => entry.event))
   })
 })
 
