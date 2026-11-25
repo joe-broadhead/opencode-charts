@@ -1,32 +1,29 @@
-name: release
+name: Release
 
-# A tag v<package.json version> on a master commit whose CI passed makes the GitHub Release. Releases are not published
-# to npm: a consumer pins the tag, github:we-the-rebel-alliance/charts-plugin#v<version>.
-#
-# Only the owner cuts a release, with `npx plugin-kit release <version>` on a clean master. This workflow builds and
-# checks the tagged commit again, and publishes dist/, the tarball, SHA256SUMS and the conformance report.
-#
-# Least privilege: `build` runs the repository's code and holds no write token; `publish` runs no repository code,
-# checks every file against SHA256SUMS, and creates the Release with contents: write.
+# A tag v<package.json version> on a master commit whose CI passed creates the GitHub Release. Releases are not
+# published to npm: a consumer pins the tag, github:we-the-rebel-alliance/charts-plugin#v<version>, and the committed
+# dist/ is what that tag installs, with no build. Only the owner decides a release; an agent never pushes a tag on its
+# own.
 
 on:
   push:
     tags:
       - "v*"
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build the release files
+  release:
+    name: release
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,40 +67,18 @@ jobs:
             echo "::error::the tagged commit's generated files are not what the build writes; commit them before tagging."
             exit 1
           fi
-      - name: Stage dist, the tarball, the conformance report and SHA256SUMS
-        env:
-          TAG: ${{ github.ref_name }}
+      - name: Pack the release files
         run: |
           set -euo pipefail
-          version="${TAG#v}"
           mkdir -p release
-          tar -czf "release/charts-plugin-$version-dist.tar.gz" dist
-          npm pack --ignore-scripts --pack-destination release
-          npx --no-install plugin-kit conformance --json > release/conformance-report.json
-          (cd release && find . -type f ! -name SHA256SUMS | sed 's#^\./##' | sort | while IFS= read -r file; do sha256sum "$file"; done > SHA256SUMS)
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release
-          path: release/
-          if-no-files-found: error
-
-  publish:
-    name: Publish the GitHub Release
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release
-          path: release
-      - name: Check every file against SHA256SUMS
-        working-directory: release
-        run: sha256sum -c SHA256SUMS
-      - name: Create the Release
+          npx --no-install plugin-kit check --json > release/conformance.json
+          npm pack --pack-destination release
+          sha256sum release/*.tgz release/conformance.json > release/SHA256SUMS
+      - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" release/*.tgz release/conformance.json release/SHA256SUMS --repo "$REPO" --verify-tag --title "$TAG" --generate-notes

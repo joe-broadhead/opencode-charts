@@ -19,7 +19,7 @@ gate for every commit: never skip, weaken or delete a stage to get a green run.
 - `plugin-kit check` is the contract gate: T0 (the namespace line, the skill descriptions, declared tools, generated
   docs) and T1 (the built plugin on OpenCode 2.4.1, its permissions and its clean refusal of an unsupported host),
   plus the required doc files and the forbidden-text scan.
-- `build` writes `dist/`: the entry, the renderer it loads on first use, the Vega worker, the PNG rasteriser, the TUI
+- `bundle` writes `dist/`: the entry, the renderer it loads on first use, the Vega worker, the PNG rasteriser, the TUI
   part and the four browser runtimes. The TUI part is unminified, and the bundle fails if it is minified.
 - `browser` opens interactive HTML made through the built plugin in headless Chromium: each page starts under its own
   CSP with no violation and no request.
@@ -42,5 +42,6 @@ machine-local paths, no secrets. An error is `CODE: what happened. Next step: wh
 ## Releasing
 
 The lead cuts releases after a pull request merges. A release is the tag `v<version>` on `master`; CI publishes the
-GitHub Release with `dist/`, `SHA256SUMS` and the conformance report. `CHANGELOG.md` already carries the version's
-section. Nobody tags a release by hand.
+GitHub Release with exactly three files: the packed tarball, `conformance.json` and `SHA256SUMS`; extra files would
+be named explicitly in the workflow. `CHANGELOG.md` already carries the version's section. Nobody tags a release by
+hand.
