@@ -105,6 +105,7 @@ own list of inputs). Each licence text is in `licenses/packages/`.
 | vega-voronoi | 5.1.3 | BSD-3-Clause | licenses/packages/vega-voronoi@5.1.3.txt |
 | vega-wordcloud | 5.1.3 | BSD-3-Clause | licenses/packages/vega-wordcloud@5.1.3.txt |
 | world-atlas | 2.0.2 | ISC | licenses/packages/world-atlas@2.0.2.txt |
+| yaml | 2.9.1 | ISC | licenses/packages/yaml@2.9.1.txt |
 | zod | 4.6.7 | MIT | licenses/packages/zod@4.6.7.txt |
 | zrender | 6.1.0 | BSD-3-Clause | licenses/packages/zrender@6.1.0.txt |
 

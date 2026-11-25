@@ -7,7 +7,7 @@ import { parseBoardDocument } from "../src/board/schema.ts"
 import { ChartDocumentV1Schema } from "../src/document/schema.ts"
 import { manifest } from "../src/manifest.ts"
 import { runTool } from "../src/handlers/index.ts"
-import { loadSkills } from "../src/skills.ts"
+import { readSkills } from "../src/skills.ts"
 import { ROOT, ROWS, workspace } from "./helpers.ts"
 
 const PLACEHOLDER_HANDLES = new Set(["handle", "user", "username", "someone", "person", "name", "theirs", "author", "channel", "email", "example"])
@@ -72,21 +72,47 @@ describe("shipped plugin skills", () => {
     expect(parsed.panels).toHaveLength(2)
   })
 
-  test("loadSkills registers a one-line description and skips block or empty ones", async () => {
-    const root = mkdtempSync(join(tmpdir(), "charts-skills-"))
-    try {
-      for (const [id, description] of [["folded", ">"], ["literal", "|"], ["empty", ""], ["good", "A one-line description."]] as const) {
-        mkdirSync(join(root, "skills", id), { recursive: true })
-        writeFileSync(join(root, "skills", id, "SKILL.md"), `---\nname: ${id}\ndescription: ${description}\n---\nBody\n`)
-      }
-      const warn = console.warn
-      console.warn = () => undefined
+  test("readSkills parses both shipped descriptions, with no block marker", () => {
+    const skills = readSkills()
+    expect(skills.map(skill => skill.id)).toEqual(["charts", "charts-cookbook"])
+    for (const skill of skills) {
+      expect(skill.name).toBe(skill.id)
+      expect(skill.description.trim()).not.toBe("")
+      expect(skill.description.trim()).not.toMatch(/^[>|]/)
+      expect(skill.content.trim().length).toBeGreaterThan(0)
+      expect(skill.path).toBe(join(ROOT, "skills", skill.id, "SKILL.md"))
+    }
+  })
+
+  test("readSkills folds or keeps YAML block descriptions and rejects an empty or marker-only one", () => {
+    const fixture = (id: string, body: string) => {
+      const root = mkdtempSync(join(tmpdir(), "charts-skills-"))
+      mkdirSync(join(root, id), { recursive: true })
+      writeFileSync(join(root, id, "SKILL.md"), body)
+      return root
+    }
+    const cases = [
+      ["folded", ">", "first line second line\n"],
+      ["literal", "|", "first line\nsecond line\n"],
+      ["folded-strip", ">-", "first line second line"],
+      ["literal-strip", "|-", "first line\nsecond line"],
+    ] as const
+    for (const [id, marker, expected] of cases) {
+      const root = fixture(id, `---\nname: ${id}\ndescription: ${marker}\n  first line\n  second line\n---\n\n# Body\n`)
       try {
-        const loaded = await loadSkills(root, ["folded", "literal", "empty", "good"])
-        expect(loaded.map(skill => String(skill.id))).toEqual(["good"])
-        expect(loaded[0]!.description).toBe("A one-line description.")
-      } finally { console.warn = warn }
-    } finally { rmSync(root, { recursive: true, force: true }) }
+        expect({ id, description: readSkills(root)[0]!.description }).toEqual({ id, description: expected })
+      } finally { rmSync(root, { recursive: true, force: true }) }
+    }
+    for (const [id, body, expected] of [
+      ["empty", "---\nname: empty\ndescription: >\n---\n\n# Body\n", /has no frontmatter description/],
+      ["marker", "---\nname: marker\ndescription: '>'\n---\n\n# Body\n", /only a block marker/],
+      ["broken", "---\nname: broken\ndescription: [unclosed\n---\n\n# Body\n", /has frontmatter that is not valid YAML/],
+    ] as const) {
+      const root = fixture(id, body)
+      try {
+        expect(() => readSkills(root)).toThrow(expected)
+      } finally { rmSync(root, { recursive: true, force: true }) }
+    }
   })
 
   test("document calls support motion/fps delivery options and refuse authoring frame fields with INPUT_CONFLICT", async () => {

@@ -85,7 +85,9 @@ const shared = {
 // is what an engine start evaluates, and renderer.js, with every engine, is a second entry that index.js reaches only
 // through its one dynamic import (src/renderer-load.ts), so the first call pays for the engines and a start does not.
 // Code both use goes to dist/chunks/, so each module is evaluated once. The worker stays one file of its own.
-const plugin = await build({ ...shared, entryPoints: { index: "src/index.ts", renderer: "src/renderer.ts" }, splitting: true, chunkNames: "chunks/[name]-[hash]", plugins: [builtToolTable], minify: true })
+// The YAML parser is CommonJS and reads `process` with require(); the plugin is ESM, so give the entry a real require.
+const requireBanner = { js: `import { createRequire } from "node:module";\nconst require = createRequire(import.meta.url);` }
+const plugin = await build({ ...shared, entryPoints: { index: "src/index.ts", renderer: "src/renderer.ts" }, splitting: true, chunkNames: "chunks/[name]-[hash]", plugins: [builtToolTable], banner: requireBanner, minify: true })
 const worker = await build({ ...shared, entryPoints: { "vega-worker": "src/engines/vega-worker.ts" }, minify: true })
 const tui = await build({ ...shared, entryPoints: { tui: "src/tui.ts" }, minify: false })
 const metafiles = [plugin.metafile, worker.metafile, tui.metafile]

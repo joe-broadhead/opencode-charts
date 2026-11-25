@@ -4,10 +4,7 @@ import { createHandlers } from "./handlers/index.js"
 import { manifest, packageRoot, version } from "./manifest.js"
 import { options } from "./options.js"
 import { loadedRenderer } from "./renderer-load.js"
-import { loadSkills } from "./skills.js"
-
-/** The skills the package ships, under skills/<id>/SKILL.md. */
-export const SKILLS = ["charts", "charts-cookbook"] as const
+import { registerSkills } from "./skills.js"
 
 /**
  * The plugin: the host gate, one `register` call for every method through every door, and the two skills.
@@ -29,15 +26,17 @@ export default Plugin.define({
       permission: ctx.permission,
     })
     const registration = await register(ctx, manifest, handlers)
+    let skills: Awaited<ReturnType<typeof registerSkills>>
     try {
-      const skills = await loadSkills(packageRoot, SKILLS)
-      if (skills.length > 0) await ctx.skill.transform((editor) => { for (const skill of skills) editor.add(skill) })
+      // No module filter: every directory under skills/ is this plugin's, so both charts and charts-cookbook register.
+      skills = await registerSkills(ctx)
     } catch (error) {
       await registration.dispose()
       throw error
     }
     return async () => {
       await registration.dispose()
+      await skills.dispose()
       // A start that never drew anything never loaded the renderer, so there is no worker to stop.
       await loadedRenderer()?.closeVegaWorker()
     }

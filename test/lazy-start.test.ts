@@ -16,9 +16,9 @@ import { ROOT, workspace } from "./helpers.ts"
  */
 
 const ws = workspace()
-// Nine planning tools carry the writes' input shapes as plain data, so the entry starts a little larger. It still
-// evaluates no renderer, no engine and no chart schema.
-const START_BUDGET_BYTES = 640 * 1024
+// Nine planning tools carry the writes' input shapes as plain data, and the YAML skill parser is bundled at start, so
+// the entry starts a little larger. It still evaluates no renderer, no engine and no chart schema.
+const START_BUDGET_BYTES = 768 * 1024
 
 interface Probe {
   atStart: string[]
@@ -58,7 +58,7 @@ const ctx = {
   session: { synthetic: async () => undefined, get: async () => ({ id: "ses_1", agent: "build", permissions: [] }) },
   permission: { assert: async () => undefined, hook: async () => ({ dispose: async () => undefined }) },
   tool: { transform: async (fn) => { fn({ namespace: () => undefined, add: (t) => tools.set(t.name, t) }); return { dispose: async () => undefined } }, list: async () => [...tools.keys()].map((name) => ({ id: "charts_" + name })) },
-  skill: { transform: async (fn) => fn({ add: () => undefined }), list: async () => ({ data: [] }) },
+  skill: { transform: async (fn) => { fn({ add: () => undefined }); return { dispose: async () => undefined } }, list: async () => ({ data: [] }) },
   rpc: { register: async (definition, handlers) => { definitions.set(definition.id, definition); rpcs.set(definition.id, handlers); return { dispose: async () => undefined, events: { emit: async () => undefined } } } },
 }
 const cleanup = await plugin.setup(ctx)
