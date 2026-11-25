@@ -20,6 +20,10 @@ describe(`the skills on stock ${TESTED_HOST}`, () => {
 
   test("GET /api/skill lists exactly the skills the package ships", async () => {
     expect(SHIPPED).toEqual(["charts", "charts-cookbook"])
+    // The host's project is the harness's empty temp project, not this repository: a project's own skills/ directory
+    // is discovered by OpenCode 2.4.1, and none may stand in for the plugin's registration.
+    expect(host.a).not.toBe(ROOT)
+    expect(existsSync(join(host.a, "skills"))).toBe(false)
     const response = await host.api("GET", "/api/skill", undefined, host.a)
     expect(response.status).toBe(200)
     const body = response.data as { data?: { id: string; name?: string; path?: string }[] } | { id: string; name?: string; path?: string }[]
