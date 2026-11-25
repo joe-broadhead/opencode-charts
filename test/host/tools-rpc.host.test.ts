@@ -7,12 +7,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
-import { available, binary, rpc, session, startHost, TESTED_HOST, unwrap, refusedCode, type Host } from "./harness.js"
-import { stockGate } from "../support/stock-gate.js"
+import { rpc, session, startHost, TESTED_HOST, unwrap, refusedCode, type Host } from "./harness.js"
 
-// A missing stock binary skips with a line on a laptop and fails in CI: a release that did not run is not evidence.
-const gate = stockGate(TESTED_HOST, binary(TESTED_HOST), available(TESTED_HOST))
-describe.skipIf(gate === "skip")(`the Charts RPC on stock ${TESTED_HOST}`, () => {
+// The stock binary is required: a tested release that did not run is not evidence, so this suite fails when it is
+// missing instead of skipping.
+describe(`the Charts RPC on stock ${TESTED_HOST}`, () => {
   let host: Host
   let reader = ""
   let writer = ""

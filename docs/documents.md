@@ -143,7 +143,7 @@ plugin's browser suite, not at render time.
 
 ## The saved artifact
 
-`<name>.chart.json` is an envelope with `format: "opencode-charts-artifact"` and `version: 1`, holding the canonical
+`<name>.chart.json` is an envelope with `format: "charts-artifact"` and `version: 1`, holding the canonical
 document with captured rows (and the path, format and content hash in provenance), the captured theme base, the custom
 fonts by content digest, the captured defaults, the compiler and renderer versions, and the `revision`.
 

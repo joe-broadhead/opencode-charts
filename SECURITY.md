@@ -3,7 +3,6 @@
 ## Supported versions
 
 Charts supports OpenCode `>=2.4.1 <2.5.0` and is tested on 2.4.1. Outside the range the plugin refuses to start with
-`HOST_UNTESTED` and a next step, unless `options.allowUntestedHost` is true.
 
 ## Reporting a vulnerability
 

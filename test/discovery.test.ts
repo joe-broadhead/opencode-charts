@@ -37,7 +37,7 @@ describe("charts_capabilities reports the document contract from the registry", 
 
   test("document versions, the artifact format and the tools that create, replay and update", () => {
     expect(view.documents.versions).toEqual([DOCUMENT_VERSION])
-    expect(view.documents.artifact).toEqual({ format: "opencode-charts-artifact", version: 1, file: "<name>.chart.json" })
+    expect(view.documents.artifact).toEqual({ format: "charts-artifact", version: 1, file: "<name>.chart.json" })
     expect(view.documents.tools).toEqual({ create: ["quick", "render"], replay: ["render", "validate"], update: "update" })
   })
 

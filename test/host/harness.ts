@@ -4,7 +4,7 @@
 // Copied in shape from the family's tools RPC v2 host harness (a copy kept outside the packages: it is not a shared module
 // and is not pinned), so the isolation is the same one every plugin's host suite uses.
 import { execFileSync, spawn, type ChildProcess } from "node:child_process"
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
@@ -20,11 +20,9 @@ const platform = `@opencode/cli-${process.platform}-${process.arch}`
 export function binary(version: string): string {
   const override = process.env[`OPENCODE_BIN_${version.replaceAll(".", "_")}`]
   if (override) return override
-  if (STOCK_ROOT === undefined) return `OPENCODE_BIN_${version.replaceAll(".", "_")} (unset)`
+  if (STOCK_ROOT === undefined) throw new Error(`stock OpenCode ${version} is missing: set OPENCODE_BIN_${version.replaceAll(".", "_")} or OPENCODE_STOCK_ROOT`)
   return join(STOCK_ROOT, version, "node_modules", platform, "bin", "opencode")
 }
-
-export const available = (version: string) => existsSync(binary(version))
 
 /** The plugin under test: this repository, built, loaded by path. */
 export const PLUGIN_DIR = resolve(import.meta.dir, "..", "..")

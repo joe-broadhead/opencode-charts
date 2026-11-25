@@ -102,7 +102,7 @@ export interface Generation {
 
 /** Hex digits of the bundle digest in a generation folder's name: 64 bits, verified in full on reuse. */
 export const GENERATION_DIGEST_CHARS = 16
-const GENERATION_DOMAIN = "opencode-charts-generation/1\n"
+const GENERATION_DOMAIN = "charts-generation/1\n"
 
 const digestOf = (bytes: string | Uint8Array) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`
 

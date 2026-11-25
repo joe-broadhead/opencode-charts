@@ -133,8 +133,25 @@ None.
 A chart problem also carries its own code in the sentence, such as `SPEC_UNSAFE` or `DATA_EMPTY`, with the path it is
 at and one next step.
 
+## Troubleshooting
+
+- **`status` reports `error` or `nextStep` names the agent list.** An agent's rules could not be read; check the
+  OpenCode server log and reload the plugin.
+- **A call is refused with `PERMISSION_DENIED`.** The person's `access` level or an agent rule denies it. Reads always
+  run; `ask-changes` asks for the writes, and `read-only` turns them off. `theme_save`, `theme_sync` and `theme_clear`
+  ask even under `all`.
+- **No files appear.** A render writes under `outputs/charts/` (or the configured `outDir`) in the session's workspace.
+  An output folder outside the workspace needs the host's `external_directory` allow; a refusal names it.
+- **A PNG or HTML file is missing.** The PNG rasteriser and the browser runtimes ship in `dist/`; reinstall the
+  release if `capabilities` says one is unavailable.
+- **A saved chart will not update.** `update` needs the `revision` the call that wrote it returned; a stale revision is
+  `DOCUMENT_REVISION_MISMATCH` before anything is drawn. A change of data or meaning is a new document.
+- **A theme is not used.** A host's synced theme applies to that session only; a call's own `theme` wins, then the
+  session's synced theme, then the plugin's configured default.
+
 ## Docs
 
+- [plugin-contract](https://github.com/we-the-rebel-alliance/plugin-contract): the standard, the contract and the kit.
 - [Capabilities](docs/capabilities.md): every method, source, action and bus event, and the class convention.
 - [Configuration](docs/configuration.md): the options and their defaults.
 - [Accounts](docs/accounts.md): why there are none.

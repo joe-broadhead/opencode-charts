@@ -40,7 +40,7 @@ export const ARTIFACT_LIMITS = {
 }
 
 const REVISION_DOMAIN = `${ARTIFACT_FORMAT}/${ARTIFACT_VERSION}\n`
-const FINGERPRINT_DOMAIN = "opencode-charts-render/1\n"
+const FINGERPRINT_DOMAIN = "charts-render/1\n"
 
 // ---------------------------------------------------------------------------------------------------------------
 // Capture.

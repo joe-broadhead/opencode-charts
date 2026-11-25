@@ -170,7 +170,7 @@ describe("a failure while committing puts back what it replaced", () => {
 })
 
 describe("a saved chart artifact is one more file of the same publication", () => {
-  const artifact = '{"format":"opencode-charts-artifact"}\n'
+  const artifact = '{"format":"charts-artifact"}\n'
   test("it is written as <name>.chart.json beside the other files, and named in the result", async () => {
     const { renderChart } = await import("../src/pipeline.ts")
     const { dir, env } = setup()

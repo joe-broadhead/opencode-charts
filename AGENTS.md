@@ -73,7 +73,6 @@ There is no `src/provider/`: Charts has no external provider. The workspace is i
 ## Contract wiring
 
 - **Gate the host first.** `assertHost(ctx, manifest)` at the top of `setup` refuses an untested release with
-  `HOST_UNTESTED`, unless `options.allowUntestedHost` is true.
 - **One `register` call.** It owns the access rules, the tools, the one RPC registration and the bus; do not call
   `ctx.tool.transform`, `ctx.rpc.register` or `ctx.agent.transform` yourself.
 - **Answer status with `statusAnswer`.** Pass the manifest, the installed and host versions, `NO_ACCOUNTS`, the problems

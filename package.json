@@ -1,7 +1,7 @@
 {
   "name": "@we-the-rebel-alliance/charts-plugin",
   "version": "0.0.0",
-  "description": "Offline deterministic charts, plots, cartograms, tables, diagrams, animated GIFs and interactive dashboards for OpenCode, across Vega-Lite, Vega, ECharts and Observable Plot.",
+  "description": "Publication-grade charts, tables, diagrams and dashboards: deterministic SVG, PNG, GIF and offline HTML.",
   "keywords": [
     "opencode",
     "opencode-plugin",
@@ -22,6 +22,9 @@
   },
   "repository": "github:we-the-rebel-alliance/charts-plugin",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "type": "module",
   "exports": {
     "./server": "./dist/index.js",
