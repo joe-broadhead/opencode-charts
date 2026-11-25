@@ -30,9 +30,10 @@ The 12 chart tools and the two skills remain (each write is now a plan and a com
   commands). The standard package exports are `./server` and `./tui`; the experimental GUI was dropped in this rebuild.
 - **The `charts.tools` RPC and its `describe` diagnostics.** Every method is under the one `charts` RPC; `describe` is
   diagnostics only (contract §18), and the manifest and catalogue replace it.
-- **The `charts.theme` RPC** (`sync`, `get`, `clear` and the `changed` event). The same calls are `charts.theme_sync`,
-  `charts.theme_get` and `charts.theme_clear` in the one RPC; no bus event is emitted (the theme is session-local and
-  read with `theme_get`), and `theme_sync` asks for confirmation.
+- **The `charts.theme` RPC** (`sync`, `get`, `clear` and its `changed` event). The same calls are `charts.theme_sync`,
+  `charts.theme_get` and `charts.theme_clear` in the one RPC; there is no theme-specific event (the theme is
+  session-local and read with `theme_get`), while any commit emits the contract's `charts.state changed`, and
+  `theme_sync` asks for confirmation.
 - **The rich status fields** (`text`, `png`, `html`, `defaults`, `themes`, `tools`, `skills`). Status is the contract's
   `STATUS_SCHEMA` (`name`, `version`, `host`, `state`, `accounts`, `unguardedAgents`, `nextStep`); the TUI dialog
   formats that answer.
