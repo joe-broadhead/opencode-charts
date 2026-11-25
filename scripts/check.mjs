@@ -1,49 +1,34 @@
 // The one local entry point: `npm run check` runs every stage in order and stops at the first failure.
 // `node scripts/check.mjs <stage>...` runs only the named stages, in the order given.
+//
+// The contract gate is `plugin-kit check` (T0/T1, the doc file set, forbidden text, no bundled kit). Everything else is
+// about this repository: the esbuild build, the typecheck, the unit, browser, eval, host and pack suites.
 import { spawnSync } from "node:child_process"
-import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { readdirSync } from "node:fs"
 import { delimiter, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const env = { ...process.env, PATH: `${join(root, "node_modules", ".bin")}${delimiter}${process.env.PATH ?? ""}` }
 
-// The approved package shape. Change it here only together with the release policy.
-const FILES = ["dist", "assets", "assets/icon.svg", "assets/icon-128.png", "assets/icon-256.png", "skills", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "licenses", "CHANGELOG.md"]
-const EXPORTS = { ".": "./dist/index.js", "./tui": "./dist/tui.js", "./gui-experimental": "./dist/gui.cjs", "./icon.svg": "./assets/icon.svg", "./icon-128.png": "./assets/icon-128.png", "./icon-256.png": "./assets/icon-256.png" }
-// dist/ holds the plugin's entry and its renderer (with the chunks they share in chunks/), its Vega worker, the PNG
-// rasteriser, the GUI part and the runtimes inlined into HTML.
-const DIST = ["browser", "chunks", "gui.cjs", "index.js", "renderer.js", "resvg.wasm", "tui.js", "vega-worker.js"]
-// The supported OpenCode line. The host provides @opencode/plugin, so the package declares no peers.
-const HOST_RANGE = ">=2.4.1 <2.5.0"
-const HOST_DEV_PIN = "2.4.1"
-const ABSENT_FIELDS = ["dependencies", "optionalDependencies", "bundleDependencies", "bundledDependencies", "peerDependencies", "peerDependenciesMeta", "engines", "overrides"]
-const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "preprepare", "prepare", "postprepare", "prepublish", "prepublishOnly", "prepack", "postpack", "publish", "postpublish"]
-
 const stages = {
   // The tests import dist/, so the build comes first: a fresh clone must pass.
   build: () => run("node", ["scripts/build.mjs"]),
   typecheck: () => run("tsc", ["-p", "tsconfig.json"]),
-  // The unit suites are the files directly in test/; test/pack packs and installs the package, so it is its own stage.
+  // The contract gate: conformance T0/T1, the doc file set, forbidden text, and no kit in a runtime build.
+  kit: () => run("npx", ["--no-install", "plugin-kit", "check"]),
+  // The unit suites are the files directly in test/; test/host, test/browser and test/pack are their own stages.
   unit: () => run("bun", ["test", ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`)]),
-  kit: () => run("node", ["--test", "scripts/release-kit.test.mjs"]),
-  // Interactive HTML in a real browser: playwright-core's headless Chromium, pinned by the exact playwright-core
-  // version in package-lock.json. A missing browser fails this stage, never skips it; install it once with
-  // `npx playwright-core install --only-shell chromium` (on Linux add --with-deps for the system libraries).
+  // Interactive HTML in a real browser: playwright-core's headless Chromium. A missing browser fails this stage, never
+  // skips it; install it once with `npx playwright-core install --only-shell chromium` (on Linux add --with-deps).
   browser,
-  copies: () => run("node", ["scripts/check-copies.mjs"]),
-  forbidden: () => run("node", ["scripts/check-forbidden.mjs"]),
-  icons: () => run("node", ["scripts/check-icons.mjs"]),
-  whitelist,
-  jelly: () => run("node", ["scripts/jelly-check.mjs"]),
-  actionlint,
-  pack: () => run("bun", ["test", "./test/pack"]),
   // The evals: every catalogue example renders to a checked picture, and the advice passes its gates against the
   // committed baseline. Both are deterministic and need no model.
   evals: () => run("bun", ["eval/run.ts", join(root, ".eval", "render")]) || run("bun", ["eval/recommend.ts", join(root, ".eval", "recommend")]),
-  // The host suite: the tools RPC on the isolated stock 2.4.1 binary, from OPENCODE_BIN_2_4_1 or $OPENCODE_STOCK_ROOT/2.4.1.
+  // The host suite: the built plugin on the stock 2.4.1 binary, from OPENCODE_BIN_2_4_1 or $OPENCODE_STOCK_ROOT/2.4.1.
   // A missing binary is skipped with a line on a laptop and fails in CI, where a release that did not run is not evidence.
   host: () => run("bun", ["test", "./test/host"]),
+  pack: () => run("bun", ["test", "./test/pack"]),
 }
 
 const selected = process.argv.slice(2)
@@ -52,7 +37,7 @@ if (unknown.length) {
   console.error(`check: unknown stage ${unknown.map((name) => `"${name}"`).join(", ")}. Stages: ${Object.keys(stages).join(", ")}.`)
   process.exit(2)
 }
-const order = selected.length ? selected : Object.keys(stages)
+const order = selected.length ? selected : ["build", "typecheck", "kit", "unit", "browser", "evals", "host", "pack"]
 for (const name of order) {
   console.log(`\n[check] ${name}`)
   const code = stages[name]()
@@ -81,36 +66,4 @@ function browser() {
     return 1
   }
   return run("bun", ["test", "./test/browser"])
-}
-
-/** R13: the workflows are linted as workflows, by actionlint when it is installed; a notice when it is not. */
-function actionlint() {
-  const probe = spawnSync("actionlint", ["-version"], { encoding: "utf8" })
-  if (probe.error?.code === "ENOENT") {
-    console.log("[check] actionlint: not installed; skipped (install it to lint the workflows)")
-    return 0
-  }
-  return run("actionlint", [".github/workflows/ci.yml", ".github/workflows/release.yml"])
-}
-
-function whitelist() {
-  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
-  // No "private" check: only the release workflow's guard checks it.
-  const problems = []
-  if (JSON.stringify(pkg.files) !== JSON.stringify(FILES)) problems.push(`"files" must be exactly ${JSON.stringify(FILES)}.`)
-  for (const field of ABSENT_FIELDS) if (field in pkg) problems.push(`Remove "${field}": the package ships no runtime dependencies, no host peers and no engine pins.`)
-  for (const script of LIFECYCLE_SCRIPTS) if (pkg.scripts?.[script] !== undefined) problems.push(`Remove the "${script}" script: OpenCode installs with lifecycle scripts disabled.`)
-  if (pkg.opencode?.host !== HOST_RANGE) problems.push(`"opencode.host" must be "${HOST_RANGE}", the supported OpenCode line.`)
-  if (pkg.devDependencies?.["@opencode/plugin"] !== HOST_DEV_PIN) problems.push(`devDependency "@opencode/plugin" must be exactly ${HOST_DEV_PIN}, the tested host.`)
-  if (JSON.stringify(pkg.exports) !== JSON.stringify(EXPORTS)) problems.push(`"exports" must be exactly ${JSON.stringify(EXPORTS)}.`)
-  for (const field of ["main", "types", "module", "bin"]) if (field in pkg) problems.push(`Remove "${field}": "exports" is the only entry map.`)
-  if (pkg.scripts?.build !== "node scripts/check.mjs build") problems.push(`"scripts"."build" must be "node scripts/check.mjs build".`)
-  const dist = join(root, "dist")
-  const built = existsSync(dist) ? readdirSync(dist).sort() : []
-  if (JSON.stringify(built) !== JSON.stringify(DIST)) problems.push(`dist/ must hold exactly ${DIST.join(", ")}, found ${built.join(", ") || "nothing"}. Run npm run build.`)
-  const chunks = existsSync(join(dist, "chunks")) ? readdirSync(join(dist, "chunks")) : []
-  if (!chunks.length || chunks.some((name) => !/^[\w-]+-[A-Z0-9]{8}\.js$/.test(name))) problems.push(`dist/chunks/ must hold only the build's chunks (<name>-<hash>.js), found ${chunks.join(", ") || "nothing"}. Run npm run build.`)
-  for (const problem of problems) console.error(`package: ${problem}`)
-  if (!problems.length) console.log("package.json and dist/ match the approved package shape.")
-  return problems.length ? 1 : 0
 }

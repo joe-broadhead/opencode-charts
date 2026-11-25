@@ -91,7 +91,7 @@ export interface RenderRequest {
   readonly presentation?: RuntimePresentation
   /**
    * Publish the files as a new immutable generation folder, `<outDir>/<name>-<bundle digest prefix>/`, instead of the
-   * flat legacy layout: charts_update's publication. Not a tool field.
+   * flat legacy layout: tools.charts.update's publication. Not a tool field.
    */
   readonly generation?: boolean
 }
@@ -505,7 +505,7 @@ function parsedOrThrow<T>(result: { success: true; data: T } | { success: false;
     code: "SPEC_INVALID" as const,
     message: `${what} has a problem: ${problem.message}.`,
     path: pointer(problem.path.map(String)),
-    fix: "Fix the field named above and render again; charts_catalogue has a working example for each type.",
+    fix: "Fix the field named above and render again; tools.charts.catalogue has a working example for each type.",
   })))
 }
 

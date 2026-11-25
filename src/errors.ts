@@ -68,7 +68,6 @@ export type ChartsCode =
   | "NO_MARK"
   | "NO_MARKS"
   | "NO_SERIES"
-  | "OPTIONS_INVALID"
   | "OUTPUT_WRITE_FAILED"
   | "OVERPLOTTING"
   | "PATH_INVALID"
@@ -162,7 +161,6 @@ export const CHART_CODES: readonly ChartsCode[] = [
   "NO_MARK",
   "NO_MARKS",
   "NO_SERIES",
-  "OPTIONS_INVALID",
   "OUTPUT_WRITE_FAILED",
   "OVERPLOTTING",
   "PATH_INVALID",

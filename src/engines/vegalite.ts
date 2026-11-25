@@ -312,6 +312,6 @@ export function compileVegaLite(spec: Json): { vega: Json; warnings: string[] } 
     const out = compile(spec as never, { logger: logger as never })
     return { vega: out.spec as unknown as Json, warnings: warnings.filter(w => !/Dropping .* from channel "tooltip"/i.test(w)) }
   } catch (error) {
-    throw new ChartsError("SPEC_INVALID", `Vega-Lite could not compile the spec: ${(error as Error).message}`, "Fix the spec; charts_catalogue has a working example for each chart type.")
+    throw new ChartsError("SPEC_INVALID", `Vega-Lite could not compile the spec: ${(error as Error).message}`, "Fix the spec; tools.charts.catalogue has a working example for each chart type.")
   }
 }

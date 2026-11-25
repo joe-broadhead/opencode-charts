@@ -16,7 +16,7 @@ export const RECIPES: readonly RecipeDefinition[] = DEFINITIONS
 export const isRecipeId = (value: unknown): value is RecipeId => typeof value === "string" && (RECIPE_IDS as readonly string[]).includes(value)
 export { compileRecipe, optionDefaults, recipeDefinition, RECIPE_DATA_NAME, RECIPE_IDS }
 
-/** One recipe's contract as data: what charts_catalogue and charts_capabilities report. */
+/** One recipe's contract as data: what tools.charts.catalogue and tools.charts.capabilities report. */
 export function recipeContract(id: RecipeId) {
   const def = recipeDefinition(id)
   const o = def.options
@@ -53,8 +53,8 @@ export function recipeContract(id: RecipeId) {
 export const recipeContracts = () => RECIPE_IDS.map(recipeContract)
 
 /**
- * What charts_catalogue adds to an entry that is also a typed recipe: the recipe's contract and its examples as exact
- * charts_quick calls (`{ tool, input: { document, name } }`), each the full fixture, runnable as returned.
+ * What tools.charts.catalogue adds to an entry that is also a typed recipe: the recipe's contract and its examples as exact
+ * tools.charts.quick calls (`{ tool, input: { document, name } }`), each the full fixture, runnable as returned.
  */
 export function recipeCatalogue(id: RecipeId) {
   const { layout, examples: _names, ...contract } = recipeContract(id)

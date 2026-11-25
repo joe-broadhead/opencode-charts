@@ -1,5 +1,5 @@
 /**
- * Runs the `charts_recommend` eval and applies its gates.
+ * Runs the `tools.charts.recommend` eval and applies its gates.
  *
  *   bun eval/recommend.ts [out-dir]                  grade against eval/baseline.json
  *   bun eval/recommend.ts [out-dir] --update-baseline  rewrite the baseline after a reviewed change

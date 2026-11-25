@@ -65,7 +65,7 @@ export function prepareVega(input: Json, ctx: VegaContext): { spec: Json; profil
     }
   }
   check(spec, [])
-  if (!Array.isArray(spec.marks) || spec.marks.length === 0) issues.push({ level: "error", code: "NO_MARKS", message: "The Vega spec has no marks.", path: "/marks", fix: "Add a marks array; charts_catalogue has Vega examples (treemap, sunburst, force, word cloud)." })
+  if (!Array.isArray(spec.marks) || spec.marks.length === 0) issues.push({ level: "error", code: "NO_MARKS", message: "The Vega spec has no marks.", path: "/marks", fix: "Add a marks array; tools.charts.catalogue has Vega examples (treemap, sunburst, force, word cloud)." })
   const userConfig = isObject(spec.config) ? spec.config : {}
   spec.config = deepMerge(deepMerge(vegaConfig(ctx.theme), { locale: { number: ctx.locale.number, ...(ctx.locale.time ? { time: ctx.locale.time } : {}) } }), userConfig)
   if (spec.width === undefined) spec.width = ctx.width ?? ctx.theme.layout.width

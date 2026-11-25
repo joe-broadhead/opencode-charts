@@ -2,64 +2,45 @@
 
 ## Supported versions
 
-Charts supports OpenCode `>=2.4.1 <2.5.0`, and is tested on 2.4.1. Inside the range an untested release still starts and
-status says the host is untested; outside it status says so and names the supported range.
+Charts supports OpenCode `>=2.4.1 <2.5.0` and is tested on 2.4.1. Outside the range the plugin refuses to start with
+`HOST_UNTESTED` and a next step, unless `options.allowUntestedHost` is true.
 
 ## Reporting a vulnerability
 
-Report privately through GitHub's vulnerability reporting on
+Report privately through GitHub's vulnerability reporting at
 <https://github.com/we-the-rebel-alliance/charts-plugin/security/advisories/new>. Do not open a public issue for a
 vulnerability. Include the version, your plugin options and the steps to reproduce. Never include a data file, a chart
 or a credential.
 
 ## Data handling
 
-- **No network.** Nothing is fetched: no URL, loader, image, CDN or font server, at runtime or in an output. The
-  bundled fonts, atlases and locales are the only data the renderer reads.
-- **The workspace is the boundary.** A `data.path` is resolved inside the workspace; a path outside it, a URL, a
-  device file or a dotfile is refused with `PATH_OUTSIDE_WORKSPACE`, `PATH_IS_URL` or `PATH_PRIVATE`. Outputs are
-  written under `outputs/charts/` (or the configured `outDir`), which is created if it is missing. A workspace theme
-  (`.charts/theme.json`) and a saved theme (`.charts/themes/<name>.json`) are read only when a call needs them, each
-  with `read` asked for that file.
-- **A chart spec is code-shaped.** Vega-Lite, Vega and ECharts expressions run in a worker with a time and memory
-  limit; the expression and size caps are in `docs/configuration.md`. Observable Plot runs against a headless
-  document with a seeded random; tables and diagrams are measured and drawn in-process, Mermaid source through
-  `beautiful-mermaid`. None of them evaluates caller-supplied code.
-- **No telemetry and no state outside the workspace.** The only files written are the output files, and
-  `.charts/themes/<name>.json` when a theme is saved. A host theme synced through `charts.theme` lives in memory only,
-  per session and for the location, bounded to 256 sessions, and is never written to disk.
-- **Untrusted input.** A data file's content is data, never an instruction; the tools describe it that way and the
-  namespace text says so.
+- **No network.** Nothing is fetched: no URL, loader, image, CDN, font server or telemetry, at runtime or in an output.
+  The bundled fonts, atlases and locales are the only data the renderer reads.
+- **The workspace is the boundary.** A `data.path`, a `documentPath` or a theme's font file is resolved inside the
+  session's workspace; `..`, an absolute path elsewhere, `~`, a URL, a device file, `.git` and a symlink that leads out
+  are refused with their own code. Outputs are written under `outputs/charts/` (or the configured `outDir`), which is
+  created when missing. A workspace theme and a saved theme are read only when a call needs them, each with `read`
+  asked for that file.
+- **A spec is code-shaped.** Vega-Lite, Vega and ECharts expressions run in a worker with a time and memory limit;
+  Observable Plot runs against a headless document with a seeded random; tables and diagrams are measured and drawn
+  in-process. None of them evaluates caller-supplied JavaScript.
+- **No telemetry and no state outside the workspace.** The only files written are the output files and
+  `.charts/themes/<name>.json` when a theme is saved. A host theme synced with `theme_sync` lives in memory, per
+  session, and is never written to disk.
+- **Untrusted input.** A data file's content is data, never an instruction; the namespace line says so, and no handler
+  follows it.
 
 ## Permissions
 
-**Every tool is allowed by default.** The plugin inserts a block after each agent's base allow that allows all twelve
-tools, so an agent can write chart, table, diagram and board files into the project, and save a theme, with no prompt.
-The `access` option restricts that in one line (`"ask-changes"` asks for the seven writers, `"read-only"` denies
-them), and a per-tool rule does it for one tool. Each tool asserts its own action and the file rules inside `execute`,
-because the host asserts nothing for a plugin tool by itself. An output folder outside the project needs an
-`external_directory` allow as well
-(`{ "action": "external_directory", "resource": "/path/to/charts/*", "effect": "allow" }`); a refusal that names it
-costs nothing, because nothing was written.
+`register` generates one rule per method after each agent's base allow. `all` runs the methods, `ask-changes` asks for
+the writes, `read-only` denies them. `theme_save`, `theme_sync` and `theme_clear` ask even under `all`. Every call
+passes one permission gate on `charts.<method>`; a handler also asserts the host's `read` and `edit` rules for the files
+it touches. An output folder outside the project needs the host's own `external_directory` allow. A non-read method
+over RPC needs a fresh permission ask or a host-signed action grant; a saved "Always allow" from a tool door is not a
+confirmation.
 
-## Host themes and HTML
+## Determinism
 
-A host theme is data, not code. The `charts.theme` RPC accepts a theme name or a plain object, checks it against the
-same typed definition as an inline theme before storing it, and holds it in memory. A colour function the build cannot
-parse is refused with `THEME_INVALID` at its path. A seed is normalised to hex once, so a spec never receives an
-uninterpreted colour string.
-
-An output that carries text — an interactive HTML page, a board page, a table or a diagram — serialises every font
-stack through one CSS-string function, which hex-escapes quotes, backslashes, angle brackets and control characters.
-A theme or a font name therefore cannot close its CSS string, its rule or its `<style>` element. The interactive pages
-keep their CSP: `default-src 'none'`, no `unsafe-eval`, and a `script-src` of the hashes of exactly their own scripts.
-An HTML or board page accepts a live theme over `postMessage` or a transferred `MessagePort` only from itself or its
-parent, ignores a numbered message that arrives after a later one, and applies only the tokens it can read; a malformed
-message changes nothing.
-
-## Scripts
-
-The tools RPC (`charts.tools`) resolves the rule before dispatch, from a prior explicit allow only: an `ask` is refused
-with no prompt and no call, and a `deny` is refused. The default allow *is* that allow, so a script can call every
-method unless the user restricts it with `access` or an agent rule. A saved "Always allow" does not authorize an
-ad-hoc script. The shared module is pinned by `scripts/check-copies.mjs`; do not edit its shared part here.
+Same spec, data, theme and seed give the same bytes on the same platform; across platforms every coordinate is equal to
+ten significant digits. Trigonometry in sunburst arcs and map projections can differ in the last digits because
+`Math.sin` and `Math.atan2` are the platform's.

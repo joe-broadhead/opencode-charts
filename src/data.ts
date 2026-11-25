@@ -138,7 +138,7 @@ export function applyTransforms(rows: Row[], transform: readonly Record<string, 
   const spec = { data: { values: structuredClone(rows) }, transform: structuredClone(transform), mark: "point" } as never
   let compiled: Record<string, unknown>
   try { compiled = compile(spec).spec as Record<string, unknown> }
-  catch (error) { throw new ChartsError("TRANSFORM_INVALID", `data.transform is invalid: ${(error as Error).message}`, "Check each step against the Vega-Lite transform docs; charts_catalogue shows examples.", "/data/transform") }
+  catch (error) { throw new ChartsError("TRANSFORM_INVALID", `data.transform is invalid: ${(error as Error).message}`, "Check each step against the Vega-Lite transform docs; tools.charts.catalogue shows examples.", "/data/transform") }
   checkCardinality(compiled, rows.length)
   const marks = compiled.marks as { from?: { data?: string } }[] | undefined
   const name = marks?.[0]?.from?.data

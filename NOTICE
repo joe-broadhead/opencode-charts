@@ -17,12 +17,11 @@ here, as they require.
 - Repository: https://github.com/cesar-alves/mcp-clearsight, read at commit 4912ede.
 - Licence: MIT OR Apache-2.0, © 2026 The MCP Clearsight contributors.
 - Adapted as design, with the weight and threshold values carried over as data:
-  - `src/registry.ts`, `docs/tool-parity.md` — one tool registry projected to every surface (`features.md` §4.1, §4.7).
+  - `src/registry.ts` — one tool registry projected to every surface (`features.md` §4.1, §4.7).
   - `src/capabilities.ts` — a capability contract that never advertises what the build cannot do (§4.7).
   - `src/recommend/traits.ts`, `src/recommend/rank.ts` — the ranking design: hard filters, `intent` 0.35 /
     `data_fit` 0.40 / `expressiveness` 0.25, a total order, confidence bands, near ties and abstention (§4.9).
   - `test/recommend.test.ts`, `eval/recommend.cases.ts` — cases graded by musts and must-nots (`evals/README.md`).
-  - `docs/status.md` — status that names what does not work as carefully as what does.
 
 ### Rune
 

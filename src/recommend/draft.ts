@@ -8,7 +8,7 @@ import type { Shape } from "./traits.js"
  *
  * A recommendation is advice until something renders, so each one carries the call that draws it. When the data and
  * the columns allow it, the draft is built on the caller's own columns, not on an example's; when they do not, it is
- * the catalogue's example, and the draft says so. Nothing here renders: `charts_render` does.
+ * the catalogue's example, and the draft says so. Nothing here renders: `tools.charts.render` does.
  */
 
 const VL = "https://vega.github.io/schema/vega-lite/v6.json"
@@ -234,7 +234,7 @@ export interface DocumentDraft {
 
 /**
  * A typed recipe document for a recommended type that is also a recipe, on the caller's own columns: a ready
- * `charts_quick` call (`{ tool: "quick", input: { document } }`). The data is the caller's own input (rows or the
+ * `tools.charts.quick` call (`{ tool: "quick", input: { document } }`). The data is the caller's own input (rows or the
  * workspace path, with its transform), so the document reads what the advice read. An explicit medium becomes the
  * layout target. When several rows share one mark, the draft is withheld with a warning: a recipe document needs
  * options.aggregate, and which aggregate fits a measure is the caller's choice, never a guess from its name.
@@ -248,7 +248,7 @@ export function documentDraft(id: string, shape: Shape, rows: readonly Row[], en
       const key = JSON.stringify(plan.groups.map(role => row[plan.bindings[role]!] ?? null))
       if (seen.has(key)) {
         const fields = plan.groups.map(role => plan.bindings[role]).join(" and ")
-        return { warnings: [`Several rows share one ${fields}, so the recipe document needs options.aggregate (sum, mean, median, min, max or count) for ${plan.bindings.value ?? plan.bindings.y}: choose the one that fits the measure, then call charts_quick with document.`] }
+        return { warnings: [`Several rows share one ${fields}, so the recipe document needs options.aggregate (sum, mean, median, min, max or count) for ${plan.bindings.value ?? plan.bindings.y}: choose the one that fits the measure, then call tools.charts.quick with document.`] }
       }
       seen.add(key)
     }

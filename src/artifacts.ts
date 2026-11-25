@@ -115,7 +115,7 @@ export function bundleManifest(artifacts: readonly Artifact[]): { readonly diges
 }
 
 /**
- * Publishes a complete bundle as a new immutable generation folder, `<outDir>/<name>-<digest prefix>/`, for charts_update.
+ * Publishes a complete bundle as a new immutable generation folder, `<outDir>/<name>-<digest prefix>/`, for tools.charts.update.
  *
  * The folder is named by the digest of the bundle's own file manifest, so it is content-addressed: an earlier
  * generation, and the artifact an update started from, are never overwritten. The files are written into a hidden

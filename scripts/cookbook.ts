@@ -9,7 +9,7 @@ import { recipeExamples } from "../src/recipes/examples.ts"
 const requirement = (r: string) => (r === "always" ? "required" : r === "optional" ? "optional" : "required unless `aggregate` is `count`")
 
 /**
- * Keeps inline array literals in displayed specs small enough to read as a shape example while `charts_catalogue`
+ * Keeps inline array literals in displayed specs small enough to read as a shape example while `tools.charts.catalogue`
  * returns the full tested call verbatim. Precomputed polygon/grid arrays stay at 2 items so no line exceeds ~2 KB.
  */
 function trimSpecForDisplay(value: unknown, key?: string): unknown {
@@ -93,7 +93,7 @@ ${c.summary} ${c.dataRequirements}
 - Options: ${options.length ? options.join("; ") : "none"}.
 - Interactions beyond the defaults: ${presets.length ? presets.join("; ") : "none (tooltip auto or off only)"}.
 
-Rows shown: ${shown.chart.data.rows.length} of ${all.length}, a shape example. \`charts_catalogue {"id": "${id}"}\` returns this document with every row, as \`recipe.examples[0].call\`.
+Rows shown: ${shown.chart.data.rows.length} of ${all.length}, a shape example. \`tools.charts.catalogue {"id": "${id}"}\` returns this document with every row, as \`recipe.examples[0].call\`.
 
 \`\`\`json
 ${JSON.stringify(shown)}
@@ -101,7 +101,7 @@ ${JSON.stringify(shown)}
   })
   return `## Typed recipe documents (recommended for the 14 standard types)
 
-Pass \`{"document": …}\` to \`charts_quick\`. Unknown fields fail with their JSON path; repeated groups need \`options.aggregate\` (default \`none\` refuses with \`AGGREGATION_REQUIRED\`); \`count\` counts rows and takes no measure. The result names the saved \`<name>.chart.json\` and its \`revision\`: change its theme, size, title or interactions with \`charts_update\` (\`{"documentPath": "…", "expectedRevision": "sha256:…", "patch": {…}}\`), never by editing the spec or redrawing from CSV.
+Pass \`{"document": …}\` to \`tools.charts.quick\`. Unknown fields fail with their JSON path; repeated groups need \`options.aggregate\` (default \`none\` refuses with \`AGGREGATION_REQUIRED\`); \`count\` counts rows and takes no measure. The result names the saved \`<name>.chart.json\` and its \`revision\`: change its theme, size, title or interactions with \`tools.charts.update\` (\`{"documentPath": "…", "expectedRevision": "sha256:…", "patch": {…}}\`), never by editing the spec or redrawing from CSV.
 
 ${entries.join("\n\n")}`
 }
@@ -132,7 +132,7 @@ export function cookbook(): string {
   const body = families.map(f => {
     const entries = CATALOGUE.filter(c => c.family === f).map(c => {
       if (isRecipeId(c.id)) {
-        return `### ${c.name} — \`${c.id}\` (${c.engine}, recipe)\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\nPrefer the typed \`${c.id}\` recipe document above via \`charts_quick {"document": …}\`; call \`charts_catalogue {"id": "${c.id}"}\` when you need the raw Vega-Lite spec.`
+        return `### ${c.name} — \`${c.id}\` (${c.engine}, recipe)\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\nPrefer the typed \`${c.id}\` recipe document above via \`tools.charts.quick {"document": …}\`; call \`tools.charts.catalogue {"id": "${c.id}"}\` when you need the raw Vega-Lite spec.`
       }
       const call = exampleCall(c)
       const rawSpec = { ...call.spec } as Record<string, unknown>
@@ -142,24 +142,24 @@ export function cookbook(): string {
 
       if (c.engine === "table") {
         const tableCall = { data: { rows: sampleRows ?? [] }, ...rawSpec, formats: ["svg", "png", "html"] }
-        return `### ${c.name} — \`${c.id}\` (\`charts_table\`)\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\nPass directly to \`charts_table\` (rows shown: ${sampleRows?.length ?? 0} of ${rows?.length ?? 0}; \`charts_catalogue {"id": "${c.id}"}\` has every row):\n\n\`\`\`json\n${JSON.stringify(tableCall)}\n\`\`\``
+        return `### ${c.name} — \`${c.id}\` (\`tools.charts.table\`)\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\nPass directly to \`tools.charts.table\` (rows shown: ${sampleRows?.length ?? 0} of ${rows?.length ?? 0}; \`tools.charts.catalogue {"id": "${c.id}"}\` has every row):\n\n\`\`\`json\n${JSON.stringify(tableCall)}\n\`\`\``
       }
       if (c.engine === "diagram") {
-        return `### ${c.name} — \`${c.id}\` (\`charts_diagram\`)\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\nPass directly to \`charts_diagram\` (returns SVG, PNG and Unicode \`ascii\`):\n\n\`\`\`json\n${JSON.stringify(rawSpec)}\n\`\`\``
+        return `### ${c.name} — \`${c.id}\` (\`tools.charts.diagram\`)\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\nPass directly to \`tools.charts.diagram\` (returns SVG, PNG and Unicode \`ascii\`):\n\n\`\`\`json\n${JSON.stringify(rawSpec)}\n\`\`\``
       }
 
       const recipeHint = PLOT_RECIPE_HINTS[c.id]
       const shownSpec = recipeHint ?? trimSpecForDisplay(rawSpec)
       const sample = sampleRows ? `Row shape (${sampleRows.length} of ${rows!.length} rows): \`${JSON.stringify(sampleRows)}\`\n\n` : ""
       const size = call.width !== undefined || call.height !== undefined ? `Tested at ${[call.width !== undefined ? `width ${call.width}` : "", call.height !== undefined ? `height ${call.height}` : ""].filter(Boolean).join(", ")}. ` : ""
-      const note = recipeHint ? `Compact \`plotRecipe\` form for \`charts_render {"spec": …, "data": {"rows": …}}\` (\`charts_catalogue {"id": "${c.id}"}\` also returns the expanded mark geometry).\n\n` : size ? `${size}\`charts_catalogue {"id": "${c.id}"}\` returns the full tested call.\n\n` : ""
+      const note = recipeHint ? `Compact \`plotRecipe\` form for \`tools.charts.render {"spec": …, "data": {"rows": …}}\` (\`tools.charts.catalogue {"id": "${c.id}"}\` also returns the expanded mark geometry).\n\n` : size ? `${size}\`tools.charts.catalogue {"id": "${c.id}"}\` returns the full tested call.\n\n` : ""
       return `### ${c.name} — \`${c.id}\` (${c.engine})\n\n${c.when}${c.avoid ? ` **Avoid:** ${c.avoid}` : ""}\n\n${sample}${note}\`\`\`json\n${JSON.stringify(shownSpec)}\n\`\`\``
     })
     return `## ${f}\n\n${entries.join("\n\n")}`
   })
-  const boardSection = `## dashboards (\`charts_board\`)
+  const boardSection = `## dashboards (\`tools.charts.board\`)
 
-Multi-panel cross-filtered dashboards use \`charts_board\` with a \`BoardDocumentV1\` (\`version: 1\`, \`title\`, \`datasets\`, optional \`filters\`/\`kpis\`/\`tabs\`, and \`panels\`). Always writes four files: \`<name>.svg\`, \`<name>.png\` (2x poster), \`<name>.board.html\` (self-contained UI SDK cross-filtering page), and \`<name>.board.json\`.
+Multi-panel cross-filtered dashboards use \`tools.charts.board\` with a \`BoardDocumentV1\` (\`version: 1\`, \`title\`, \`datasets\`, optional \`filters\`/\`kpis\`/\`tabs\`, and \`panels\`). Always writes four files: \`<name>.svg\`, \`<name>.png\` (2x poster), \`<name>.board.html\` (self-contained UI SDK cross-filtering page), and \`<name>.board.json\`.
 
 \`\`\`json
 ${JSON.stringify(BOARD_COOKBOOK_EXAMPLE)}
@@ -172,7 +172,7 @@ description: Tested examples for every chart, table, diagram and dashboard the c
 
 # Charts cookbook
 
-Generated from the plugin's own catalogue and recipe registry. For the 14 standard types, use a typed recipe document through \`charts_quick {"document": …}\` (first section). Tables use \`charts_table\`, diagrams use \`charts_diagram\`, multi-panel dashboards use \`charts_board\` (last section), and the remaining catalogue types use \`charts_render {"spec": …, "data": …}\`. Rows shown are a two-row shape example; \`charts_catalogue {"id": "…"}\` returns the full tested call with every row. Colours written \`"theme:…"\` (\`"theme:positive"\`, \`"theme:categorical.0"\`) follow the active theme.
+Generated from the plugin's own catalogue and recipe registry. For the 14 standard types, use a typed recipe document through \`tools.charts.quick {"document": …}\` (first section). Tables use \`tools.charts.table\`, diagrams use \`tools.charts.diagram\`, multi-panel dashboards use \`tools.charts.board\` (last section), and the remaining catalogue types use \`tools.charts.render {"spec": …, "data": …}\`. Rows shown are a two-row shape example; \`tools.charts.catalogue {"id": "…"}\` returns the full tested call with every row. Colours written \`"theme:…"\` (\`"theme:positive"\`, \`"theme:categorical.0"\`) follow the active theme.
 
 ${recipeSection()}
 

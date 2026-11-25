@@ -40,7 +40,7 @@ export interface Suggestion {
   readonly why: readonly string[]
   readonly encoding: Readonly<Record<string, string>>
   readonly call?: Json
-  /** For a type that is also a typed recipe: a charts_quick document call on the caller's own columns. */
+  /** For a type that is also a typed recipe: a tools.charts.quick document call on the caller's own columns. */
   readonly document?: Json
   readonly blocked_by?: string
   readonly warnings?: readonly string[]
@@ -185,7 +185,7 @@ function encodingFor(id: string, shape: Shape | undefined, request: string): Rec
   return Object.fromEntries(Object.entries(encoding).filter(([, v]) => v))
 }
 
-/** A ready `charts_render` call: on the caller's columns when a builder covers the type, else the catalogue's example. */
+/** A ready `tools.charts.render` call: on the caller's columns when a builder covers the type, else the catalogue's example. */
 function draftFor(id: string, shape: Shape | undefined, rows: readonly Row[] | undefined, encoding: Record<string, string>, data: Readonly<Record<string, unknown>> | undefined, medium: string | undefined): { call?: Json; document?: Json; warnings: string[] } {
   if (!shape || !rows) return { call: undefined, warnings: [] }
   const built = buildDraft(id, shape, rows, encoding)
@@ -298,7 +298,7 @@ export async function recommend(input: RecommendInput, env: Pick<Environment, "w
     : shape && shape.measures.length === 0 && shape.temporals.length === 0
       ? { reason: "data_unsupported", suggestion: "The data has no measure and no date, so it can only be counted or shown as text: add a numeric column, or chart the counts." }
       : top.length === 0
-        ? { reason: scored.length ? "low_confidence" : "all_blocked", suggestion: "Call charts_capabilities to see what this build draws, or ask for a simpler chart." }
+        ? { reason: scored.length ? "low_confidence" : "all_blocked", suggestion: "Call tools.charts.capabilities to see what this build draws, or ask for a simpler chart." }
         : undefined
   const nearTie = top.length >= 2 && top[0]!.total - top[1]!.total <= SCORING.confidence.nearTieMargin
     ? { a: top[0]!.suggestion.id, b: top[1]!.suggestion.id, gap: round(top[0]!.total - top[1]!.total) }

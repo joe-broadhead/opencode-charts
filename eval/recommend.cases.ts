@@ -1,5 +1,5 @@
 /**
- * Cases for `charts_recommend`, graded by constraints rather than exact matches: each one says what must appear in the
+ * Cases for `tools.charts.recommend`, graded by constraints rather than exact matches: each one says what must appear in the
  * shortlist, what must not, and which chart is the single best answer when there is one.
  *
  * The must-not half is the load-bearing one: it is what stops a plausible but wrong chart from winning, such as a

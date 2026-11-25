@@ -3,7 +3,7 @@ import type { RecipeExample, RecipeId } from "./types.js"
 
 /**
  * Executable examples, built from the catalogue's exact tested calls (`exampleCall`): the same rows, title, currency
- * and locale that charts_catalogue hands out and the golden suite renders, so every surface shares one source. A
+ * and locale that tools.charts.catalogue hands out and the golden suite renders, so every surface shares one source. A
  * derived example reshapes those rows to show an option, and keeps every value. A call's width and height are not
  * carried: they size the raw spec's plot, while a document's layout sizes the outer canvas.
  */

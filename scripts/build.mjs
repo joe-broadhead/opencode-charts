@@ -4,7 +4,6 @@
 //                         and dashboard builders, hyparquet), which index.js imports on the first call that needs it
 //   dist/chunks/*.js      code index.js and renderer.js share, and the renderer's own on-demand parts
 //   dist/tui.js           the terminal UI part: the status dialog, with the status model and the RPC contract inlined
-//   dist/gui.cjs          the Web and Desktop part: chart cards, their actions and the palette commands
 //   dist/vega-worker.js   the thread Vega renders in, with a time and memory limit
 //   dist/resvg.wasm       the PNG rasteriser
 //   dist/browser/*.js     the runtimes inlined into interactive HTML and the dashboard page: vega, echarts, plot, ui
@@ -61,9 +60,8 @@ const builtToolTable = {
   },
 }
 
-// 4. The plugin, its worker, the TUI part and the GUI part. The plugin and worker are minified; the TUI part is not,
-//    because OpenCode cannot load the minified form of its host imports from a local-path install ("Cannot find package
-//    'solid-js'"). The GUI part is CommonJS for the Web and Desktop host, which supplies its own plugin and Solid.
+// 4. The plugin, its worker and the TUI part. The plugin and worker are minified; the TUI part is not, because OpenCode
+//    cannot load the minified form of its host imports from a local-path install ("Cannot find package 'solid-js'").
 const shared = {
   absWorkingDir: ROOT,
   outdir: "dist",
@@ -90,22 +88,19 @@ const shared = {
 const plugin = await build({ ...shared, entryPoints: { index: "src/index.ts", renderer: "src/renderer.ts" }, splitting: true, chunkNames: "chunks/[name]-[hash]", plugins: [builtToolTable], minify: true })
 const worker = await build({ ...shared, entryPoints: { "vega-worker": "src/engines/vega-worker.ts" }, minify: true })
 const tui = await build({ ...shared, entryPoints: { tui: "src/tui.ts" }, minify: false })
-// The GUI part keeps its names and its plain imports: the host reads the registries it declares, and `solid-js/h` stays
-// an external the host resolves. `outfile` replaces the shared `outdir`, since the extension is `.cjs`.
-const gui = await build({ ...shared, outdir: undefined, entryPoints: { gui: "src/gui.ts" }, format: "cjs", platform: "browser", outfile: `${ROOT}dist/gui.cjs`, minify: false })
-const metafiles = [plugin.metafile, worker.metafile, tui.metafile, gui.metafile]
+const metafiles = [plugin.metafile, worker.metafile, tui.metafile]
 for (const metafile of metafiles) for (const input of Object.keys(metafile.inputs)) bundledInputs.add(input)
 if (MINIFIED_IMPORT.test(readFileSync(`${ROOT}dist/tui.js`, "utf8"))) throw new Error("build: dist/tui.js is minified. OpenCode cannot load its host imports from a local-path install, so build the TUI part with minify: false.")
 for (const data of ["@resvg/resvg-wasm/index_bg.wasm", "world-atlas/package.json", "us-atlas/package.json", "i18n-iso-countries/package.json"]) bundledInputs.add(`node_modules/${data}`)
 writeNotices([...bundledInputs])
 const outputs = metafiles.flatMap((metafile) => Object.keys(metafile.outputs)).sort()
 const named = outputs.filter(file => !file.startsWith("dist/chunks/"))
-if (named.join() !== "dist/gui.cjs,dist/index.js,dist/renderer.js,dist/tui.js,dist/vega-worker.js") throw new Error(`build: expected dist/gui.cjs, dist/index.js, dist/renderer.js, dist/tui.js and dist/vega-worker.js besides dist/chunks/, got ${named.join(", ")}.`)
+if (named.join() !== "dist/index.js,dist/renderer.js,dist/tui.js,dist/vega-worker.js") throw new Error(`build: expected dist/index.js, dist/renderer.js, dist/tui.js and dist/vega-worker.js besides dist/chunks/, got ${named.join(", ")}.`)
 // The plugin's own files import each other (its chunks); every other import is a builtin or a host package.
 const own = new Set(Object.keys(plugin.metafile.outputs))
 const unexpected = metafiles.flatMap((metafile) => Object.entries(metafile.outputs)).flatMap(([file, output]) => output.imports.filter(entry => !allowed(entry.path) && !(own.has(file) && own.has(entry.path))).map(entry => `${file}: ${entry.path}`))
-// Only the plugin is split: the TUI part, the GUI part and the worker are one file each.
-for (const [file, output] of [worker, tui, gui].flatMap((result) => Object.entries(result.metafile.outputs))) if (output.imports.some(entry => entry.path.startsWith("dist/"))) throw new Error(`build: ${file} imports another dist/ file; it must stand alone.`)
+// Only the plugin is split: the TUI part and the worker are one file each.
+for (const [file, output] of [worker, tui].flatMap((result) => Object.entries(result.metafile.outputs))) if (output.imports.some(entry => entry.path.startsWith("dist/"))) throw new Error(`build: ${file} imports another dist/ file; it must stand alone.`)
 // index.js reaches the renderer only by its dynamic import, never statically: a static path would evaluate the engines
 // at every start again.
 const eager = new Set(["dist/index.js"])
@@ -114,7 +109,7 @@ if (eager.has("dist/renderer.js")) throw new Error("build: dist/index.js imports
 const eagerBytes = [...eager].reduce((sum, file) => sum + plugin.metafile.outputs[file].bytes, 0)
 if (unexpected.length > 0) throw new Error(`build: outputs import modules the host does not supply:\n  ${unexpected.join("\n  ")}`)
 console.log(`built dist/index.js and the chunks it loads at start (${(eagerBytes / 1024).toFixed(0)} KiB); dist/renderer.js with its chunks on first use`)
-for (const file of ["dist/index.js", "dist/renderer.js", "dist/tui.js", "dist/gui.cjs", "dist/vega-worker.js", "dist/resvg.wasm", "dist/browser/vega.js", "dist/browser/echarts.js", "dist/browser/plot.js", "dist/browser/ui.js"]) console.log(`built ${file} (${kib(`${ROOT}${file}`)})`)
+for (const file of ["dist/index.js", "dist/renderer.js", "dist/tui.js", "dist/vega-worker.js", "dist/resvg.wasm", "dist/browser/vega.js", "dist/browser/echarts.js", "dist/browser/plot.js", "dist/browser/ui.js"]) console.log(`built ${file} (${kib(`${ROOT}${file}`)})`)
 
 // THIRD_PARTY_NOTICES.md and licenses/: every package any output bundles, with its licence text, and the bundled
 // fonts and data. Regenerated by every build, so it cannot drift from what ships.
