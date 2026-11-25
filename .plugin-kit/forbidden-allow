@@ -1,0 +1,4 @@
+src/browser/ui-sdk.ts:secret kit v0.0.0 detector false positive: a local render sequence counter, line 616
+src/layout/appearance.ts:secret kit v0.0.0 detector false positive: a local theme token value, line 120
+test/host/catalogue.test.ts:secret invented test credential: a mock provider API key in a fake host
+test/host/codemode.test.ts:secret invented test credential: a mock provider API key in a second fake host

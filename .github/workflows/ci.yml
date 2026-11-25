@@ -43,6 +43,9 @@ jobs:
           grep " actionlint_${version}_linux_amd64.tar.gz$" "actionlint_${version}_checksums.txt" | sha256sum -c -
           tar xzf "actionlint_${version}_linux_amd64.tar.gz" actionlint
           ./actionlint -color .github/workflows/ci.yml .github/workflows/release.yml
+      - name: Fetch the contract over HTTPS
+        # The contract is a public repository, and npm records its GitHub dependency over ssh. A runner has no key.
+        run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci --ignore-scripts
       # The browser stage's headless Chromium: the build that playwright-core's exact version in package-lock.json pins.
       # A GitHub-hosted runner needs --with-deps for the system libraries; the self-hosted public runner already has

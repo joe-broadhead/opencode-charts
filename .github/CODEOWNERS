@@ -1,0 +1,10 @@
+# Who reviews what. The last matching line wins.
+#
+# The plugin's maintainer reviews everything. The manifest, AGENTS.md and docs/ carry the contract and the plugin
+# standard (plugin standard §1).
+
+*                         @joe-broadhead
+
+/package.json             @joe-broadhead
+/AGENTS.md                @joe-broadhead
+/docs/                    @joe-broadhead
