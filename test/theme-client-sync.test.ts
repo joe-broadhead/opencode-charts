@@ -1,26 +1,13 @@
-// The client/server theme bridge: the shared contract, the two seed readers, the terminal push and the GUI card
-// palette. Every reader is pure, so a theme's revision is asserted here rather than in a golden.
+// The theme bridge's two halves: the pure readers a host uses to turn the colours it shows into a chart seed, and the
+// in-memory store the theme methods write. Every reader is pure, so a theme's revision is asserted here, not in a golden.
 import { describe, expect, test } from "bun:test"
-import {
-  ChartsThemeContract,
-  THEME_RPC_ID,
-  applyTuiAnsiTheme,
-  colorLuminance,
-  extractDomThemeSeed,
-  extractTuiThemeSeed,
-  themeRevision,
-  toHexColor,
-  type ThemeHostDocument,
-  type ThemeSyncPayload,
-} from "../src/theme-contract.ts"
-import { TOOLS_RPC_ID } from "../src/host/rpc.ts"
-import { createPlugin } from "../src/plugin.ts"
-import { setupView } from "../src/tui.ts"
-import { buildChartCardSvg, readGuiThemeSeed, syncGuiTheme } from "../src/gui.ts"
-import { workspace } from "./helpers.ts"
-
-/** The line chart every card test draws. */
-const LINE = { type: "line", title: "Latency", unit: "ms", data: [{ x: "Jan", y: 120 }, { x: "Feb", y: 80 }, { x: "Mar", y: 95 }], x: "x", y: "y" }
+import { statusAnswer } from "@we-the-rebel-alliance/plugin-contract/accounts"
+import { ChartsRpc } from "../src/client.ts"
+import { formatStatus } from "../src/status.ts"
+import { manifest, version } from "../src/manifest.ts"
+import { applyTuiAnsiTheme, colorLuminance, extractTuiThemeSeed, themeRevision, toHexColor } from "../src/themes/host-seed.ts"
+import { createHostThemeStore, effectiveThemeInput, hostThemeName, hostThemeRevision } from "../src/themes/host.ts"
+import { viewMessage } from "../src/tui.ts"
 
 /** A TUI theme in the shape OpenCode resolves: RGBA objects on every token, with a categorical palette. */
 const RGBA_THEME = {
@@ -42,34 +29,11 @@ class HexColor {
   }
 }
 
-/** The smallest document the reader accepts: a root element and a computed style the test owns. */
-function mockDocument(
-  values: Record<string, string>,
-  computed: { backgroundColor?: string; color?: string } = {},
-): ThemeHostDocument {
-  return {
-    documentElement: {},
-    defaultView: {
-      getComputedStyle: () => ({
-        getPropertyValue: (name: string) => values[name] ?? "",
-        backgroundColor: computed.backgroundColor ?? "",
-        color: computed.color ?? "",
-      }),
-    },
-  }
-}
-
-/** Enough microtask turns for a push's promise chain to settle. */
-async function flush(): Promise<void> {
-  for (let turn = 0; turn < 6; turn++) await Promise.resolve()
-}
-
-describe("the theme contract", () => {
-  test("declares one sync, one read and one clear, and the changed event", () => {
-    expect(THEME_RPC_ID).toBe("charts.theme")
-    expect(ChartsThemeContract.id).toBe("charts.theme")
-    expect(Object.keys(ChartsThemeContract.methods).sort()).toEqual(["clear", "get", "sync"])
-    expect(Object.keys(ChartsThemeContract.events)).toEqual(["changed"])
+describe("the client definition", () => {
+  test("names the one RPC id and the four calls a host may make, and no event", () => {
+    expect(ChartsRpc.id).toBe("charts")
+    expect(Object.keys(ChartsRpc.methods).sort()).toEqual(["status", "theme_clear", "theme_get", "theme_sync"])
+    expect(Object.keys(ChartsRpc.events)).toEqual([])
   })
 })
 
@@ -134,80 +98,21 @@ describe("the TUI theme seed", () => {
   })
 })
 
-describe("the DOM theme seed", () => {
-  test("reads OpenCode's Web and Desktop variables", () => {
-    const seed = extractDomThemeSeed(
-      mockDocument({
-        "--v2-background-bg-base": "#101014",
-        "--v2-text-text-base": "#f4f4f5",
-        "--v2-text-text-muted": "#a1a1aa",
-        "--v2-border-border-base": "#27272a",
-        "--v2-icon-icon-accent-base": "#7c9cff",
-      }),
-    )
-    expect(seed?.mode).toBe("dark")
-    expect(seed?.seed.background).toBe("#101014")
-    expect(seed?.seed.text).toBe("#f4f4f5")
-    expect(seed?.seed.muted).toBe("#a1a1aa")
-    expect(seed?.seed.border).toBe("#27272a")
-    expect(seed?.seed.accent).toBe("#7c9cff")
-    expect(seed?.revision).toMatch(/^[0-9a-f]{16}$/)
-  })
-
-  test("reads a shadcn theme's background, primary and chart palette", () => {
-    const seed = extractDomThemeSeed(
-      mockDocument({
-        "--background": "#ffffff",
-        "--foreground": "#0a0a0a",
-        "--muted-foreground": "#71717a",
-        "--border": "#e4e4e7",
-        "--primary": "#2563eb",
-        "--chart-1": "#1d4ed8",
-        "--chart-2": "#0ea5e9",
-        "--chart-3": "#10b981",
-        "--chart-4": "#f59e0b",
-        "--chart-5": "#ef4444",
-      }),
-      "light",
-    )
-    expect(seed?.mode).toBe("light")
-    expect(seed?.seed.background).toBe("#ffffff")
-    expect(seed?.seed.text).toBe("#0a0a0a")
-    expect(seed?.seed.muted).toBe("#71717a")
-    expect(seed?.seed.accent).toBe("#2563eb")
-    expect(seed?.seed.series).toEqual(["#1d4ed8", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444"])
-  })
-
-  test("prefers a specific host variable over a generic one", () => {
-    const seed = extractDomThemeSeed(mockDocument({ "--v2-background-bg-base": "#101014", "--background": "#ffffff", "--viz-ink": "#eeeeee" }))
-    expect(seed?.seed.background).toBe("#101014")
-    expect(seed?.seed.text).toBe("#eeeeee")
-  })
-
-  test("falls back to a page's own viz tokens and to the computed colours", () => {
-    const tokens = extractDomThemeSeed(mockDocument({ "--surface-page": "#fafafa", "--viz-ink": "#18181b", "--viz-1": "#0969da", "--viz-2": "#8250df" }))
-    expect(tokens?.seed.background).toBe("#fafafa")
-    expect(tokens?.seed.text).toBe("#18181b")
-    expect(tokens?.seed.series).toEqual(["#0969da", "#8250df"])
-    const computed = extractDomThemeSeed(mockDocument({}, { backgroundColor: "#0d1117", color: "#e6edf3" }))
-    expect(computed?.seed.background).toBe("#0d1117")
-    expect(computed?.seed.text).toBe("#e6edf3")
-    expect(computed?.mode).toBe("dark")
-  })
-
-  test("returns undefined without a document, a root, or readable colours", () => {
-    expect(extractDomThemeSeed(undefined)).toBeUndefined()
-    expect(extractDomThemeSeed({})).toBeUndefined()
-    expect(extractDomThemeSeed({ documentElement: {}, defaultView: { getComputedStyle: () => undefined } })).toBeUndefined()
-    expect(extractDomThemeSeed(mockDocument({ "--background": "oklch(1 0 0)" }))).toBeUndefined()
-  })
-})
-
 describe("the revision", () => {
   test("ignores the order fields were written in", () => {
     expect(themeRevision("dark", { background: "#000000", text: "#ffffff" })).toBe(themeRevision("dark", { text: "#ffffff", background: "#000000" }))
     expect(themeRevision("dark", { background: "#000000" })).not.toBe(themeRevision("light", { background: "#000000" }))
     expect(themeRevision("dark", { background: "#000000" })).not.toBe(themeRevision("dark", { background: "#000001" }))
+  })
+
+  test("digests exactly what was synced, and names a synced theme by its own name or its shape", () => {
+    expect(hostThemeRevision("dark", "dark")).toBe(hostThemeRevision("dark", "dark"))
+    expect(hostThemeRevision("dark", "dark")).not.toBe(hostThemeRevision("light", "light"))
+    expect(hostThemeName("dark")).toBe("dark")
+    expect(hostThemeName({ name: "acme" })).toBe("acme")
+    expect(hostThemeName({ seed: { background: "#000000" } })).toBe("seed-custom")
+    expect(hostThemeName({ variants: {} })).toBe("variant-custom")
+    expect(hostThemeName({})).toBe("custom")
   })
 })
 
@@ -222,285 +127,62 @@ describe("the terminal repaint", () => {
   })
 })
 
-/** What a mocked server answers a `sync`: applied, refused as unapplied, or a transport failure. */
-type Answer = "applied" | "unapplied" | "throws"
-
-/** The context the TUI view needs, with the theme contract's calls recorded. */
-function tuiContext(options: { theme?: unknown; themeMode?: "light" | "dark"; refuse?: boolean; answers?: Answer[] } = {}) {
-  const syncs: ThemeSyncPayload[] = []
-  const definitions: unknown[] = []
-  const connected: (() => void)[] = []
-  let call = 0
-  const context = {
-    location: undefined,
-    client: {
-      rpc: (definition: unknown) => {
-        definitions.push(definition)
-        return {
-          status: async () => ({ text: "Charts status\nConnection: Ready" }),
-          sync: async (input: ThemeSyncPayload) => {
-            const answer = options.answers?.[call++] ?? (options.refuse ? "throws" : "applied")
-            if (answer === "throws") throw new Error("rpc.method_not_found")
-            syncs.push(input)
-            return answer === "applied" ? { ok: true, applied: true, revision: input.revision, mode: input.mode, themeName: "seed-custom" } : { ok: false, applied: false, revision: input.revision, mode: input.mode, themeName: "seed-custom" }
-          },
-        }
-      },
-    },
-    data: {
-      on: (type: string, handler: () => void) => {
-        if (type === "server.connected") connected.push(handler)
-        return () => undefined
-      },
-    },
-    ui: { dialog: { alert: async () => undefined, set: () => undefined, clear: () => undefined } },
-    keymap: { layer: () => () => undefined },
-    ...(options.theme !== undefined || options.themeMode !== undefined ? { theme: options.theme, themeMode: options.themeMode } : {}),
-  }
-  return { context, syncs, definitions, connected }
-}
-
-describe("the TUI theme push", () => {
-  test("pushes the seed once when the host publishes a theme", async () => {
-    const mock = tuiContext({ theme: RGBA_THEME, themeMode: "dark" })
-    const dispose = setupView(mock.context as never)
-    await flush()
-    expect(mock.definitions).toEqual([ChartsThemeContract])
-    expect(mock.syncs).toHaveLength(1)
-    const [payload] = mock.syncs
-    expect(payload!.mode).toBe("dark")
-    expect(payload!.theme.seed.background).toBe("#18181b")
-    expect(payload!.revision).toBe(extractTuiThemeSeed(RGBA_THEME, "dark")!.revision)
-    dispose()
+describe("the session store", () => {
+  test("keeps one theme per session, most recently used last, and forgets the oldest past the bound", () => {
+    const store = createHostThemeStore(2)
+    store.sync("a", { theme: "dark", mode: "dark", revision: "r1" })
+    store.sync("b", { theme: "light", mode: "light", revision: "r2" })
+    expect(store.forSession("a")).toEqual({ theme: "dark", mode: "dark", revision: "r1" })
+    store.sync("c", { theme: "print", mode: "light", revision: "r3" })
+    expect(store.size).toBe(2)
+    expect(store.forSession("b")).toBeUndefined()
+    expect(store.forSession("a")?.revision).toBe("r1")
   })
 
-  test("re-offers the theme on every server.connected, because a restarted server has an empty registry", async () => {
-    const mock = tuiContext({ theme: RGBA_THEME, themeMode: "dark" })
-    const dispose = setupView(mock.context as never)
-    await flush()
-    expect(mock.syncs).toHaveLength(1)
-    for (const handler of mock.connected) handler()
-    await flush()
-    // `pushed` is reset before the re-push, so a reload never starts up themeless.
-    expect(mock.syncs).toHaveLength(2)
-    expect(mock.syncs[1]!.revision).toBe(mock.syncs[0]!.revision)
-    dispose()
+  test("resolves the call's own theme, then the session's, then the configured default", () => {
+    const store = createHostThemeStore()
+    store.sync("ses", { theme: "dark", mode: "dark", revision: "r" })
+    expect(effectiveThemeInput(undefined, "ses", store, "light")).toBe("dark")
+    expect(effectiveThemeInput("print", "ses", store, "light")).toBe("print")
+    expect(effectiveThemeInput(undefined, "other", store, "light")).toBe("light")
+    expect(effectiveThemeInput(undefined, "ses", store, undefined)).toBe("dark")
   })
 
-  test("retries after a first call that failed, and remembers nothing it did not apply", async () => {
-    const mock = tuiContext({ theme: RGBA_THEME, themeMode: "dark", answers: ["throws", "unapplied", "applied"] })
-    const dispose = setupView(mock.context as never)
-    await flush()
-    // The first call threw: nothing landed, and no revision was remembered.
-    expect(mock.syncs).toEqual([])
-    for (const handler of mock.connected) handler()
-    await flush()
-    // The reconnect reached the server, which answered `applied: false`: still not remembered.
-    expect(mock.syncs).toHaveLength(1)
-    for (const handler of mock.connected) handler()
-    await flush()
-    // The third call was applied.
-    expect(mock.syncs).toHaveLength(2)
-    for (const handler of mock.connected) handler()
-    await flush()
-    // A reconnect always re-offers it, whatever it remembered.
-    expect(mock.syncs).toHaveLength(3)
-    dispose()
-  })
-
-  test("never calls the contract when the host publishes no theme", async () => {
-    const mock = tuiContext()
-    const dispose = setupView(mock.context as never)
-    await flush()
-    expect(mock.definitions).toEqual([])
-    expect(mock.syncs).toEqual([])
-    dispose()
-  })
-
-  test("stays silent when the server has no such contract", async () => {
-    const mock = tuiContext({ theme: RGBA_THEME, themeMode: "dark", refuse: true })
-    expect(() => setupView(mock.context as never)).not.toThrow()
-    await flush()
-    expect(mock.syncs).toEqual([])
-    for (const handler of mock.connected) handler()
-    expect(() => mock.connected[0]!()).not.toThrow()
-    await flush()
-  })
-
-  test("stays silent on a client that only knows the status call", async () => {
-    // This is the shape test/tui.test.ts mocks: an `rpc` that answers `status` and nothing else.
-    const context = {
-      location: undefined,
-      client: { rpc: () => ({ status: async () => ({ text: "Charts status\nConnection: Ready" }) }) },
-      data: { on: () => () => undefined },
-      ui: { dialog: { alert: async () => undefined, set: () => undefined, clear: () => undefined } },
-      keymap: { layer: () => () => undefined },
-      theme: RGBA_THEME,
-      themeMode: "dark" as const,
-    }
-    const dispose = setupView(context as never)
-    await flush()
-    expect(() => dispose()).not.toThrow()
+  test("clears only the session it names", () => {
+    const store = createHostThemeStore()
+    store.sync("a", { theme: "dark", mode: "dark", revision: "r" })
+    expect(store.clear("b")).toBe(false)
+    expect(store.clear("a")).toBe(true)
+    expect(store.clear("a")).toBe(false)
+    expect(store.forSession("a")).toBeUndefined()
   })
 })
 
-describe("the plugin's theme RPC", () => {
-  interface RegisteredRpc {
-    readonly id: string
-    readonly handlers: Record<string, (input: unknown, context: { error: (type: string, message: string, data: Record<string, unknown>) => unknown }) => Promise<Record<string, unknown>>>
-    readonly events: { name: string; data: Record<string, unknown> }[]
-  }
+describe("the status the dialog shows", () => {
+  const answer = statusAnswer({ manifest, version, hostVersion: "2.4.1", accounts: [], unguardedAgents: { ok: true, agents: [] } })
 
-  /** A fake host that records every contract `plugin.setup` registers, so a test can call the methods it was given. */
-  function recordedHost(dir: string, registered: RegisteredRpc[]) {
-    const editor = {
-      list: () => [] as { id: string }[],
-      update: (_id: string, _change: (info: { permissions: unknown[] }) => void) => undefined,
-      add: (_entry: unknown) => undefined,
-      namespace: (_entry: unknown) => undefined,
-    }
-    return {
-      editor,
-      ctx: {
-        app: { version: "2.4.1" },
-        options: {},
-        location: { directory: dir, project: { directory: dir } },
-        agent: { transform: async (fn: (value: typeof editor) => void) => fn(editor), list: async () => ({ data: [] }) },
-        command: { transform: async (fn: (value: typeof editor) => void) => fn(editor) },
-        rpc: {
-          register: async (contract: { id: string }, handlers: RegisteredRpc["handlers"]) => {
-            const record: RegisteredRpc = { id: contract.id, handlers, events: [] }
-            registered.push(record)
-            return { events: { emit: async (name: string, data: Record<string, unknown>) => { record.events.push({ name, data }) } }, dispose: async () => undefined }
-          },
-        },
-        session: { synthetic: async () => undefined },
-        permission: { assert: async () => undefined, hook: async () => ({ dispose: async () => undefined }) },
-        tool: { transform: async (fn: (value: typeof editor) => void) => fn(editor), list: async () => [] },
-        skill: { transform: async (fn: (value: typeof editor) => void) => fn(editor), list: async () => ({ data: [] }) },
-      },
-    }
-  }
-
-  test("setup registers charts.tools beside charts.theme, applies a TUI seed and announces the change", async () => {
-    const ws = workspace()
-    const registered: RegisteredRpc[] = []
-    const stop = await createPlugin({ packageRoot: ws.env.packageRoot }).setup(recordedHost(ws.dir, registered).ctx as never)
-    try {
-      // The tools RPC and the theme bridge are two contributions of one plugin, so a host that loads one has both.
-      expect(registered.map(entry => entry.id)).toContain(TOOLS_RPC_ID)
-      expect(registered.map(entry => entry.id)).toContain(THEME_RPC_ID)
-      const theme = registered.find(entry => entry.id === THEME_RPC_ID)!
-
-      // Exactly what the TUI pushes: a seed read from the host's own resolved theme, with its revision.
-      const seed = extractTuiThemeSeed(RGBA_THEME, "dark")!
-      const payload: ThemeSyncPayload = { mode: seed.mode, theme: { seed: seed.seed }, revision: seed.revision }
-      const context = { error: (type: string, message: string) => ({ type, message }) }
-      const synced = await theme.handlers.sync!(payload, context)
-      expect(synced).toMatchObject({ ok: true, applied: true, revision: seed.revision, mode: "dark", themeName: "seed-custom" })
-
-      // The location-wide theme is what every call in the workspace now resolves, and the host hears about it once.
-      expect(theme.events.filter(event => event.name === "changed")).toContainEqual({
-        name: "changed",
-        data: expect.objectContaining({ revision: seed.revision, mode: "dark", themeName: "seed-custom" }),
-      })
-      const got = await theme.handlers.get!({}, context)
-      expect(got).toMatchObject({ found: true, revision: seed.revision, mode: "dark", themeName: "seed-custom" })
-      expect((got.theme as { theme: { seed: Record<string, unknown> } }).theme.seed.background).toBe("#18181b")
-
-      // A cleared theme answers `found: false`; the bridge holds it in memory, so a workspace file is never written.
-      expect(await theme.handlers.clear!({}, context)).toEqual({ cleared: true })
-      expect(await theme.handlers.get!({}, context)).toMatchObject({ found: false, revision: null, theme: null })
-    } finally {
-      await stop?.()
-      ws.cleanup()
-    }
-  })
-})
-
-describe("the GUI card palette", () => {
-  test("inherits the host's background, ink, gridline and series colours", () => {
-    const doc = mockDocument({
-      "--v2-background-bg-base": "#101014",
-      "--v2-text-text-base": "#f4f4f5",
-      "--v2-text-text-muted": "#a1a1aa",
-      "--v2-border-border-base": "#27272a",
-      "--chart-1": "#60a5fa",
-      "--chart-2": "#f472b6",
-    })
-    const seed = readGuiThemeSeed(doc, "dark")!.seed
-    const svg = buildChartCardSvg(LINE, { mode: "dark", seed })!
-    expect(svg).toContain('fill="#101014"')
-    expect(svg).toContain('stroke="#27272a"')
-    expect(svg).toContain('stroke="#60a5fa"')
-    expect(svg).toContain('fill="#f4f4f5"')
-    expect(svg).not.toMatch(/NaN|undefined/)
+  test("formats the contract answer with the heading, the connection, the host and the next step", () => {
+    expect(formatStatus(answer).split("\n")).toEqual([
+      "Charts status",
+      "Connection: Ready",
+      "Account: none needed; Charts calls no service",
+      "OpenCode: 2.4.1 (tested)",
+      `Version: ${version}`,
+      "Agents without default rules: none",
+      "Next step: Nothing to do.",
+    ])
   })
 
-  test("keeps the built-in palette when no host theme was read", () => {
-    const svg = buildChartCardSvg(LINE, { mode: "dark" })!
-    expect(svg).toContain('fill="#0d1117"')
-    expect(svg).toContain('stroke="#58a6ff"')
-    expect(readGuiThemeSeed(undefined, "dark")).toBeUndefined()
-  })
-})
-
-describe("the GUI theme push", () => {
-  test("reports a revision once, and resolves false when it cannot", async () => {
-    const pushes: ThemeSyncPayload[] = []
-    const client = {
-      rpc: (definition: unknown) => {
-        expect(definition).toBe(ChartsThemeContract)
-        return {
-          sync: async (input: ThemeSyncPayload) => {
-            pushes.push(input)
-            return { revision: input.revision, applied: true }
-          },
-        }
-      },
-    }
-    const doc = mockDocument({ "--v2-background-bg-base": "#101014", "--chart-1": "#60a5fa" })
-    expect(await syncGuiTheme(client, doc, "dark")).toBe(true)
-    expect(pushes).toHaveLength(1)
-    expect(pushes[0]!.theme.seed.background).toBe("#101014")
-    expect(await syncGuiTheme(client, doc, "dark")).toBe(false)
-    expect(pushes).toHaveLength(1)
-    expect(await syncGuiTheme(undefined, doc, "dark")).toBe(false)
-    expect(await syncGuiTheme(client, undefined, "dark")).toBe(false)
-    expect(await syncGuiTheme({}, doc, "dark")).toBe(false)
+  test("the dialog drops the heading the title carries and keeps the keys", () => {
+    expect(viewMessage({ status: { text: formatStatus(answer) } })).toStartWith("Connection: Ready\n")
+    expect(viewMessage({ status: { text: formatStatus(answer) } })).toEndWith("r refresh · esc close")
   })
 
-  test("a refused call resolves false rather than throwing", async () => {
-    const client = {
-      rpc: () => ({
-        sync: async () => {
-          throw new Error("rpc.method_not_found")
-        },
-      }),
-    }
-    const doc = mockDocument({ "--v2-background-bg-base": "#010203" })
-    expect(await syncGuiTheme(client, doc, "dark")).toBe(false)
-  })
-
-  test("a server that answers it did not apply the theme is not remembered, and the next render retries", async () => {
-    const answers = ["unapplied", "applied", "applied"]
-    let call = 0
-    const pushes: ThemeSyncPayload[] = []
-    const client = {
-      rpc: () => ({
-        sync: async (input: ThemeSyncPayload) => {
-          pushes.push(input)
-          const answer = answers[call++]!
-          return answer === "applied" ? { ok: true, applied: true, revision: input.revision } : { ok: false, applied: false, revision: input.revision }
-        },
-      }),
-    }
-    const doc = mockDocument({ "--v2-background-bg-base": "#010203" })
-    expect(await syncGuiTheme(client, doc, "dark")).toBe(false)
-    // The same revision is offered again, because the first answer was not an application.
-    expect(await syncGuiTheme(client, doc, "dark")).toBe(true)
-    expect(pushes).toHaveLength(2)
-    expect(await syncGuiTheme(client, doc, "dark")).toBe(false)
-    expect(pushes).toHaveLength(2)
+  test("names an agent the generated rules miss, and a plugin that failed", () => {
+    const guarded = statusAnswer({ manifest, version, hostVersion: "2.4.1", accounts: [], unguardedAgents: { ok: true, agents: ["reviewer"] } })
+    expect(formatStatus(guarded)).toContain("Agents without default rules: reviewer")
+    const failed = statusAnswer({ manifest, version, hostVersion: "2.4.1", accounts: [], problems: ["the agent list could not be read"], unguardedAgents: { ok: true, agents: [] } })
+    expect(formatStatus(failed)).toContain("Connection: Error")
+    expect(formatStatus(failed)).toContain("Next step: the agent list could not be read")
   })
 })

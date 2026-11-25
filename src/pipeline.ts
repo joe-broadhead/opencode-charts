@@ -91,9 +91,16 @@ export interface RenderRequest {
   readonly presentation?: RuntimePresentation
   /**
    * Publish the files as a new immutable generation folder, `<outDir>/<name>-<bundle digest prefix>/`, instead of the
-   * flat legacy layout: charts_update's publication. Not a tool field.
+   * flat legacy layout: tools.charts.update's publication. Not a tool field.
    */
   readonly generation?: boolean
+}
+
+/** A plan's capture: what a write would produce, held in memory for the commit instead of written now. */
+export interface PlanSink {
+  flat(outDir: string, artifacts: readonly Artifact[]): string[]
+  generation(outDir: string, name: string, artifacts: readonly Artifact[]): Generation
+  theme(relative: string, bytes: string): string
 }
 
 export interface Environment {
@@ -101,6 +108,8 @@ export interface Environment {
   readonly packageRoot: string
   readonly configuredThemes: ThemeSources["configured"]
   readonly defaults: { readonly theme?: string; readonly locale?: string; readonly outDir: string }
+  /** Set only by a planning method: a render reports its files here instead of writing them. */
+  readonly plan?: PlanSink
   /**
    * A test seam for failure injection, never set by the plugin: called before each output is prepared (`svg`, `png`,
    * `html`, `spec`, `preview`) and before each file is moved into place (`commit`, with its name). Throwing simulates
@@ -447,10 +456,14 @@ export async function renderChart(request: RenderRequest, env: Environment, writ
   if (write && artifacts.length) {
     let written: readonly string[]
     if (request.generation) {
-      const published = publishGeneration(env.workspace, outDir, name, artifacts, file => env.probe?.("commit", file))
+      const published = env.plan === undefined
+        ? publishGeneration(env.workspace, outDir, name, artifacts, file => env.probe?.("commit", file))
+        : env.plan.generation(outDir, name, artifacts)
       written = published.files
       generation = { directory: published.directory, digest: published.digest, reused: published.reused }
-    } else written = publish(env.workspace, outDir, artifacts, file => env.probe?.("commit", file))
+    } else written = env.plan === undefined
+      ? publish(env.workspace, outDir, artifacts, file => env.probe?.("commit", file))
+      : env.plan.flat(outDir, artifacts)
     artifacts.forEach((artifact, i) => {
       if (artifact.kind === "png") files.png.push(written[i]!)
       else if (artifact.kind === "svg" || artifact.kind === "gif" || artifact.kind === "html" || artifact.kind === "spec" || artifact.kind === "document") files[artifact.kind] = written[i]!
@@ -505,7 +518,7 @@ function parsedOrThrow<T>(result: { success: true; data: T } | { success: false;
     code: "SPEC_INVALID" as const,
     message: `${what} has a problem: ${problem.message}.`,
     path: pointer(problem.path.map(String)),
-    fix: "Fix the field named above and render again; charts_catalogue has a working example for each type.",
+    fix: "Fix the field named above and render again; tools.charts.catalogue has a working example for each type.",
   })))
 }
 

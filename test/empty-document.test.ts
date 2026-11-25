@@ -2,7 +2,8 @@ import { afterAll, describe, expect, test } from "bun:test"
 import { readdirSync } from "node:fs"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
-import { runTool, type ToolName } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolName } from "../src/registry.ts"
 import { workspace } from "./helpers.ts"
 
 /**

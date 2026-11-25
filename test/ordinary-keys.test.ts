@@ -98,8 +98,8 @@ describe("__proto__ is refused in every place JSON comes in", () => {
     ["theme overrides", () => parseDocument(JSON.parse(bar('[{"c":"a","v":1}]').replace(/}$/, ',"appearance":{"overrides":{"colors":{"__proto__":{}}}}}'))), "/appearance/overrides/colors/__proto__"],
     ["an engine spec", () => parseDocument(JSON.parse('{"version":1,"chart":{"kind":"engine","spec":{"mark":"bar","encoding":{"__proto__":{}}}}}')), "/chart/spec/encoding/__proto__"],
     ["a legacy spec", () => checkSpec(JSON.parse('{"mark":"bar","data":{"values":[{"__proto__":{"x":1}}]}}'), "vega-lite"), "/data/values/0/__proto__"],
-    ["an artifact row", () => parseArtifact(JSON.stringify({ format: "opencode-charts-artifact", version: 1 }).replace(/}$/, ',"document":{"chart":{"data":{"rows":[{"__proto__":1}]}}}}')), "/document/chart/data/rows/0/__proto__"],
-    ["artifact metadata", () => parseArtifact('{"format":"opencode-charts-artifact","version":1,"captured":{"defaults":{"__proto__":{}}}}'), "/captured/defaults/__proto__"],
+    ["an artifact row", () => parseArtifact(JSON.stringify({ format: "charts-artifact", version: 1 }).replace(/}$/, ',"document":{"chart":{"data":{"rows":[{"__proto__":1}]}}}}')), "/document/chart/data/rows/0/__proto__"],
+    ["artifact metadata", () => parseArtifact('{"format":"charts-artifact","version":1,"captured":{"defaults":{"__proto__":{}}}}'), "/captured/defaults/__proto__"],
   ]
   test("eleven variants", () => {
     expect(variants).toHaveLength(11)

@@ -1,0 +1,42 @@
+name: Feature request
+description: A capability or a change Charts should make.
+title: "feat: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A new method starts in the `capabilities` manifest and needs a handler, tests and the kit gate. Charts has no
+        accounts, sources or actions; read AGENTS.md before you open the pull request.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change
+      options:
+        - A read method
+        - A write method
+        - A chart type or engine
+        - Documentation or layout
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What a person cannot do today, and why Charts is the right owner.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: The method, its class, the operations it needs, and what its answer looks like. For a new chart type, a working example and the files it writes.
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk and confirmation
+      description: For a write, say what it writes, where, and how it is confirmed (an `ask` effect or the `access` level). For a read, say what it reads.
+    validations:
+      required: false

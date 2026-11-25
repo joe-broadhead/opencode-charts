@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { CATALOGUE } from "../src/catalogue.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
-import { runTool } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
 import { portable, ROOT, workspace } from "./helpers.ts"
 
 /**
@@ -16,8 +16,8 @@ const env = { ...ws.env, assertFiles: async () => undefined }
 afterAll(async () => { ws.cleanup(); await closeVegaWorker() })
 
 const catalogueCall = async (id: string) => {
-  const { output, content } = await runTool(env as never, "catalogue", { id })
-  return { call: (output as { example: Record<string, unknown> }).example, text: (content[0] as { text: string }).text }
+  const { output } = await runTool(env as never, "catalogue", { id })
+  return { call: (output as { example: Record<string, unknown> }).example, text: JSON.stringify(output) }
 }
 
 describe("the catalogue's example call", () => {

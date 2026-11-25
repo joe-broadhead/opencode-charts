@@ -26,7 +26,7 @@ import { mergeTokens, type ThemeOverrides, type ThemeTokens } from "./themes/tok
  * The tool adapter for chart documents: which input arm a call uses, and how a document or a saved artifact becomes a
  * render request for the one pipeline (`renderChart`) every call goes through.
  *
- * A call to charts_render, charts_validate or charts_quick takes exactly one arm: the legacy authoring fields (a spec,
+ * A call to tools.charts.render, tools.charts.validate or tools.charts.quick takes exactly one arm: the legacy authoring fields (a spec,
  * or quick's type and fields), an inline `document`, or a saved artifact's `documentPath` (render and validate only).
  * Delivery fields (formats, scales, name, outDir, inspect, marks, svgText) go with any arm and never change what the
  * chart means. The adapter owns permissions and workspace files: it confines and asserts read on every file the call
@@ -73,12 +73,12 @@ export function selectArm(tool: ChartTool, input: Readonly<Record<string, unknow
     const first = legacy[0] ?? document[0]!
     throw new ChartsError("INPUT_CONFLICT", `The call mixes ${list}. A call takes exactly one of: a spec with its fields${tool === "quick" ? " (type, data, x, y…)" : ""}, a chart document (document)${tool === "quick" ? "" : ", or a saved artifact (documentPath, expectedRevision)"}; formats, scales, name, outDir, inspect, marks and svgText go with any of them. Nothing was drawn or written.`, document.length && legacy.length ? `Move the fields into the document (${where.slice(0, 6).join("; ")}), or drop document and keep the older form.` : artifact.length ? "To draw the saved artifact exactly, pass only documentPath (and expectedRevision); to change it, create a new document or use its own fields." : "Keep one arm.", `/${first}`)
   }
-  // Only charts_quick reaches this: it never replays a saved artifact, so it has no revision to check.
-  if (!artifact.length && input.expectedRevision !== undefined) throw new ChartsError("INPUT_INVALID", `charts_${tool} does not replay a saved artifact, so expectedRevision has nothing to check.`, "To draw a saved .chart.json at a known revision, call charts_render (or charts_validate) with documentPath and expectedRevision.", "/expectedRevision")
+  // Only tools.charts.quick reaches this: it never replays a saved artifact, so it has no revision to check.
+  if (!artifact.length && input.expectedRevision !== undefined) throw new ChartsError("INPUT_INVALID", `tools.charts.${tool} does not replay a saved artifact, so expectedRevision has nothing to check.`, "To draw a saved .chart.json at a known revision, call tools.charts.render (or tools.charts.validate) with documentPath and expectedRevision.", "/expectedRevision")
   if (artifact.length && input.documentPath === undefined) throw new ChartsError("INPUT_INVALID", "expectedRevision was given without documentPath.", "Pass documentPath with it, the saved .chart.json the revision belongs to.", "/expectedRevision")
   if (!arms.length) {
     const what = tool === "quick" ? "type and data, or document" : "spec, document or documentPath"
-    throw new ChartsError("INPUT_INVALID", `No chart was given: the call needs ${what}.`, tool === "quick" ? "Pass document (a recipe document; charts_catalogue shows one per recipe), or type with data and the field names." : "Pass spec (a raw Vega-Lite, Vega or ECharts spec), document (a chart document), or documentPath (a saved .chart.json).", "/")
+    throw new ChartsError("INPUT_INVALID", `No chart was given: the call needs ${what}.`, tool === "quick" ? "Pass document (a recipe document; tools.charts.catalogue shows one per recipe), or type with data and the field names." : "Pass spec (a raw Vega-Lite, Vega or ECharts spec), document (a chart document), or documentPath (a saved .chart.json).", "/")
   }
   if (arms[0]![0] === "legacy") {
     const required = tool === "quick" ? (["type", "data"] as const) : (["spec"] as const)
@@ -106,7 +106,7 @@ export interface ResolvedDocument {
   readonly compilation?: RecipeCompilation
   readonly fonts: readonly FontResource[]
   readonly input: "document" | "documentPath" | "legacy" | "update"
-  /** The saved artifact's workspace path: the documentPath arm's, or the artifact charts_update started from. */
+  /** The saved artifact's workspace path: the documentPath arm's, or the artifact tools.charts.update started from. */
   readonly documentPath?: string
 }
 
@@ -187,7 +187,7 @@ const ENGINE_VERSIONS = { "vega-lite": vegaLiteVersion, vega: vegaVersion, echar
 export async function resolveFresh(env: DocumentEnvironment, raw: unknown, options: { recipeOnly?: boolean; input?: "document" | "legacy"; source?: SourceData; transformed?: readonly Row[] } = {}): Promise<ResolvedDocument> {
   let document
   try { document = parseDocument(raw) } catch (error) { underDocument(error) }
-  if (options.recipeOnly && document.chart.kind !== "recipe") throw new ChartsError("INPUT_INVALID", "charts_quick takes a recipe document, and this one is an engine chart.", "Pass the same document to charts_render, which also takes engine documents; or use a recipe (charts_catalogue lists them).", "/document/chart/kind")
+  if (options.recipeOnly && document.chart.kind !== "recipe") throw new ChartsError("INPUT_INVALID", "tools.charts.quick takes a recipe document, and this one is an engine chart.", "Pass the same document to tools.charts.render, which also takes engine documents; or use a recipe (tools.charts.catalogue lists them).", "/document/chart/kind")
   const data = (document.chart as { data?: { path?: string; format?: "csv" } }).data
   const source = options.source ?? (data?.path !== undefined ? await readSource(env, data as { path: string }) : undefined)
   const theme = await namedTheme(env, document.appearance?.theme ?? env.defaults.theme ?? "light")
@@ -244,7 +244,7 @@ export async function resolveArtifact(env: DocumentEnvironment, documentPath: st
   } catch (error) { underDocument(error) }
 }
 
-/** What charts_update started from and what it changed, for the result. */
+/** What tools.charts.update started from and what it changed, for the result. */
 export interface UpdateOrigin {
   /** The source artifact's workspace path and its verified revision. */
   readonly documentPath: string
@@ -270,7 +270,7 @@ async function revisionFonts(env: DocumentEnvironment, tokens: ThemeTokens, capt
 }
 
 /**
- * charts_update's resolution: the saved artifact read through the same checks as a replay (confined, read permission
+ * tools.charts.update's resolution: the saved artifact read through the same checks as a replay (confined, read permission
  * asserted, size bounded, envelope and document strict, the revision recomputed and compared with expectedRevision),
  * then the presentation patch applied to the canonical document, and the result captured as a new revision with the
  * same data, bindings, options, transforms, colour domain and provenance. Nothing is drawn or written here, and a
@@ -321,7 +321,7 @@ export async function resolveUpdate(env: DocumentEnvironment, documentPath: stri
 export async function legacyDocument(env: DocumentEnvironment, tool: ChartTool, input: Readonly<Record<string, unknown>>): Promise<ResolvedDocument> {
   for (const key of ["width", "height"] as const) if (input[key] !== undefined) throw new ChartsError("LAYOUT_UNSUPPORTED", `A tool-level ${key} cannot be saved with document output: the saved document is an engine document, which keeps the spec's native size.`, `Set ${key} inside the spec, or send a recipe document with layout.${key}; or drop "document" from formats.`, `/${key}`)
   if (input.currencyFields !== undefined) throw new ChartsError("INPUT_INVALID", "currencyFields cannot be saved with document output.", "Drop currencyFields (money fields are then found by name), or drop \"document\" from formats.", "/currencyFields")
-  if (input.theme !== undefined && typeof input.theme !== "string") throw new ChartsError("INPUT_INVALID", "Inline theme tokens cannot be saved with document output: a document names its theme.", "Save the tokens with charts_theme_save and pass the theme's name, or drop \"document\" from formats.", "/theme")
+  if (input.theme !== undefined && typeof input.theme !== "string") throw new ChartsError("INPUT_INVALID", "Inline theme tokens cannot be saved with document output: a document names its theme.", "Save the tokens with tools.charts.theme_save and pass the theme's name, or drop \"document\" from formats.", "/theme")
   const data = input.data as Record<string, unknown> & { rows?: Row[]; path?: string; transform?: JsonObject[] } | undefined
   const top = Object.fromEntries((["title", "description", "locale", "currency", "seed"] as const).filter(k => input[k] !== undefined).map(k => [k, input[k]]))
   const appearance = typeof input.theme === "string" ? { appearance: { theme: input.theme } } : {}

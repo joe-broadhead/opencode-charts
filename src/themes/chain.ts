@@ -9,7 +9,7 @@ import { normaliseCssColor, type ThemeOverrides, type ThemeTokens } from "./toke
  * The one way a tool reads saved themes: the whole `extends` chain is walked here, and every saved theme file is asked
  * for (read permission, by the real path that is read: a link is asked as its target) before a byte of it is read.
  * The store then resolves from exactly these approved files and reads nothing itself. Legacy calls, chart documents,
- * charts_themes and charts_theme_save all go through it.
+ * tools.charts.themes and tools.charts.theme_save all go through it.
  *
  * The chain holds at most MAX_THEME_CHAIN named themes; a name that comes back is THEME_CYCLE, with the chain.
  */
@@ -19,7 +19,7 @@ export type AssertRead = (paths: readonly string[]) => Promise<void>
 const SHAPE_KEYS: ReadonlySet<string> = new Set(["extends", "seed", "variants", "mode"])
 
 /**
- * Checks a theme object the caller passes (a legacy tool's inline `theme`, or charts_theme_save's tokens) against the
+ * Checks a theme object the caller passes (a legacy tool's inline `theme`, or tools.charts.theme_save's tokens) against the
  * typed definition projection of the canonical tokens: an unknown or invalid token is THEME_INVALID at its path, before
  * any saved theme is read. Every object the tools accepted before still passes; only its error comes earlier and
  * names the token.
@@ -53,9 +53,9 @@ function checkTokens(theme: unknown, at: string): void {
     const key = issue.keys[0]!
     const allowed = Object.keys(tokensAt(issue.path))
     const close = suggest(key, allowed)
-    throw new ChartsError("THEME_INVALID", `"${key}" is not a theme token here.`, close.length ? `Did you mean "${close[0]}"? charts_themes shows a complete theme.` : `Use one of: ${allowed.join(", ")}.`, `${path}/${key}`)
+    throw new ChartsError("THEME_INVALID", `"${key}" is not a theme token here.`, close.length ? `Did you mean "${close[0]}"? tools.charts.themes shows a complete theme.` : `Use one of: ${allowed.join(", ")}.`, `${path}/${key}`)
   }
-  throw new ChartsError("THEME_INVALID", `Theme token ${path} is invalid: ${issue.message}.`, "Fix that token; charts_themes shows a complete theme to copy from.", path)
+  throw new ChartsError("THEME_INVALID", `Theme token ${path} is invalid: ${issue.message}.`, "Fix that token; tools.charts.themes shows a complete theme to copy from.", path)
 }
 
 /** Every key an object level of the definition schema allows. */
@@ -155,8 +155,8 @@ export async function approveThemeChain(sources: ThemeSources, theme: string | T
       if (savedThemeExists(file, next)) {
         await assertRead?.([file.relative])
         const text = readFileSync(file.absolute, "utf8")
-        try { overrides = JSON.parse(text) as ThemeDefinition } catch { throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not valid JSON.`, "Save it again with charts_theme_save.") }
-        if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not a JSON object.`, "Save it again with charts_theme_save.")
+        try { overrides = JSON.parse(text) as ThemeDefinition } catch { throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not valid JSON.`, "Save it again with tools.charts.theme_save.") }
+        if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) throw new ChartsError("THEME_INVALID", `The saved theme "${next}" (${file.relative}) is not a JSON object.`, "Save it again with tools.charts.theme_save.")
       }
       approved.set(next, overrides ?? null)
     }
@@ -180,7 +180,7 @@ export async function readHostTheme(sources: ThemeSources, assertRead?: AssertRe
   await assertRead?.([file.relative])
   let parsed: unknown
   try { parsed = JSON.parse(readFileSync(file.absolute, "utf8")) } catch {
-    throw new ChartsError("THEME_INVALID", `The workspace theme (${file.relative}) is not valid JSON.`, `Fix its JSON, or save a theme with charts_theme_save.`)
+    throw new ChartsError("THEME_INVALID", `The workspace theme (${file.relative}) is not valid JSON.`, `Fix its JSON, or save a theme with tools.charts.theme_save.`)
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new ChartsError("THEME_INVALID", `The workspace theme (${file.relative}) is not a JSON object.`, "Give it theme tokens, a seed, or light and dark variants.")
   checkThemeDefinition(parsed)

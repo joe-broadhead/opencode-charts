@@ -11,7 +11,7 @@ import { ECHARTS_UNBUNDLED, HTML_INTERACTIONS, RECIPE_INTERACTIONS, type Runtime
 import { MAX_SERIES, paletteReport } from "./themes/palette.js"
 import { builtinThemes, savedThemeNames } from "./themes/store.js"
 import { LIMITS } from "./safety.js"
-import { CONTRACT_VERSION, DESCRIPTORS, NAMESPACE } from "./registry.js"
+import { DESCRIPTORS, NAMESPACE } from "./registry.js"
 import { ARTIFACT_FORMAT, ARTIFACT_VERSION, DOCUMENT_VERSION, INTERACTION_DEFAULTS, LAYOUT_PROFILE_VERSION, LAYOUT_PROFILES, DEFAULT_LAYOUT_TARGET, type InteractionDefaults, type LayoutProfile } from "./document/defaults.js"
 import { RECIPE_COMPILER_VERSION, recipeContracts } from "./recipes/registry.js"
 
@@ -144,7 +144,7 @@ export function capabilities(env: CapabilitySources): CapabilityView {
   const hasCjk = coverage.scripts.includes("CJK")
   return {
     version: packageVersion(env.packageRoot),
-    contract: CONTRACT_VERSION,
+    contract: "1.0.0",
     namespace: NAMESPACE,
     formats: { svg: true, png, gif: png, html, spec: true, document: true },
     engines: [
@@ -215,7 +215,7 @@ export function describeCapabilities(view: CapabilityView): string {
     `Data: ${view.dataFormats.join(", ")}; ${view.limits.rows.toLocaleString("en-US")} rows, ${Math.round(view.limits.dataBytes / 1024 / 1024)} MB, ${view.locales} locales.`,
     `Maps: ${view.atlases.map(a => a.name).join(", ")}.`,
     `Tools: ${view.tools.map(t => `${t.name} (${t.class})`).join(", ")}.`,
-    `Documents: version ${view.documents.versions.join(", ")}, saved as ${view.documents.artifact.file} (${view.documents.artifact.format} v${view.documents.artifact.version}); create with ${view.documents.tools.create.map(t => `charts_${t}`).join(" or ")}, replay with documentPath, change presentation with charts_${view.documents.tools.update}.`,
+    `Documents: version ${view.documents.versions.join(", ")}, saved as ${view.documents.artifact.file} (${view.documents.artifact.format} v${view.documents.artifact.version}); create with ${view.documents.tools.create.map(t => `tools.charts.${t}`).join(" or ")}, replay with documentPath, change presentation with tools.charts.${view.documents.tools.update}.`,
     `Recipes: ${view.recipes.map(r => `${r.id} (${r.bindings.map(b => `${b.role}${b.required === "always" ? "" : b.required === "optional" ? "?" : "*"}`).join(", ")})`).join("; ")}. ? optional; * required unless aggregate is count.`,
     `Layout targets (outer px, smallest label): ${view.layouts.profiles.map(p => `${p.target} ${p.mode} ${p.width}×${p.height}, ${p.minLabelSize}px`).join("; ")}; default ${view.layouts.defaultTarget}. Engine documents: layout ${view.layouts.engineDocuments.join(", ")} only.`,
     `Interactive HTML: ${view.interactions.html.map(i => `${i.engine} ${i.id.replace(/^(?:vega-lite|vega|echarts)-/, "")}`).join(", ")}; recipe presets ${view.interactions.presets.map(i => i.id.replace(/^recipe-/, "")).join(", ")}; ECharts refuses ${view.interactions.unsupported.map(u => u.option).join(", ")}.`,

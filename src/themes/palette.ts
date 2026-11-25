@@ -9,8 +9,8 @@ import type { ThemeTokens } from "./tokens.js"
  * own lightness and chroma, spaced by the golden angle so no two are near neighbours, and held to a minimum perceptual
  * distance from every colour before them.
  *
- * The published sets are reported as published; the generated entries are reported as generated (`charts_themes`,
- * `charts_capabilities`), so nobody mistakes them for a tested colour-blind-safe set.
+ * The published sets are reported as published; the generated entries are reported as generated (`tools.charts.themes`,
+ * `tools.charts.capabilities`), so nobody mistakes them for a tested colour-blind-safe set.
  *
  * Adapted from the design of Rune (`anomalyco/rune@bca47138`), MIT, © Anomaly:
  * `crates/rune-mermaid/src/chart.rs` lines 9–39 (series hues spread so neighbours differ, light and dark derived from

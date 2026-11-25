@@ -5,7 +5,7 @@ import type { Engine } from "./safety.js"
 
 /**
  * Every chart type the plugin knows, with a small working example. The same entries are the agent's catalogue
- * (charts_catalogue), the cookbook skill's source, the gallery, and the golden tests: an example that stops rendering
+ * (tools.charts.catalogue), the cookbook skill's source, the gallery, and the golden tests: an example that stops rendering
  * fails the build.
  */
 export type Family = "comparison" | "trend" | "distribution" | "part-to-whole" | "relationship" | "flow" | "hierarchy" | "map" | "text" | "table" | "diagram"
@@ -702,7 +702,7 @@ export const CATALOGUE: readonly ChartType[] = [
 
 export const catalogueEntry = (id: string) => CATALOGUE.find(entry => entry.id === id)
 
-/** A complete `charts_render` (or `charts_validate`) input: what an example draws, exactly as tested. */
+/** A complete `tools.charts.render` (or `tools.charts.validate`) input: what an example draws, exactly as tested. */
 export interface ExampleCall {
   readonly spec: Json
   readonly data?: { readonly rows: Row[] }
@@ -715,7 +715,7 @@ export interface ExampleCall {
 
 /**
  * The one conversion from a catalogue example to the call that draws it, with its data, title, currency, locale and
- * size. `charts_catalogue`, `charts_recommend`'s example drafts, the gallery, the golden suite and the evals all use
+ * size. `tools.charts.catalogue`, `tools.charts.recommend`'s example drafts, the gallery, the golden suite and the evals all use
  * it, so the call an agent is given is the call the tests render.
  */
 export function exampleCall(source: ChartType | Example): ExampleCall {

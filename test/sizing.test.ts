@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { renderChart } from "../src/pipeline.ts"
-import { runTool } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
 import { BAR, ROWS, workspace } from "./helpers.ts"
 
 /**

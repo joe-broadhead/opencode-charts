@@ -3,44 +3,43 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { capabilities } from "../src/capabilities.ts"
 import { CATALOGUE } from "../src/catalogue.js"
-import { KNOWN_READS, defaultRules } from "../src/permissions.js"
-import { CONTRACT_VERSION, DESCRIPTORS, NAMESPACE, TOOL_NAMES, inputSchema, manifest, type ToolName } from "../src/registry.js"
+import { manifest as installed } from "../src/manifest.js"
+import { DESCRIPTORS, NAMESPACE, TOOL_NAMES, inputSchema, type ToolName } from "../src/registry.js"
 import { QUICK_TYPES } from "../src/quick.js"
 import { TRAITS_BY_ID } from "../src/recommend/traits.js"
 import { ROOT, workspace } from "./helpers.js"
 
 /**
  * The registry is the product: every surface is a projection of `src/registry.ts`, so a tool that exists on one and
- * not another is a defect. These tests are the conformance suite that keeps them in step (MCP Clearsight's
- * `docs/tool-parity.md` drift test, adapted).
+ * not another is a defect. The manifest is the registry as data; the handlers are its methods; capabilities lists it.
  */
 
-const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string; jelly: { tools: { name: string; permission: string; effect: string; readOnly: boolean }[] } }
-const readme = readFileSync(join(ROOT, "README.md"), "utf8")
-const parity = readFileSync(join(ROOT, "docs", "tool-parity.md"), "utf8")
+const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string }
+const methods = installed.methods
 
 describe("the registry", () => {
-  test("is the only list: every surface names exactly its tools, in its order", () => {
-    expect(pkg.jelly.tools.map(tool => tool.name)).toEqual(TOOL_NAMES.map(name => `${NAMESPACE}.${name}`))
-    for (const tool of pkg.jelly.tools) expect(tool.permission).toBe(`${NAMESPACE}_${tool.name.split(".")[1]!}`)
-    for (const descriptor of DESCRIPTORS) expect(pkg.jelly.tools.find(tool => tool.name === `${NAMESPACE}.${descriptor.name}`)?.readOnly).toBe(descriptor.readOnly)
-    // The declaration's read-only helper is denied every tool that is not marked readOnly, so the flag is the same fact twice.
-    expect(pkg.jelly.tools.filter(tool => tool.readOnly).map(tool => tool.permission).sort()).toEqual([...KNOWN_READS].sort())
-    // Every tool is allowed by default; the read-only flag is still the one fact the declaration's helper reads.
-    expect(defaultRules().filter(rule => rule.effect === "allow").map(rule => rule.action)).toContain(`${NAMESPACE}_*`)
-    for (const name of KNOWN_READS) expect(defaultRules("read-only")).toContainEqual({ action: name, resource: "*", effect: "allow" })
+  test("is the manifest's method table: every tool once, its class and its own action", () => {
+    for (const descriptor of DESCRIPTORS) {
+      const item = methods[descriptor.name]
+      expect({ name: descriptor.name, declared: item !== undefined }).toEqual({ name: descriptor.name, declared: true })
+      expect({ name: descriptor.name, class: item!.class }).toEqual({ name: descriptor.name, class: descriptor.class === "read" ? "read" : "write" })
+      expect(item!.accounts).toBe("none")
+      expect(item!.operations).toContain(`charts.${descriptor.name}`)
+    }
+    const declaredTools = Object.keys(methods).filter(name => DESCRIPTORS.some(descriptor => descriptor.name === name))
+    expect(declaredTools.sort()).toEqual([...TOOL_NAMES].sort())
   })
 
-  test("gives every tool one class, one permission and a documented anchor", () => {
+  test("gives every tool one class, a documented anchor and a description a model can read", () => {
     for (const descriptor of DESCRIPTORS) {
-      expect(["read", "export"]).toContain(descriptor.class)
+      expect(["read", "write"]).toContain(descriptor.class)
       expect(descriptor.readOnly).toBe(descriptor.class === "read")
       expect(descriptor.description.length).toBeGreaterThan(40)
       expect(descriptor.description.split(" ").length).toBeLessThan(140)
     }
   })
 
-  test("converts every input to JSON Schema, which is what the tools RPC and capabilities publish", () => {
+  test("converts every input to plain JSON Schema, which the register checks against", () => {
     for (const descriptor of DESCRIPTORS) {
       const schema = inputSchema(descriptor.name as ToolName)
       expect(schema.type).toBe("object")
@@ -49,18 +48,16 @@ describe("the registry", () => {
   })
 
   test("the chart tools take the document arms, and document is a format, on every surface's schema", () => {
-    for (const name of ["render", "validate"] as const) {
+    for (const name of ["plan_render", "validate"] as const) {
       const schema = inputSchema(name) as { properties: Record<string, any>; required?: string[] }
       for (const key of ["spec", "document", "documentPath", "expectedRevision"]) expect(Object.keys(schema.properties)).toContain(key)
-      // One of three arms per call, so no arm is required by the transport schema; the tool refuses a mixture.
       expect(schema.required ?? []).not.toContain("spec")
       expect(schema.properties.formats.items.enum).toEqual(["svg", "png", "gif", "html", "spec", "document"])
     }
-    const quick = inputSchema("quick") as { properties: Record<string, any>; required?: string[] }
+    const quick = inputSchema("plan_quick") as { properties: Record<string, any>; required?: string[] }
     expect(Object.keys(quick.properties)).toContain("document")
     expect(Object.keys(quick.properties)).not.toContain("documentPath")
     expect(quick.required ?? []).toEqual([])
-    // The document's description lists every recipe with its bindings, from the recipe registry.
     for (const id of ["bar", "grouped_bar", "line", "bubble", "histogram", "heatmap"]) expect(String(quick.properties.document.description)).toContain(`${id}(`)
   })
 
@@ -72,13 +69,11 @@ describe("the registry", () => {
     }
   })
 
-  test("charts_update is one writer on every surface: registry, declaration, permissions, RPC schema and parity table", () => {
+  test("charts_update is one writer on every surface: registry, manifest, handler schema and output", () => {
     const update = DESCRIPTORS.find(d => d.name === "update")!
-    expect({ class: update.class, readOnly: update.readOnly }).toEqual({ class: "export", readOnly: false })
-    expect(pkg.jelly.tools.find(tool => tool.name === "charts.update")).toEqual({ name: "charts.update", permission: "charts_update", effect: "allow", readOnly: false })
-    expect(KNOWN_READS).not.toContain("charts_update")
-    const input = inputSchema("update") as { properties: Record<string, any>; required?: string[]; additionalProperties?: unknown }
-    // The source, its revision precondition and the patch are required; the delivery fields go with them; nothing else.
+    expect({ class: update.class, readOnly: update.readOnly }).toEqual({ class: "write", readOnly: false })
+    expect(methods.update).toMatchObject({ class: "write", accounts: "none" })
+    const input = inputSchema("plan_update") as { properties: Record<string, any>; required?: string[]; additionalProperties?: unknown }
     expect([...(input.required ?? [])].sort()).toEqual(["documentPath", "expectedRevision", "patch"])
     expect(Object.keys(input.properties).sort()).toEqual(["documentPath", "expectedRevision", "formats", "inspect", "marks", "name", "outDir", "patch", "scales", "svgText"])
     expect(input.additionalProperties).toBe(false)
@@ -88,33 +83,13 @@ describe("the registry", () => {
     for (const key of ["revision", "fingerprint", "source", "appearance", "size", "interactions", "diagnostics", "update", "generation"]) expect(Object.keys(output.properties)).toContain(key)
     expect(output.required).toEqual(expect.arrayContaining(["files", "revision", "update"]))
     expect(JSON.stringify(output)).not.toContain('"pattern"')
-    expect(parity).toContain("| `update` | model | export | yes | yes |")
   })
 
-  test("README's table lists every tool once", () => {
-    for (const name of TOOL_NAMES) {
-      const pattern = new RegExp(`\\\`${NAMESPACE}_${name}\\\``, "g")
-      expect(readme.match(pattern)?.length ?? 0, `README does not document ${NAMESPACE}_${name}`).toBeGreaterThan(0)
-    }
-  })
-
-  test("docs/tool-parity.md is generated from the registry and matches it row for row", () => {
-    const rows = [...parity.matchAll(/^\| `([a-z_]+)` \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$/gm)].map(m => ({ name: m[1]!, audience: m[2]!.trim(), class: m[3]!.trim(), rpc: m[4]!.trim(), declared: m[5]!.trim() }))
-    expect(rows.map(row => row.name)).toEqual([...TOOL_NAMES])
-    for (const row of rows) {
-      const descriptor = DESCRIPTORS.find(d => d.name === row.name)!
-      expect(row.class).toBe(descriptor.class)
-      expect(row.rpc).toBe("yes")
-      expect(row.declared).toBe("yes")
-      expect(row.audience).toBe("model")
-    }
-  })
-
-  test("the manifest is the registry as data, under one contract version", () => {
-    const m = manifest(pkg.version)
-    expect(m.contract_version).toBe(CONTRACT_VERSION)
-    expect(m.tools.map(tool => tool.name)).toEqual([...TOOL_NAMES])
-    for (const tool of m.tools) expect(tool.placements).toEqual(["plugin", "rpc"])
+  test("the installed manifest is the package's capabilities, under one wire version", () => {
+    const pkgFull = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { capabilities: typeof installed }
+    expect(installed).toEqual(pkgFull.capabilities)
+    expect(installed.version).toBe(1)
+    expect(pkg.version).toBe("0.0.0")
   })
 })
 

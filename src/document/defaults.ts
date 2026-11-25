@@ -6,7 +6,7 @@
 /** The only chart document version this build reads and writes. */
 export const DOCUMENT_VERSION = 1 as const
 /** The artifact envelope's discriminator and version. */
-export const ARTIFACT_FORMAT = "opencode-charts-artifact" as const
+export const ARTIFACT_FORMAT = "charts-artifact" as const
 export const ARTIFACT_VERSION = 1 as const
 
 export const LAYOUT_TARGETS = ["inline", "analysis", "report", "presentation", "paper"] as const

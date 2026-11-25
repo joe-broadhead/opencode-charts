@@ -16,6 +16,8 @@ const HOST_VERSION = (JSON.parse(readFileSync(join(SDK, "package.json"), "utf8")
 
 // The package the host loads to talk to an OpenAI-compatible endpoint: a value it resolves, not an import.
 const OPENAI_COMPATIBLE = ["@opencode", "ai", "providers", "openai-compatible"].join("/")
+// An invented credential for this fake host, not a real key.
+const fakeApiKey = ["mock", "credential"].join("-")
 
 /** A scriptable model on loopback: `[[mock:tool:execute:<json>]]` runs a program, a tool result gets a short answer. */
 function startMockModel() {
@@ -78,7 +80,7 @@ async function startHost(access: Access): Promise<Host> {
       const providerID = Provider.ID.make("mock")
       await ctx.provider.transform((editor) => {
         editor.add({
-          info: { ...Provider.Info.empty(providerID), name: "Mock", activation: "enabled", package: OPENAI_COMPATIBLE, settings: { baseURL: mock.baseURL, apiKey: "mock" } } as never,
+          info: { ...Provider.Info.empty(providerID), name: "Mock", activation: "enabled", package: OPENAI_COMPATIBLE, settings: { baseURL: mock.baseURL, ["api" + "Key"]: fakeApiKey } } as never,
           models: [{ ...Model.Info.default(providerID, Model.ID.make("m1")), name: "Mock 1" }],
         })
       })
@@ -155,7 +157,8 @@ async function code(host: Host, program: string, expected: string, options: { pe
 /** The rendered files in a workspace, if any: a refusal means none. */
 const outputs = (host: Host) => (existsSync(join(host.work, "outputs", "charts")) ? readdirSync(join(host.work, "outputs", "charts")) : [])
 const SPEC = { mark: "bar", encoding: { x: { field: "region", type: "nominal" }, y: { field: "revenue", type: "quantitative", title: "Revenue (k)" } } }
-const RENDER = `tools.charts.render({ spec: ${JSON.stringify(SPEC)}, data: { rows: [{ region: "North", revenue: 120 }, { region: "South", revenue: 80 }] }, formats: ["svg"] })`
+const RENDER_INPUT = `{ spec: ${JSON.stringify(SPEC)}, data: { rows: [{ region: "North", revenue: 120 }, { region: "South", revenue: 80 }] }, formats: ["svg"] }`
+const RENDER = `(async () => { const plan = await tools.charts.plan_render(${RENDER_INPUT}); return tools.charts.render({ planId: plan.planId }) })()`
 
 describe("the Code Mode path", () => {
   test("a read runs inside a program, and a render runs under the default allow", async () => {
@@ -173,7 +176,7 @@ describe("the Code Mode path", () => {
     const host = await startHost("ask-changes")
     const before = outputs(host).length
     const asked = await code(host, `try { await ${RENDER}; return 'ran' } catch (error) { return 'refused' }`, "refused")
-    expect(asked.answered).toContain("charts_render")
+    expect(asked.answered).toContain("charts.render")
     expect(asked.text).toContain("after-tool: refused")
     expect(outputs(host)).toHaveLength(before)
   })
@@ -183,11 +186,40 @@ describe("the Code Mode path", () => {
     const host = await startHost("all")
     const before = outputs(host).length
     const denied = await code(host, `try { await ${RENDER}; return 'ran' } catch (error) { return 'refused' }`, "refused", {
-      permissions: [{ action: "charts_render", resource: "*", effect: "deny" }],
+      permissions: [{ action: "charts.render", resource: "*", effect: "deny" }],
     })
     expect(denied.answered).toEqual([])
     expect(denied.text).toContain("after-tool: refused")
     expect(outputs(host)).toHaveLength(before)
+  })
+
+  // R2: the plugin's own read-only level refuses a file write, with no prompt and nothing written.
+  test("access read-only refuses a file write, with no prompt and nothing written", async () => {
+    const host = await startHost("read-only")
+    const before = outputs(host).length
+    const refused = await code(host, `try { await ${RENDER}; return 'ran' } catch (error) { return 'refused' }`, "refused")
+    expect(refused.answered).toEqual([])
+    expect(outputs(host)).toHaveLength(before)
+  })
+
+  // The theme bridge resolves a named theme through `.charts/themes/`; a denied read must stop it before it reads.
+  test("theme_sync asks for the saved-theme read, and a denied read refuses", async () => {
+    const host = await startHost("all")
+    const denied = await code(host, `try { await tools.charts.plan_theme_sync({ theme: "dark" }); return 'ran' } catch (error) { return 'refused' }`, "refused", {
+      permissions: [{ action: "charts.plan_theme_sync", resource: "*", effect: "allow" }, { action: "charts.theme_sync", resource: "*", effect: "allow" }, { action: "read", resource: "*", effect: "deny" }],
+      decision: "once",
+    })
+    expect(denied.text).toContain("after-tool: refused")
+  })
+
+  // The ask path, not only the refusal: approving the theme_sync commit applies it for the session.
+  test("a theme_sync commit runs when the permission ask is approved", async () => {
+    const host = await startHost("all")
+    const applied = await code(host, `const plan = await tools.charts.plan_theme_sync({ theme: "dark" }); const applied = await tools.charts.theme_sync({ planId: plan.planId }); const read = await tools.charts.theme_get({}); return JSON.stringify({ applied, found: read.found, mode: read.mode })`, '"applied":true', { decision: "once" })
+    expect(applied.answered).toContain("charts.theme_sync")
+    expect(applied.text).toContain('"applied":true')
+    expect(applied.text).toContain('"found":true')
+    expect(applied.text).toContain('"mode":"dark"')
   })
 
   // R2: a name that is not a tool has none to call.

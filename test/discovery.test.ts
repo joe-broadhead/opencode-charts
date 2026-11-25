@@ -7,7 +7,8 @@ import { DOCUMENT_VERSION, LAYOUT_PROFILES } from "../src/document/defaults.ts"
 import { RECIPE_IDS } from "../src/recipes/types.ts"
 import { recipeContract } from "../src/recipes/index.ts"
 import { recipeExamples } from "../src/recipes/examples.ts"
-import { runTool, type ToolName } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolName } from "../src/registry.ts"
 import { workspace } from "./helpers.ts"
 
 /**
@@ -24,7 +25,7 @@ function setup() {
   const ws = workspace()
   spaces.push(ws)
   const env = { ...ws.env, assertFiles: async () => {} }
-  const call = async (tool: ToolName, input: Record<string, unknown>) => (await runTool(env as never, tool, input)) as { output: Record<string, any>; content: { type: string; text?: string }[] }
+  const call = async (tool: ToolName, input: Record<string, unknown>) => (await runTool(env as never, tool, input)) as { output: Record<string, any> }
   const files = () => readdirSync(ws.dir, { recursive: true })
   return { env, call, files }
 }
@@ -36,7 +37,7 @@ describe("charts_capabilities reports the document contract from the registry", 
 
   test("document versions, the artifact format and the tools that create, replay and update", () => {
     expect(view.documents.versions).toEqual([DOCUMENT_VERSION])
-    expect(view.documents.artifact).toEqual({ format: "opencode-charts-artifact", version: 1, file: "<name>.chart.json" })
+    expect(view.documents.artifact).toEqual({ format: "charts-artifact", version: 1, file: "<name>.chart.json" })
     expect(view.documents.tools).toEqual({ create: ["quick", "render"], replay: ["render", "validate"], update: "update" })
   })
 
@@ -57,7 +58,7 @@ describe("charts_capabilities reports the document contract from the registry", 
     expect(view.layouts.engineDocuments).toEqual(["native"])
     const text = describeCapabilities(view)
     expect(text).toContain("presentation fixed 1280×720, 18px")
-    expect(text).toContain("charts_update")
+    expect(text).toContain("tools.charts.update")
     for (const id of RECIPE_IDS) expect(text).toContain(`${id} (`)
   })
 })
@@ -83,8 +84,8 @@ describe("charts_catalogue hands out recipe documents (A01, A05)", () => {
         const checked = await t.call("validate", { document: example.call.input.document, inspect: false })
         expect(checked.output.valid, JSON.stringify(checked.output.issues ?? [])).toBe(true)
       }
-      const text = out.content.map(c => c.text ?? "").join("\n")
-      expect(text).toContain(`document.chart.recipe "${id}"`)
+      const text = JSON.stringify(out.output)
+      expect(text).toContain(`"recipe":"${id}"`)
       expect(t.files()).toEqual([])
     }, 60_000)
   }

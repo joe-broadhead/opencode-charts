@@ -161,7 +161,7 @@ function savedFile(sources: ThemeSources, name: string) {
  */
 export function savedThemeExists(file: { readonly absolute: string; readonly relative: string }, name: string): boolean {
   if (!existsSync(file.absolute)) return false
-  if (!statSync(file.absolute).isFile()) throw new ChartsError("NOT_A_FILE", `The saved theme "${name}" (${file.relative}) is not a regular file: there is a folder or a device where its file goes.`, `Move or remove ${file.relative}, then save the theme again with charts_theme_save (or use another name).`)
+  if (!statSync(file.absolute).isFile()) throw new ChartsError("NOT_A_FILE", `The saved theme "${name}" (${file.relative}) is not a regular file: there is a folder or a device where its file goes.`, `Move or remove ${file.relative}, then save the theme again with tools.charts.theme_save (or use another name).`)
   return true
 }
 
@@ -173,7 +173,7 @@ function readSaved(sources: ThemeSources, name: string): ThemeDefinition | undef
   const file = savedFile(sources, name)
   if (!savedThemeExists(file, name)) return undefined
   try { return JSON.parse(readFileSync(file.absolute, "utf8")) as ThemeDefinition }
-  catch { throw new ChartsError("THEME_INVALID", `The saved theme "${name}" (${file.relative}) is not valid JSON.`, "Save it again with charts_theme_save.") }
+  catch { throw new ChartsError("THEME_INVALID", `The saved theme "${name}" (${file.relative}) is not valid JSON.`, "Save it again with tools.charts.theme_save.") }
 }
 
 export function savedThemeNames(sources: ThemeSources): string[] {
@@ -317,21 +317,24 @@ function validate(tokens: ThemeTokens): ThemeTokens {
   const parsed = ThemeTokensSchema.safeParse(normalised)
   if (!parsed.success) {
     const first = parsed.error.issues[0]!
-    throw new ChartsError("THEME_INVALID", `Theme token /${first.path.join("/")} is invalid: ${first.message}.`, "Fix that token; charts_themes shows a complete theme to copy from.", `/theme/${first.path.join("/")}`)
+    throw new ChartsError("THEME_INVALID", `Theme token /${first.path.join("/")} is invalid: ${first.message}.`, "Fix that token; tools.charts.themes shows a complete theme to copy from.", `/theme/${first.path.join("/")}`)
   }
   return parsed.data
 }
 
 /** Saves tokens (or a seed or a pair) as a named workspace theme, after checking that they resolve. */
-export function saveTheme(sources: ThemeSources, name: string, overrides: ThemeDefinition) {
+export function saveTheme(sources: ThemeSources, name: string, overrides: ThemeDefinition, plan?: { theme(relative: string, bytes: string): string }) {
   const BUILTIN_THEMES = builtinThemes()
   if (!NAME.test(name)) throw new ChartsError("THEME_NAME_INVALID", `"${name}" is not a theme name.`, "Use lowercase letters, digits and dashes, such as acme-brand.")
   if (BUILTIN_THEMES[name]) throw new ChartsError("THEME_NAME_TAKEN", `"${name}" is a built-in theme.`, "Pick another name, and set extends to it to start from it.")
   const resolved = resolveTheme(sources, { ...overrides, name })
-  ensureDirectory(sources.workspace, THEME_DIR)
   const file = savedFile(sources, name)
   savedThemeExists(file, name)
-  writeFileSync(file.absolute, JSON.stringify({ ...overrides, name }, null, 2) + "\n")
+  const bytes = JSON.stringify({ ...overrides, name }, null, 2) + "\n"
+  if (plan === undefined) {
+    ensureDirectory(sources.workspace, THEME_DIR)
+    writeFileSync(file.absolute, bytes)
+  } else plan.theme(file.relative, bytes)
   return { file: file.relative, theme: resolved }
 }
 

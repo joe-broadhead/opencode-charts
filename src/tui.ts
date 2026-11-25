@@ -1,12 +1,13 @@
+import type { StatusAnswer } from "@we-the-rebel-alliance/plugin-contract/accounts"
 import { Plugin } from "@opencode/plugin/tui"
 import { TextRenderable } from "@opentui/core"
 import { createSignal } from "solid-js"
-import { formatFailure } from "./errors.js"
+import { ChartsRpc } from "./client.js"
 import { PLUGIN_ID } from "./constants.js"
-import { ChartsStatus } from "./status-rpc.js"
-import { ChartsThemeContract, applyTuiAnsiTheme, extractTuiThemeSeed, type ThemeSeedResult } from "./theme-contract.js"
+import { formatFailure } from "./errors.js"
+import { formatStatus } from "./status.js"
+import { applyTuiAnsiTheme, extractTuiThemeSeed, type ThemeSeedResult } from "./themes/host-seed.js"
 import { ChartBlockCache } from "./tui-chart.js"
-
 
 const TITLE = "Charts status"
 const KEYS = "r refresh · esc close"
@@ -14,18 +15,17 @@ const KEYS = "r refresh · esc close"
 type Context = Plugin.Context
 
 /**
- * The view's text: the report `/charts-status` prints without its heading, which the dialog title carries, and the
- * one line of keys. A refusal from the RPC is shown as its own message and next step; a server that does not answer
- * at all means the plugin is not loaded there.
+ * The view's text: the status answer as the server formats it, without its heading, which the dialog title carries,
+ * and the one line of keys. A refusal from the RPC is shown as its own message and next step; a server that does not
+ * answer at all means the plugin is not loaded there.
  */
 export function viewMessage(result: { readonly status: { readonly text: string } } | { readonly error: unknown }): string {
-  // The RPC carries the report already formatted, so the dialog needs no copy of the status model.
   if ("status" in result) return `${result.status.text.split("\n").slice(1).join("\n")}\n\n${KEYS}`
   const { error } = result
   const type = typeof error === "object" && error !== null && "type" in error ? (error as { type?: unknown }).type : undefined
-  if (type === "unavailable") {
-    const { message, data } = error as { message?: unknown; data?: { nextStep?: unknown } }
-    if (typeof message === "string") return `${message}${typeof data?.nextStep === "string" ? ` Next step: ${data.nextStep}` : ""}\n\n${KEYS}`
+  if (type === "failed") {
+    const { message } = error as { message?: unknown }
+    if (typeof message === "string") return `${message}\n\n${KEYS}`
   }
   if (type === "rpc.unavailable" || type === "rpc.method_not_found") {
     return `${formatFailure("STATUS_UNAVAILABLE", "The Charts plugin is not running on this OpenCode server.", "Run /plugins to see why it did not start.")}\n\n${KEYS}`
@@ -77,10 +77,9 @@ export function setupView(context: ViewContext) {
     const request = ++latest
     const location = context.location
     const result = await context.client
-      .rpc(ChartsStatus)
+      .rpc(ChartsRpc)
       .status({}, location ? { location } : {})
-      // The host validates the output against the contract's schema before it answers.
-      .then((status) => ({ status: status as { text: string } }), (error: unknown) => ({ error }))
+      .then((status) => ({ status: { text: formatStatus(status as StatusAnswer) } }), (error: unknown) => ({ error }))
     // The newest request wins, and a refresh never reopens a view the user closed meanwhile.
     if (request !== latest || (refresh && open === undefined)) return
     open = request
@@ -98,8 +97,8 @@ export function setupView(context: ViewContext) {
   }
   const refresh = () => void show(true)
 
-  // The active TUI theme, read on each use: the chart block paints in these colours, and the seed is pushed to the
-  // server so an artifact rendered there matches the terminal. A host that publishes no theme keeps the plain block.
+  // The active TUI theme, read on each use: the chart block paints in these colours, so a block matches the terminal
+  // around it. Nothing is pushed to the server: a theme sync is a write and asks for the person's confirmation.
   const readTheme = (): ThemeSeedResult | undefined => {
     try {
       if (context.theme === undefined && context.themeMode === undefined) return undefined
@@ -108,36 +107,6 @@ export function setupView(context: ViewContext) {
       return undefined
     }
   }
-  let pushed: string | undefined
-  /**
-   * Push the seed once per revision that the server accepted. Silent by design: an older server has no such contract
-   * and a mock has no such method, and neither may surface an error or a warning in the terminal. A revision is only
-   * remembered once the server says it applied it, so a refused or dropped call is retried on the next connection.
-   */
-  const pushTheme = async (): Promise<void> => {
-    const seed = readTheme()
-    if (seed === undefined || pushed === seed.revision) return
-    const revision = seed.revision
-    try {
-      const call = context.client.rpc(ChartsThemeContract).sync({ mode: seed.mode, theme: { seed: seed.seed }, revision }, context.location ? { location: context.location } : {})
-      const result = (await Promise.resolve(call)) as { readonly applied?: boolean; readonly ok?: boolean } | undefined
-      if (result?.applied === true || result?.ok === true) pushed = revision
-    } catch {
-      // Silent: the charts still draw, and the next `server.connected` tries again.
-    }
-  }
-  const themeStops: (() => void)[] = []
-  try {
-    // A server that restarted or reloaded came up with an empty registry, so every connection re-offers the theme.
-    const stop = context.data.on("server.connected", () => {
-      pushed = undefined
-      void pushTheme()
-    })
-    if (typeof stop === "function") themeStops.push(stop)
-  } catch {
-    // A host whose event bus refuses the listener simply never pushes.
-  }
-  void pushTheme()
 
   // A ```chart fence is drawn from its JSON. While a model streams the fence its JSON is incomplete, so the cache
   // keeps the last chart this block drew; before the first one parses the block falls back to plain text, and a block
@@ -172,7 +141,7 @@ export function setupView(context: ViewContext) {
       {
         id: `${PLUGIN_ID}.status`,
         title: "Charts: Status",
-        description: "The renderers, themes, tools and permission posture, and the next step",
+        description: "The plugin's state, its host range and the next step",
         group: "Charts",
         palette: true,
         slash: { name: "charts" },
@@ -183,7 +152,6 @@ export function setupView(context: ViewContext) {
   }))
   return () => {
     for (const stop of chartStops.splice(0)) stop()
-    for (const stop of themeStops.splice(0)) stop()
     unsubscribe()
     if (open === undefined) return
     open = undefined

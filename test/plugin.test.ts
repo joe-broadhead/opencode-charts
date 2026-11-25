@@ -1,188 +1,192 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { existsSync } from "node:fs"
+import { afterAll, describe, expect, test } from "bun:test"
+import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { defaultRules } from "../src/permissions.ts"
-import { TOOLS } from "../src/tools.ts"
-import { ROOT, workspace } from "./helpers.ts"
+import { rulesFor } from "@we-the-rebel-alliance/plugin-contract/access"
+import { statusAnswer } from "@we-the-rebel-alliance/plugin-contract/accounts"
+import { createHandlers, runTool } from "../src/handlers/index.js"
+import { manifest, version, packageRoot } from "../src/manifest.js"
+import { options } from "../src/options.js"
+import type { HandlerCall } from "../src/handlers/types.js"
+import { BAR, ROWS, ROOT, workspace } from "./helpers.js"
 
 /**
- * The built bundle, loaded the way OpenCode loads it, with a fake host context: the tools it registers, what they
- * return, and the permissions they ask for. Run `npm run build` first (npm test does).
+ * The handler table and the access rules the register generates: every method declared once, every schema plain JSON,
+ * and the status and theme bridge answering from the call with no state kept between setup and a run.
  */
+
 const ws = workspace()
-const asserts: { action: string; resources: string[] }[] = []
-const tools = new Map<string, { name: string; description: string; options: { namespace: string; permission: string }; execute: (input: unknown, ctx: unknown) => Promise<{ output: Record<string, unknown>; content: { type: string; text?: string; mime?: string; uri?: string }[] }> }>()
-const skills: { id: string; content: string; path: string }[] = []
-const commands = new Map<string, { name: string; execute: (input: { sessionID: string; delivery: string; prompt: { text: string } }) => Promise<void> }>()
-const posted: { sessionID: string; text: string; description: string }[] = []
-// Agents as OpenCode lists them: build with its base allow, and a read-only helper with none.
-const agents = [
-  { id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] as { action: string; resource: string; effect: string }[] },
-  { id: "explore", permissions: [{ action: "*", resource: "*", effect: "deny" }, { action: "read", resource: "*", effect: "allow" }] as { action: string; resource: string; effect: string }[] },
-]
-let cleanup: (() => Promise<void>) | undefined
-let deny: string | undefined
-const call = (name: string, input: unknown) => tools.get(name)!.execute(input, { sessionID: "ses_1", agent: "build", messageID: "msg_1", id: "call_1" })
-
-beforeAll(async () => {
-  expect(existsSync(join(ROOT, "dist/index.js"))).toBe(true)
-  const plugin = (await import(join(ROOT, "dist/index.js"))).default
-  const ctx = {
-    app: { version: "2.4.1" },
-    options: { theme: "light" },
-    location: { directory: ws.dir, project: { directory: ws.dir } },
-    agent: {
-      transform: async (fn: (editor: unknown) => void) => fn({ list: () => agents.map(agent => ({ id: agent.id })), update: (id: string, change: (info: unknown) => void) => change(agents.find(agent => agent.id === id)!) }),
-      list: async () => ({ data: agents }),
-    },
-    command: { transform: async (fn: (editor: unknown) => void) => fn({ add: (c: never) => commands.set((c as { name: string }).name, c) }) },
-    // The tools RPC: accepted and disposed, so the plugin starts without a model.
-    rpc: {
-      register: async () => ({ dispose: async () => undefined }),
-    },
-    session: { synthetic: async (input: { sessionID: string; text: string; description: string }) => { posted.push(input) } },
-    permission: {
-      assert: async (input: { action: string; resources: string[] }) => { asserts.push({ action: input.action, resources: input.resources }); if (input.action === deny) throw new Error(`${deny} denied`) },
-      hook: async () => ({ dispose: async () => undefined }),
-    },
-    tool: {
-      transform: async (fn: (editor: unknown) => void) => fn({ namespace: () => undefined, add: (t: never) => tools.set((t as { name: string }).name, t) }),
-      list: async () => [...tools.keys()].map(name => ({ id: `charts_${name}` })),
-    },
-    skill: {
-      transform: async (fn: (editor: unknown) => void) => fn({ add: (s: never) => skills.push(s) }),
-      list: async () => ({ data: skills.map(skill => ({ id: skill.id, path: skill.path })) }),
-    },
-  }
-  cleanup = await plugin.setup(ctx)
+afterAll(async () => {
+  const { closeVegaWorker } = await import("../src/engines/vega-pool.ts")
+  await closeVegaWorker()
+  ws.cleanup()
 })
-afterAll(async () => { await cleanup?.(); ws.cleanup() })
 
-describe("the plugin", () => {
-  test("registers exactly its tools, namespaced charts_, each with its own permission", () => {
-    expect([...tools.keys()].sort()).toEqual(Object.keys(TOOLS).sort())
-    for (const tool of tools.values()) expect(tool.options).toMatchObject({ namespace: "charts", permission: `charts_${tool.name}` })
+const CALL: HandlerCall = {
+  sessionID: "ses_1",
+  agent: "build",
+  messageID: "msg_1",
+  id: "call_1",
+  signal: new AbortController().signal,
+  account: "default",
+  door: "tool",
+  bus: { name: "charts", emit: async () => ({ ok: true }) },
+  unguardedAgents: async () => ({ ok: true, agents: [] }),
+}
+
+function handlers(asserts: { action: string; resources: string[] }[] = []) {
+  return createHandlers({
+    manifest,
+    version,
+    hostVersion: "2.4.1",
+    packageRoot,
+    workspace: { directory: ws.dir, projectDirectory: ws.dir },
+    options: options({ theme: "light" }),
+    permission: { assert: async (input) => { asserts.push({ action: input.action, resources: [...input.resources] }) } },
   })
-  test("each tool declares its output schema, since each returns output (OpenCode refuses it otherwise)", () => {
-    for (const tool of tools.values()) {
-      const output = (tool as { output?: Record<string, unknown> }).output
-      expect(output).toBeDefined()
-      expect(output!.type).toBe("object")
-      expect(output).not.toEqual({})
-      // The shared tools RPC refuses any `pattern` in an owned output schema; one object serves both surfaces.
-      expect(JSON.stringify(output)).not.toMatch(/"(pattern|patternProperties|propertyNames)"|"\$ref"|\$defs|"if"|"then"|"else"/)
+}
+
+const env = { ...ws.env, assertFiles: async () => undefined }
+
+describe("the handler table", () => {
+  test("is exactly the manifest's methods, one handler each", () => {
+    expect(Object.keys(handlers()).sort()).toEqual(Object.keys(manifest.methods).sort())
+  })
+
+  test("declares a JSON Schema object for every input and answer", () => {
+    for (const [name, handler] of Object.entries(handlers())) {
+      expect({ name, input: handler.input.type }).toEqual({ name, input: "object" })
+      expect({ name, output: handler.output.type }).toEqual({ name, output: "object" })
     }
   })
 
-  test("loads both skills", () => {
-    expect(skills.map(s => s.id).sort()).toEqual(["charts", "charts-cookbook"])
-  })
-  test("render writes files under outputs/charts, asks to edit there, and returns a markdown image line", async () => {
-    const result = await call("render", { spec: { mark: "bar", encoding: { x: { field: "k", type: "nominal", sort: "-y" }, y: { field: "v", type: "quantitative", title: "Value (n)" } } }, data: { rows: [{ k: "a", v: 1 }, { k: "b", v: 2 }] }, title: "Plugin test" })
-    expect(result.output.files).toEqual({ png: ["outputs/charts/plugin-test.png"], svg: "outputs/charts/plugin-test.svg", spec: "outputs/charts/plugin-test.vl.json" })
-    expect(result.output.markdown).toBe("![Plugin test](outputs/charts/plugin-test.png)")
-    expect(result.content[0]!.text).toContain("your host's file-saving tool")
-    expect(asserts).toContainEqual({ action: "charts_render", resources: ["*"] })
-    expect(asserts).toContainEqual({ action: "edit", resources: ["outputs/charts/*"] })
-    expect(existsSync(join(ws.dir, "outputs/charts/plugin-test.png"))).toBe(true)
-  })
-  test("validate returns the picture to the model as an image, and writes nothing", async () => {
-    const result = await call("validate", { spec: { mark: "point", encoding: { x: { field: "k", type: "nominal" } } }, data: { rows: [{ k: "a" }] } })
-    const image = result.content.find(c => c.type === "file")!
-    expect(image.mime).toBe("image/png")
-    expect(image.uri).toStartWith("data:image/png;base64,iVBORw0KGgo")
-    expect(result.output.files).toEqual({ png: [] })
-  })
-  test("reading a workspace file asks to read it", async () => {
-    await Bun.write(join(ws.dir, "d.csv"), "k,v\na,1\n")
-    await call("quick", { type: "bar", data: { path: "d.csv" }, x: "k", y: "v", formats: ["svg"] })
-    expect(asserts).toContainEqual({ action: "read", resources: ["d.csv"] })
-  })
-  test("every call asserts the tool's own action first, before any file", async () => {
-    asserts.length = 0
-    await call("catalogue", {})
-    expect(asserts).toEqual([{ action: "charts_catalogue", resources: ["*"] }])
-  })
-  test("a denied tool action stops the call before anything is written", async () => {
-    const before = asserts.length
-    deny = "charts_theme_save"
-    try {
-      await expect(call("theme_save", { name: "denied", theme: { extends: "light" } })).rejects.toThrow("denied")
-      expect(asserts.slice(before)).toEqual([{ action: "charts_theme_save", resources: ["*"] }])
-      expect(existsSync(join(ws.dir, ".charts/themes/denied.json"))).toBe(false)
-    } finally { deny = undefined }
-  })
-  test("failures are CODE: what happened. Next step: what to do, with the code in metadata", async () => {
-    let error: { message: string; metadata?: Record<string, unknown> } | undefined
-    try { await call("render", { spec: { data: { url: "https://x" }, mark: "bar" } }) } catch (e) { error = e as never }
-    expect(error!.message).toMatch(/^SPEC_UNSAFE: .+ \(at \/data\/url\) Next step: .+\.$/)
-    expect(error!.metadata).toMatchObject({ code: "SPEC_UNSAFE", path: "/data/url" })
-  })
-  test("catalogue and themes answer without files", async () => {
-    expect((await call("catalogue", {})).content[0]!.text).toContain("sankey")
-    expect((await call("catalogue", { id: "sankey" })).content[0]!.text).toContain('"type":"sankey"')
-    expect((await call("themes", {})).content[0]!.text).toContain("high-contrast")
-  })
-})
-
-describe("the default rules", () => {
-  test("go right after an agent's base allow: every tool is allowed by default, and an agent without one gets none", () => {
-    const block = [{ action: "*", resource: "*", effect: "allow" }, ...defaultRules()]
-    expect(agents[0]!.permissions).toEqual(block)
-    expect(agents[1]!.permissions).toHaveLength(2)
-  })
-
-  // R18, the namespace amendment: the `charts_*` pattern is first in the block, so a tool this version does not know is
-  // decided by it: allowed under `all`, asked for under `ask-changes`, denied under `read-only`.
-  test("a charts_* name the tool table does not list takes the value's effect", () => {
-    const names = new Set(Object.keys(TOOLS).map(name => `charts_${name}`))
-    expect(names.has("charts_tool_from_a_later_release")).toBe(false)
-    expect(defaultRules("all")[0]).toEqual({ action: "charts_*", resource: "*", effect: "allow" })
-    expect(defaultRules("ask-changes")[0]).toEqual({ action: "charts_*", resource: "*", effect: "ask" })
-    expect(defaultRules("read-only")[0]).toEqual({ action: "charts_*", resource: "*", effect: "deny" })
-    for (const [access, effect] of [["all", "allow"], ["ask-changes", "ask"], ["read-only", "deny"]] as const) {
-      // The host's own resolution: the last matching rule wins, and `*` matches any run of characters.
-      const winner = [...defaultRules(access)].reverse().find(rule => new RegExp(`^${rule.action.replace(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*")}$`).test("charts_tool_from_a_later_release"))
-      expect({ access, effect: winner?.effect }).toEqual({ access, effect })
+  test("classifies all 26 methods: 17 reads (eight reads and nine plans) and 9 writes, none pinned, none an account method", () => {
+    const methods = Object.entries(manifest.methods)
+    expect(methods).toHaveLength(26)
+    const reads = ["capabilities", "catalogue", "recommend", "state", "status", "theme_get", "themes", "validate"]
+    for (const write of ["render", "quick", "update", "board", "table", "diagram", "theme_save", "theme_sync", "theme_clear"]) reads.push(`plan_${write}`)
+    expect(methods.filter(([, item]) => item.class === "read").map(([name]) => name).sort()).toEqual(reads.sort())
+    expect(methods.filter(([, item]) => item.class === "write")).toHaveLength(9)
+    for (const write of ["render", "quick", "update", "board", "table", "diagram", "theme_save", "theme_sync", "theme_clear"]) expect(manifest.methods[write]!.commits).toBe(`plan_${write}`)
+    for (const [, item] of methods) {
+      expect(item.accounts).toBe("none")
+      expect((item as { pinned?: boolean }).pinned).toBeUndefined()
     }
   })
 })
 
-describe("/charts-status", () => {
-  const status = async () => {
-    posted.length = 0
-    await commands.get("charts-status")!.execute({ sessionID: "ses_1", delivery: "immediate", prompt: { text: "" } })
-    expect(posted).toHaveLength(1)
-    return posted[0]!
-  }
-  test("is the one command", () => {
-    expect([...commands.keys()]).toEqual(["charts-status"])
+describe("the access rules", () => {
+  const rule = (level: "all" | "ask-changes" | "read-only", action: string) => rulesFor(manifest, level).find((entry) => entry.action === action)!
+
+  test("every method runs under all except the three that ask, and a read always runs", () => {
+    const asking = new Set(["theme_save", "theme_sync", "theme_clear"])
+    for (const name of Object.keys(manifest.methods)) {
+      const effect = asking.has(name) ? "ask" : "allow"
+      expect({ name, rule: rule("all", `charts.${name}`) }).toEqual({ name, rule: { action: `charts.${name}`, resource: "*", effect } })
+    }
+    expect(rule("read-only", "charts.validate")?.effect).toBe("allow")
   })
-  test("posts the renderers, defaults, themes, skills, tools and the next step into the session", async () => {
-    const { text, description, sessionID } = await status()
-    expect(sessionID).toBe("ses_1")
-    expect(description).toBe("Charts status")
-    expect(text.split("\n")).toEqual([
-      "Charts status",
-      "Connection: Ready",
-      "Account: none needed; Charts calls no service",
-      "Renderers: SVG ready; PNG ready; HTML ready",
-      "Defaults: theme light, locale en-US, files under outputs/charts/",
-      "Themes: 9 built in, 0 from options, none saved in .charts/themes",
-      "Skills: charts, charts-cookbook",
-      "Tools: 12 of 12 visible to this agent",
-      "Agents without default rules: none",
-      "OpenCode: 2.4.1",
-      `Version: ${(await Bun.file(join(ROOT, "package.json")).json()).version}`,
-      "Next step: Nothing to do.",
-    ])
+
+  test("ask-changes asks for the writers, and read-only denies them", () => {
+    expect(rule("ask-changes", "charts.render")?.effect).toBe("ask")
+    expect(rule("read-only", "charts.render")?.effect).toBe("deny")
   })
-  test("lists an agent that would run the writers without asking, with the rules to paste", async () => {
-    agents.push({ id: "reviewer", permissions: [{ action: "*", resource: "*", effect: "allow" }, { action: "charts_*", resource: "*", effect: "allow" }] })
-    try {
-      const { text } = await status()
-      expect(text).toContain("Agents without default rules: reviewer\n  {\"action\":\"charts_*\",\"resource\":\"*\",\"effect\":\"allow\"}")
-      expect(text).toEndWith("Next step: Put the default rules shown by /charts-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Charts tools.")
-    } finally { agents.pop() }
+
+  test("theme_save, theme_sync and theme_clear ask even under all: each overwrites what a later render uses", () => {
+    for (const name of ["charts.theme_save", "charts.theme_sync", "charts.theme_clear"]) expect({ name, effect: rule("all", name)?.effect }).toEqual({ name, effect: "ask" })
+    expect(rule("read-only", "charts.theme_save")?.effect).toBe("deny")
   })
 })
+
+describe("the status answer", () => {
+  test("is the contract's shape, with no account and the agents the rules miss", async () => {
+    const status = (await handlers().status!.run({}, { ...CALL, unguardedAgents: async () => ({ ok: true, agents: ["reviewer"] }) })) as Record<string, any>
+    expect(status).toEqual({
+      name: "charts",
+      version,
+      host: { version: "2.4.1", range: ">=2.4.1 <2.5.0", tested: ["2.4.1"] },
+      state: "ready",
+      accounts: [],
+      unguardedAgents: ["reviewer"],
+      nextStep: null,
+    })
+    expect(status).toEqual(statusAnswer({ manifest, version, hostVersion: "2.4.1", accounts: [], unguardedAgents: { ok: true, agents: ["reviewer"] } }) as unknown as Record<string, unknown>)
+  })
+
+  test("an unreadable agent list is unknown, never zero: error, with one redacted next step", async () => {
+    const status = (await handlers().status!.run({}, { ...CALL, unguardedAgents: async () => ({ ok: false, error: "the agent list failed at https://example.test/hook?token=secret" }) })) as Record<string, any>
+    expect(status.state).toBe("error")
+    expect(status.unguardedAgents).toEqual([])
+    expect(String(status.nextStep)).not.toContain("secret")
+  })
+})
+
+describe("the theme bridge", () => {
+  test("syncs, reads and clears a theme for the call's session", async () => {
+    const table = handlers()
+    const syncPlan = (await table.plan_theme_sync!.run({ theme: "dark" }, CALL)) as Record<string, any>
+    const synced = (await table.theme_sync!.run({ planId: "plan" }, { ...CALL, plan: syncPlan })) as Record<string, any>
+    expect(synced).toMatchObject({ ok: true, applied: true, mode: "dark", themeName: "dark" })
+    const found = (await table.theme_get!.run({}, CALL)) as Record<string, any>
+    expect(found).toMatchObject({ found: true, mode: "dark", themeName: "dark", theme: { theme: { name: "dark", mode: "dark" }, mode: "dark" } })
+    const clearPlan = (await table.plan_theme_clear!.run({}, CALL)) as Record<string, any>
+    expect(await table.theme_clear!.run({ planId: "plan" }, { ...CALL, plan: clearPlan })).toEqual({ cleared: true, trust: "untrusted" })
+    expect(await table.theme_get!.run({}, CALL)).toEqual({ found: false, revision: null, theme: null, trust: "untrusted" })
+  })
+
+  test("a theme_sync commit applies the tokens the plan resolved, even if the saved file changes", async () => {
+    const table = handlers()
+    const saved = (await table.plan_theme_save!.run({ name: "plan-freeze", theme: { extends: "light", colors: { text: "#111111" } } }, CALL)) as Record<string, any>
+    await table.theme_save!.run({ planId: "plan" }, { ...CALL, plan: saved })
+    const planned = (await table.plan_theme_sync!.run({ theme: "plan-freeze" }, CALL)) as Record<string, any>
+    // Between the preview and the commit, the saved file changes to a different colour.
+    writeFileSync(join(ws.dir, ".charts/themes/plan-freeze.json"), JSON.stringify({ name: "plan-freeze", extends: "light", colors: { text: "#999999" } }, null, 2) + "\n")
+    const applied = (await table.theme_sync!.run({ planId: "plan" }, { ...CALL, plan: planned })) as Record<string, any>
+    expect(applied).toMatchObject({ ok: true, applied: true, themeName: "plan-freeze" })
+    const found = (await table.theme_get!.run({}, CALL)) as Record<string, any>
+    expect(found.theme.theme.colors.text).toBe("#111111")
+  })
+
+  test("a commit emits charts.state changed; a plan emits nothing", async () => {
+    const table = handlers()
+    const emitted: { event: string; data: Record<string, unknown> }[] = []
+    const call = {
+      ...CALL,
+      bus: { name: "charts", emit: async (event: string, data: Record<string, unknown>) => { emitted.push({ event, data }); return { ok: true } } },
+    } as unknown as HandlerCall
+    const plan = (await table.plan_theme_clear!.run({}, call)) as Record<string, any>
+    expect(emitted).toEqual([])
+    await table.theme_clear!.run({ planId: "plan" }, { ...call, plan })
+    expect(emitted).toEqual([{ event: "changed", data: { capability: "charts.state", account: "default", reason: "write" } }])
+    const fixture = JSON.parse(readFileSync(join(ROOT, "fixtures/conformance.json"), "utf8")) as { events: { emitted: string[] } }
+    expect(fixture.events.emitted).toEqual(emitted.map(entry => entry.event))
+  })
+})
+
+describe("a tool through the handler", () => {
+  test("render writes files under outputs/charts and answers the files and markdown line", async () => {
+    const { output } = await runTool(env as never, "render", { spec: BAR, data: { rows: ROWS }, title: "Handler test" })
+    const answer = output as Record<string, any>
+    expect(answer.files).toEqual({ png: ["outputs/charts/handler-test.png"], svg: "outputs/charts/handler-test.svg", spec: "outputs/charts/handler-test.vl.json" })
+    expect(answer.markdown).toBe("![Handler test](outputs/charts/handler-test.png)")
+    expect(answer.figure).toBeDefined()
+    expect(answer).not.toHaveProperty("content")
+  })
+
+  test("a bad spec is the plugin's own code with its path and next step, for the unit seam", async () => {
+    const error = (await runTool(env as never, "render", { spec: { data: { url: "https://x" }, mark: "bar" } }).catch((caught: unknown) => caught)) as Error & { code?: string; path?: string }
+    expect(error.message).toMatch(/^SPEC_UNSAFE: .+ \(at \/data\/url\) Next step: .+\.$/)
+    expect({ code: error.code, path: error.path }).toEqual({ code: "SPEC_UNSAFE", path: "/data/url" })
+  })
+
+  test("every call asserts the tool's own file rules through the environment it is given", async () => {
+    const asserts: { action: string; resources: string[] }[] = []
+    const table = handlers(asserts)
+    await table.catalogue!.run({}, CALL)
+    expect(asserts).toEqual([])
+    const plan = (await table.plan_theme_save!.run({ name: "asked", theme: { extends: "light" } }, CALL)) as Record<string, any>
+    expect(asserts).toEqual([])
+    await table.theme_save!.run({ planId: "plan" }, { ...CALL, plan })
+    expect(asserts).toEqual([{ action: "edit", resources: [".charts/themes/asked.json"] }])
+  })
+})
+

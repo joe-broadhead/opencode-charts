@@ -4,7 +4,8 @@ import { join } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { US_STATE_HEX_GRID } from "../src/geo/cartograms.ts"
 import { TOOL_NAMES } from "../src/registry.ts"
-import { runTool, type ToolName } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolName } from "../src/registry.ts"
 import { workspace } from "./helpers.ts"
 
 /**
@@ -32,7 +33,7 @@ function setup() {
   }
   const run = async (tool: ToolName, input: Record<string, unknown>) => runTool(env as never, tool, input)
   const call = async (tool: ToolName, input: Record<string, unknown>) => (await run(tool, input)).output as Record<string, any>
-  const text = async (tool: ToolName, input: Record<string, unknown>) => (await run(tool, input)).content.flatMap(part => (part.type === "text" ? [part.text] : [])).join("\n")
+  const text = async (tool: ToolName, input: Record<string, unknown>) => JSON.stringify((await run(tool, input)).output)
   const read = (path: string) => readFileSync(join(ws.dir, path), "utf8")
   const bytes = (path: string) => readFileSync(join(ws.dir, path))
   const write = (path: string, content: string) => { mkdirSync(join(ws.dir, path, ".."), { recursive: true }); writeFileSync(join(ws.dir, path), content) }
@@ -291,7 +292,7 @@ describe("charts_diagram draws Mermaid source or a structured recipe", () => {
     expect(String(out.ascii)).toContain("Model")
     expect(t.bytes(out.files.png[0]!).subarray(0, 8)).toEqual(PNG_SIGNATURE)
     const text = await t.text("diagram", { dsl: "flowchart LR\n  a --> b", formats: ["svg"], name: "outline" })
-    expect(text).toContain("Structure:")
+    expect(text).toContain("│")
   })
 
   test("a fishbone recipe names its effect and its categories, and draws its causes", async () => {
@@ -395,12 +396,12 @@ describe("charts_board publishes the dashboard", () => {
 })
 
 describe("charts_capabilities reports the whole build", () => {
-  test("names all twelve tools, six engines, nine themes and the gif format", async () => {
+  test("names every registry tool and plan, six engines, nine themes and the gif format", async () => {
     const t = setup()
     const view = await t.call("capabilities", {})
-    expect(view.contract).toBe("1.2.0")
+    expect(view.contract).toBe("1.0.0")
     expect(view.tools.map((tool: { name: string }) => tool.name)).toEqual([...TOOL_NAMES])
-    expect(view.tools).toHaveLength(12)
+    expect(view.tools).toHaveLength(21)
     expect(view.engines.map((engine: { id: string }) => engine.id)).toEqual(["vega-lite", "vega", "echarts", "plot", "table", "diagram"])
     expect(view.themes).toHaveLength(9)
     expect(view.formats.gif).toBe(view.formats.png)
@@ -411,9 +412,7 @@ describe("charts_capabilities reports the whole build", () => {
     expect(view.knownLimits.join(" ")).toContain("Mermaid")
     const text = await t.text("capabilities", {})
     expect(text).toContain("GIF")
-    expect(text).toContain("plot (")
-    expect(text).toContain("table (")
-    expect(text).toContain("diagram (")
-    for (const name of ["board", "table", "diagram"]) expect(view.tools.map((tool: { name: string; class: string }) => `${tool.name}:${tool.class}`)).toContain(`${name}:export`)
+    for (const engine of ["plot", "table", "diagram"]) expect(text).toContain(`"id":\"${engine}\"`)
+    for (const name of ["board", "table", "diagram"]) expect(view.tools.map((tool: { name: string; class: string }) => `${tool.name}:${tool.class}`)).toContain(`${name}:write`)
   })
 })

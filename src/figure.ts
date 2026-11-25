@@ -139,7 +139,7 @@ export function figureText(figure: Figure, maxLines = 60): string {
   if (lines.length <= maxLines) return figure.text
   const kept = lines.filter((line, i) => i === 0 || line.trimStart().startsWith("n") === false || line.includes("<-") || /^\s{2}\S/.test(line))
   const head = kept.slice(0, maxLines - 1)
-  return [...head, `  … ${lines.length - head.length} more labels; send marks: "all" to number them on the image.`].join("\n")
+  return [...head, `  … ${lines.length - head.length} more labels; the 1x preview numbers them with marks: "all".`].join("\n")
 }
 
 /**

@@ -102,7 +102,7 @@ export interface Generation {
 
 /** Hex digits of the bundle digest in a generation folder's name: 64 bits, verified in full on reuse. */
 export const GENERATION_DIGEST_CHARS = 16
-const GENERATION_DOMAIN = "opencode-charts-generation/1\n"
+const GENERATION_DOMAIN = "charts-generation/1\n"
 
 const digestOf = (bytes: string | Uint8Array) => `sha256:${createHash("sha256").update(bytes).digest("hex")}`
 
@@ -115,7 +115,7 @@ export function bundleManifest(artifacts: readonly Artifact[]): { readonly diges
 }
 
 /**
- * Publishes a complete bundle as a new immutable generation folder, `<outDir>/<name>-<digest prefix>/`, for charts_update.
+ * Publishes a complete bundle as a new immutable generation folder, `<outDir>/<name>-<digest prefix>/`, for tools.charts.update.
  *
  * The folder is named by the digest of the bundle's own file manifest, so it is content-addressed: an earlier
  * generation, and the artifact an update started from, are never overwritten. The files are written into a hidden

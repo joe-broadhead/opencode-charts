@@ -99,7 +99,7 @@ export const ECHARTS_SERIES_TYPES: ReadonlySet<string> = new Set(ECHARTS_MODULES
  */
 export const ECHARTS_UNBUNDLED: Readonly<Record<string, string>> = {
   dataZoom: "Remove dataZoom: the output is a static SVG, so there is no zoom window to drag. Draw the full range, or filter the rows to the period to show.",
-  brush: "Remove brush: a static SVG has no brush handles to drag. For a brushable chart use Vega-Lite with params: [{\"name\": \"brush\", \"select\": \"interval\"}] (charts_catalogue id interactive_brush).",
+  brush: "Remove brush: a static SVG has no brush handles to drag. For a brushable chart use Vega-Lite with params: [{\"name\": \"brush\", \"select\": \"interval\"}] (tools.charts.catalogue id interactive_brush).",
   toolbox: "Remove toolbox: its zoom, brush, restore and save tools are not part of a static output; ask for png or svg output to save the chart.",
   timeline: "Remove timeline: a static SVG shows one frame of a timeline, so an authored timeline has no scrubber to click. Draw one chart per period, or build a bar chart race or a bubble story, which renders each frame for you.",
   thumbnail: "Remove thumbnail: the overview thumbnail is not part of a static output.",

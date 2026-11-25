@@ -7,7 +7,7 @@ import { AppearanceV1Schema, checkStrict, InteractionsV1Schema, overrideHint, pa
 import type { AppearanceV1, CapturedDefaultsV1, CapturedDocumentV1, CapturedThemeV1, ChartArtifactV1, InteractionsV1, JsonObject, LayoutV1, RecipeLayoutV1 } from "./types.js"
 
 /**
- * The presentation patch of charts_update, and how it applies to a saved document.
+ * The presentation patch of tools.charts.update, and how it applies to a saved document.
  *
  * A patch changes presentation only: title, description, appearance, layout and interactions. The chart itself (its
  * data, bindings, options, transforms, aggregation and sorting) and the document's locale, currency, seed and version
@@ -82,7 +82,7 @@ export function parsePatch(raw: unknown): PatchV1 {
     issues.push({
       level: "error", code: "UNKNOWN_PROPERTY", path: pointer(["patch", key]),
       message: `"${key}" cannot be patched: an update changes presentation only (${PATCH_FIELDS.join(", ")}), and ${fixed} stays as saved.`,
-      fix: "To change the chart's data or meaning, create a new document with charts_quick or charts_render (document); to change its presentation, patch title, description, appearance, layout or interactions.",
+      fix: "To change the chart's data or meaning, create a new document with tools.charts.quick or tools.charts.render (document); to change its presentation, patch title, description, appearance, layout or interactions.",
     })
   }
   const parsed = checkStrict<PatchV1>(PatchSchema, rest, ["patch"], issues, path => (path[1] === "appearance" ? overrideHint(path.slice(1)) : undefined))

@@ -44,7 +44,7 @@ export async function renderVegaInProcess(spec: Json, fonts: FontBook, seed: num
   const logger = { level(_?: number) { return logger }, error: (...a: unknown[]) => { warnings.push(a.map(String).join(" ")); return logger }, warn: (...a: unknown[]) => { warnings.push(a.map(String).join(" ")); return logger }, info: () => logger, debug: () => logger }
   let runtime
   try { runtime = vega.parse(spec as never) }
-  catch (error) { throw new ChartsError("SPEC_INVALID", `Vega could not parse the spec: ${(error as Error).message}`, "Fix the named property; charts_catalogue has working Vega examples.") }
+  catch (error) { throw new ChartsError("SPEC_INVALID", `Vega could not parse the spec: ${(error as Error).message}`, "Fix the named property; tools.charts.catalogue has working Vega examples.") }
   const view = new vega.View(runtime, { renderer: "none", loader: deniedLoader() as never, logger: logger as never, logLevel: vega.Warn })
   try {
     await view.runAsync()
@@ -52,7 +52,7 @@ export async function renderVegaInProcess(spec: Json, fonts: FontBook, seed: num
     return { svg, width: view.width(), height: view.height(), warnings: warnings.filter(w => !/Can not resolve event source: window/.test(w)) }
   } catch (error) {
     if (error instanceof ChartsError) throw error
-    throw new ChartsError("RENDER_FAILED", `Vega could not render the chart: ${(error as Error).message}`, "Check field names and transforms against the data; charts_validate explains each problem.")
+    throw new ChartsError("RENDER_FAILED", `Vega could not render the chart: ${(error as Error).message}`, "Check field names and transforms against the data; tools.charts.validate explains each problem.")
   } finally {
     view.finalize()
   }

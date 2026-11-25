@@ -8,7 +8,7 @@ import { resolveLocale } from "../src/locale.ts"
 import { checkRenderedSvg } from "../src/safety.ts"
 import { BUILTIN_THEMES, type ThemeTokens } from "../src/themes/tokens.ts"
 import { attr, isUserColour, userColourHex } from "../src/themes/user-colour.ts"
-import { runTool } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
 import { ROOT, workspace } from "./helpers.ts"
 
 /**

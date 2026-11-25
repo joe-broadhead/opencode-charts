@@ -5,7 +5,8 @@ import { join } from "node:path"
 import { bundleManifest, GENERATION_DIGEST_CHARS } from "../src/artifacts.ts"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
-import { runTool, type ToolName } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolName } from "../src/registry.ts"
 import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
 
 /**

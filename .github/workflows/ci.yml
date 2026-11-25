@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -43,6 +43,9 @@ jobs:
           grep " actionlint_${version}_linux_amd64.tar.gz$" "actionlint_${version}_checksums.txt" | sha256sum -c -
           tar xzf "actionlint_${version}_linux_amd64.tar.gz" actionlint
           ./actionlint -color .github/workflows/ci.yml .github/workflows/release.yml
+      - name: Fetch the contract over HTTPS
+        # The contract is a public repository, and npm records its GitHub dependency over ssh. A runner has no key.
+        run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci --ignore-scripts
       # The browser stage's headless Chromium: the build that playwright-core's exact version in package-lock.json pins.
       # A GitHub-hosted runner needs --with-deps for the system libraries; the self-hosted public runner already has
@@ -63,6 +66,30 @@ jobs:
           (cd "$dir" && npm init -y >/dev/null && npm install "@opencode/cli@2.4.1" "@opencode/cli-$platform@2.4.1" --omit=optional --ignore-scripts --no-audit --no-fund)
           echo "OPENCODE_BIN_2_4_1=$dir/node_modules/@opencode/cli-$platform/bin/opencode" >> "$GITHUB_ENV"
       - run: npm run check
-      # The build regenerates THIRD_PARTY_NOTICES.md and licenses/; both are committed, so they must not change.
-      - name: The generated files are committed
-        run: git diff --exit-code
+      # The release installs from a Git tag; prove the same Git install on this head, in an isolated home, with the stock
+      # 2.4.1 binary. A fork PR's head commit is not in this repository, so the step is skipped there.
+      - name: Install the plugin from the pushed commit
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          home="$(mktemp -d)"
+          mkdir -p "$home/c" "$home/k" "$home/d" "$home/s"
+          HOME="$home" XDG_CONFIG_HOME="$home/c" XDG_CACHE_HOME="$home/k" XDG_DATA_HOME="$home/d" XDG_STATE_HOME="$home/s" \
+            "$OPENCODE_BIN_2_4_1" plugin add "github:we-the-rebel-alliance/charts-plugin#${HEAD_SHA}"
+          installed="$(find "$home" -path '*/node_modules/@we-the-rebel-alliance/charts-plugin/dist/index.js' -type f -print -quit)"
+          case "$installed" in
+            */node_modules/@we-the-rebel-alliance/charts-plugin/dist/index.js) ;;
+            *) echo "::error::the Git install has no node_modules/@we-the-rebel-alliance/charts-plugin/dist/index.js"; exit 1 ;;
+          esac
+          test -f "$installed"
+          echo "installed $installed"
+      # The bundle regenerates dist/, THIRD_PARTY_NOTICES.md and licenses/; all are committed, so they must not change.
+      # dist/ is committed because a git-tag install runs with lifecycle scripts disabled and never builds it.
+      - name: The committed dist and generated files are current
+        run: |
+          npm run bundle
+          git diff --exit-code -- dist
+          git diff --exit-code
+          test -z "$(git status --porcelain -- dist THIRD_PARTY_NOTICES.md licenses)"

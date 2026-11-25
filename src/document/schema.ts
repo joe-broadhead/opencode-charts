@@ -73,7 +73,7 @@ function partialTokens(schema: z.ZodType, path: readonly string[], excluded: Rea
 export const PresentationTokenOverridesSchema = partialTokens(ThemeTokensSchema, []).describe("Theme tokens to change on top of the named theme: colors, font, layout (padding, step), axis, marks, legend. Arrays replace whole.")
 
 /**
- * The other projection of the same tokens: a standalone theme definition, as charts_theme_save saves it and the legacy
+ * The other projection of the same tokens: a standalone theme definition, as tools.charts.theme_save saves it and the legacy
  * tools' `theme` object passes it. Every token is optional and strict, arrays replace whole, and it keeps its identity
  * keys: `extends` names the base theme, `name` and `description` are the saved theme's own. Layout width and height
  * stay, because a legacy chart is still sized by its theme.
@@ -274,7 +274,7 @@ const at = (issues: Issue[]) => ({ error: (code: ChartsCode, message: string, pa
 export function assertDocumentVersion(version: unknown, path = "/version") {
   if (version === DOCUMENT_VERSION) return
   if (version === undefined) throw new ChartsError("DOCUMENT_INVALID", "The document has no version.", `Add "version": ${DOCUMENT_VERSION}, the chart document version this plugin reads.`, path)
-  throw new ChartsError("DOCUMENT_VERSION_UNSUPPORTED", `Chart document version ${JSON.stringify(version)} is not supported; this plugin reads version ${DOCUMENT_VERSION} only.`, `Rewrite the document as version ${DOCUMENT_VERSION} (charts_capabilities lists its schema), or use a plugin release that reads version ${JSON.stringify(version)}. Nothing is converted automatically.`, path)
+  throw new ChartsError("DOCUMENT_VERSION_UNSUPPORTED", `Chart document version ${JSON.stringify(version)} is not supported; this plugin reads version ${DOCUMENT_VERSION} only.`, `Rewrite the document as version ${DOCUMENT_VERSION} (tools.charts.capabilities lists its schema), or use a plugin release that reads version ${JSON.stringify(version)}. Nothing is converted automatically.`, path)
 }
 
 export interface ParseOptions {

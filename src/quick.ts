@@ -3,7 +3,7 @@ import type { Json } from "./engines/common.js"
 
 /**
  * Basic charts from a type and a few field names: the deterministic path for the common cases. Each produces an
- * ordinary Vega-Lite spec, which the result returns, so the agent can refine it with charts_render.
+ * ordinary Vega-Lite spec, which the result returns, so the agent can refine it with tools.charts.render.
  */
 export const QUICK_TYPES = ["bar", "horizontal_bar", "grouped_bar", "stacked_bar", "line", "area", "stacked_area", "scatter", "bubble", "pie", "donut", "histogram", "box_plot", "heatmap"] as const
 export type QuickType = (typeof QUICK_TYPES)[number]

@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
-import { runTool } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
 import { CASES, type Case } from "./cases.ts"
 
 const args = process.argv.slice(2)
@@ -43,7 +43,7 @@ const fileList = (value: unknown): string[] => Array.isArray(value) ? value.map(
 const GENERATION = /^outputs\/charts\/.+-[0-9a-f]{16}$/
 
 /**
- * charts_update changes a saved artifact, so its case carries the document to save first (the charts_quick document
+ * tools.charts.update changes a saved artifact, so its case carries the document to save first (the tools.charts.quick document
  * call) and the patch to apply: the eval saves the source, then updates it, exactly as an agent would. An answer that
  * names its own documentPath is run as it stands.
  */

@@ -14,7 +14,7 @@ Each exits non-zero on a failure, so CI can gate on it.
 ## What these suites measure, and what they do not
 
 Both suites run **prepared calls**: the render suite sends each case's scripted call (written by hand, or built from a
-catalogue example by `exampleCall`), and the advice suite calls `charts_recommend` directly. No model chooses a tool,
+catalogue example by `exampleCall`), and the advice suite calls `tools.charts.recommend` directly. No model chooses a tool,
 writes an input or repairs an error (`--answers` grades calls a model made elsewhere; it runs no model itself). So a pass shows that the renderer and the advice are correct for those calls;
 it is not evidence about how often an agent makes a correct call, or how many repairs it needs. That is measured
 separately, from an agent's recorded tool trace, and reported as its own result. `npm run check` runs only these
@@ -31,7 +31,7 @@ patches it, exactly as an agent would. `--answers model.jsonl` grades a real mod
 
 ## The advice suite (`eval/recommend.ts`, `eval/recommend.cases.ts`)
 
-Cases for `charts_recommend`, graded **by constraints, not exact matches**: each names the chart types that must
+Cases for `tools.charts.recommend`, graded **by constraints, not exact matches**: each names the chart types that must
 appear in the shortlist (at least one), the types that must not appear at all, and the single best answer when there
 is one. The must-not half is what stops a plausible but wrong chart from winning — a funnel for a share of a whole, a
 pie with sixteen slices, a US map of countries.
@@ -61,8 +61,8 @@ data, light → dark, inline → presentation → inline, adding x zoom, adding 
 and a cosmetic change after the source CSV changed. Its world saves the revision tasks' charts with the build under
 test, and its Charts grading adapter recomputes each saved chart's values from the rows the chart captured. Each run
 records the model, the host, the build's digest and commit, the case set's lock, the fixtures, the tool trace, and
-tokens, cost and latency when the runner supplies them. The harness's `docs/charts.md` has the commands; in short,
-from an `opencode-evals` checkout, with this repository built (`npm run build`):
+tokens, cost and latency when the runner supplies them. The harness's README has the commands; in short,
+from an `opencode-evals` checkout, with this repository built (`npm run bundle`):
 
 ```
 evals run --plugin charts --iteration <name> --model <provider>/<model> --auth <profile> \
@@ -72,4 +72,4 @@ evals trace --iteration <name> --plugin charts && evals grade --iteration <name>
 
 `--model mock/m1 --scripted --auth none --set scripted` runs the harness's scripted model instead: no credential and
 nothing live, which exercises the world, the runs, the traces and the grading. One live baseline (`claude-agent/haiku`, 13 tasks ×
-3 trials) is reported in `docs/engineering/charts-report.md`.
+3 trials) is recorded in the eval report beside the baseline.

@@ -68,7 +68,6 @@ export type ChartsCode =
   | "NO_MARK"
   | "NO_MARKS"
   | "NO_SERIES"
-  | "OPTIONS_INVALID"
   | "OUTPUT_WRITE_FAILED"
   | "OVERPLOTTING"
   | "PATH_INVALID"
@@ -87,7 +86,6 @@ export type ChartsCode =
   | "SERIES_TYPE_MISSING"
   | "SIZE_INVALID"
   | "SIZE_OVERRIDE_IGNORED"
-  | "SKILLS_INVALID"
   | "SPEC_INVALID"
   | "SPEC_TOO_EXPENSIVE"
   | "SPEC_TOO_LARGE"
@@ -162,7 +160,6 @@ export const CHART_CODES: readonly ChartsCode[] = [
   "NO_MARK",
   "NO_MARKS",
   "NO_SERIES",
-  "OPTIONS_INVALID",
   "OUTPUT_WRITE_FAILED",
   "OVERPLOTTING",
   "PATH_INVALID",
@@ -181,7 +178,6 @@ export const CHART_CODES: readonly ChartsCode[] = [
   "SERIES_TYPE_MISSING",
   "SIZE_INVALID",
   "SIZE_OVERRIDE_IGNORED",
-  "SKILLS_INVALID",
   "SPEC_INVALID",
   "SPEC_TOO_EXPENSIVE",
   "SPEC_TOO_LARGE",
@@ -206,27 +202,6 @@ export const CHART_CODES: readonly ChartsCode[] = [
   "VALUE_MISSING",
   "VEGA_LITE_WARNING",
   "VEGA_WARNING",
-]
-
-/**
- * The codes the shared tools RPC module returns for a script's call, which `docs/scripting.md` documents beside the
- * plugin's own. The transport is the source contract package, bundled into `dist/index.js`. Its `Code` union has codes only an MCP method, a per-account server or a resource resolver can return, and Charts has none of those.
- */
-export type RpcCode =
-  | "CANCELLED"
-  | "PERMISSION_DENIED"
-  | "SESSION_AGENT_REQUIRED"
-  | "SESSION_UNKNOWN"
-  | "TOOL_UNAVAILABLE"
-  | "UPSTREAM_ERROR"
-
-export const RPC_CODES: readonly RpcCode[] = [
-  "CANCELLED",
-  "PERMISSION_DENIED",
-  "SESSION_AGENT_REQUIRED",
-  "SESSION_UNKNOWN",
-  "TOOL_UNAVAILABLE",
-  "UPSTREAM_ERROR",
 ]
 
 /** One failure in the family's form: `CODE: what happened. Next step: what to do.` */

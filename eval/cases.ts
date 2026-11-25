@@ -21,7 +21,7 @@ export interface Expect {
   readonly panels?: number
   /** A generation folder was published (or reused) with the files in it, rather than flat files beside them. */
   readonly generation?: boolean
-  /** charts_update's own report: a revision that moved, and the authored fields it says changed. */
+  /** tools.charts.update's own report: a revision that moved, and the authored fields it says changed. */
   readonly update?: { readonly changed?: readonly string[] }
   /** Warning codes that are acceptable for this request (all others fail the case). */
   readonly allowWarnings?: readonly string[]

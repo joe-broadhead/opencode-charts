@@ -57,7 +57,7 @@ export function prepareECharts(input: Json, ctx: EChartsContext): { option: Json
   for (const key of Object.keys(input)) if (Object.hasOwn(ECHARTS_UNBUNDLED, key) && input[key] !== undefined && input[key] !== null && input[key] !== false)
     issues.push({ level: "error", code: "ECHARTS_COMPONENT_UNSUPPORTED", message: `The ECharts option uses ${key}, which this build's ECharts runtime does not include, so it would be ignored.`, path: pointer([key]), fix: ECHARTS_UNBUNDLED[key]! })
   issues.push(...echartsMarkupIssues(input))
-  if (series.length === 0) issues.push({ level: "error", code: "NO_SERIES", message: "The ECharts option has no series.", path: "/series", fix: "Add series: [{\"type\": \"sankey\", …}]; charts_catalogue has an example for each type." })
+  if (series.length === 0) issues.push({ level: "error", code: "NO_SERIES", message: "The ECharts option has no series.", path: "/series", fix: "Add series: [{\"type\": \"sankey\", …}]; tools.charts.catalogue has an example for each type." })
   option.series = series
 
   if (ctx.rows) {
@@ -168,7 +168,7 @@ export function renderECharts(option: Json, theme: ThemeTokens, fonts: FontBook,
       chart.setOption(ssrOption(option) as never)
       return canonicalInstanceIds(chart.renderToSVGString())
     } catch (error) {
-      throw new ChartsError("RENDER_FAILED", `ECharts could not render the option: ${(error as Error).message}`, "Check series types, data shapes and axes; charts_catalogue has a working example for each type.")
+      throw new ChartsError("RENDER_FAILED", `ECharts could not render the option: ${(error as Error).message}`, "Check series types, data shapes and axes; tools.charts.catalogue has a working example for each type.")
     } finally {
       chart.dispose()
     }

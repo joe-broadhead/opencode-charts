@@ -7,7 +7,8 @@ import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
 import { RECIPE_IDS } from "../src/recipes/types.ts"
 import { recipeExamples } from "../src/recipes/examples.ts"
-import { runTool, type ToolName } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolName } from "../src/registry.ts"
 import { selectArm } from "../src/document-tool.ts"
 import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
 
@@ -37,7 +38,7 @@ function setup(options: { packageRoot?: string; defaults?: Record<string, unknow
     ...(options.probe ? { probe: options.probe } : {}),
   }
   const call = async (tool: ToolName, input: Record<string, unknown>) => (await runTool(env as never, tool, input)).output as Record<string, any>
-  const text = async (tool: ToolName, input: Record<string, unknown>) => (await runTool(env as never, tool, input)).content.flatMap(c => (c.type === "text" ? [c.text] : [])).join("\n")
+  const text = async (tool: ToolName, input: Record<string, unknown>) => JSON.stringify((await runTool(env as never, tool, input)).output)
   // Awaited plainly, never through expect(promise).rejects, which can stall the Vega worker's reply under bun test.
   const refusal = async (tool: ToolName, input: Record<string, unknown>) => {
     const outcome: unknown = await runTool(env as never, tool, input).catch((error: unknown) => error)
@@ -183,7 +184,7 @@ describe("one input arm per call (A04)", () => {
     const at = (tool: "render" | "quick", input: Record<string, unknown>) => { try { selectArm(tool, input) } catch (error) { return error as ChartsError } throw new Error("expected a refusal") }
     const quick = at("quick", { expectedRevision: `sha256:${"0".repeat(64)}`, document: BAR_DOC })
     expect(quick).toMatchObject({ code: "INPUT_INVALID", path: "/expectedRevision" })
-    expect(quick.detail).toBe("charts_quick does not replay a saved artifact, so expectedRevision has nothing to check.")
+    expect(quick.detail).toBe("tools.charts.quick does not replay a saved artifact, so expectedRevision has nothing to check.")
     const render = at("render", { expectedRevision: `sha256:${"0".repeat(64)}` })
     expect(render.detail).toBe("expectedRevision was given without documentPath.")
   })
@@ -191,7 +192,7 @@ describe("one input arm per call (A04)", () => {
   test("charts_quick refuses an engine document and points at charts_render", async () => {
     const error = await setup().refusal("quick", { document: { version: 1, chart: { kind: "engine", spec: BAR, data: { rows: ROWS } } } })
     expect(error).toMatchObject({ code: "INPUT_INVALID", path: "/document/chart/kind" })
-    expect(error.hint).toContain("charts_render")
+    expect(error.hint).toContain("tools.charts.render")
   })
 
   test("delivery fields go with every arm", async () => {
@@ -568,7 +569,7 @@ describe("results stay bounded", () => {
     expect(Array.isArray(out.diagnostics)).toBe(true)
     expect(out.diagnostics.length).toBeLessThanOrEqual(50)
     for (const d of out.diagnostics) if (d.path) expect(d.path).toMatch(/^\/(document|compiled|formats|scales|outDir|inspect)/)
-    expect(await t.text("validate", { document: BAR_DOC, inspect: false })).toContain("revision sha256:")
+    expect(await t.text("validate", { document: BAR_DOC, inspect: false })).toContain('"revision":"sha256:')
   }, 60_000)
 })
 
@@ -606,7 +607,7 @@ describe("recipe documents are fitted by the layout planner", () => {
 describe("typed theme tokens through the one theme reader", () => {
   test("charts_theme_save's input is the typed definition of the canonical tokens, strict at every depth", async () => {
     const { inputSchema } = await import("../src/registry.ts")
-    const theme = (inputSchema("theme_save").properties as Record<string, any>).theme
+    const theme = (inputSchema("plan_theme_save").properties as Record<string, any>).theme
     expect(theme.additionalProperties).toBe(false)
     expect(Object.keys(theme.properties).sort()).toEqual(["axis", "colors", "description", "extends", "font", "layout", "legend", "marks", "mode", "name", "seed", "variants"])
     expect(theme.properties.colors.additionalProperties).toBe(false)

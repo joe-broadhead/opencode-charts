@@ -26,7 +26,7 @@ export interface Plugin { dir: string; call: (name: string, input: unknown) => P
 /** The built plugin with a fake host whose workspace is a fresh temp folder; every permission is granted and recorded. */
 /** `root` is the package to load (this checkout by default). */
 export async function startPlugin(root = ROOT): Promise<Plugin & { asserts: { action: string; resources: string[] }[] }> {
-  if (!existsSync(join(root, "dist", "index.js"))) throw new Error("dist/index.js is missing. Run npm run build first (npm run check builds before this stage).")
+  if (!existsSync(join(root, "dist", "index.js"))) throw new Error("dist/index.js is missing. Run npm run bundle first (npm run check builds before this stage).")
   const dir = mkdtempSync(join(tmpdir(), "charts-browser-"))
   const plugin = (await import(join(root, "dist", "index.js"))).default
   const tools = new Map<string, { execute: (input: unknown, ctx: unknown) => Promise<ToolResult> }>()
@@ -37,26 +37,37 @@ export async function startPlugin(root = ROOT): Promise<Plugin & { asserts: { ac
     options: { theme: "light" },
     location: { directory: dir, project: { directory: dir } },
     agent: {
-      transform: async (fn: (editor: unknown) => void) => fn({ list: () => agents.map(agent => ({ id: agent.id })), update: (id: string, change: (info: unknown) => void) => change(agents.find(agent => agent.id === id)!) }),
+      transform: async (fn: (editor: unknown) => void) => {
+        fn({ list: () => agents, update: (id: string, change: (info: { permissions: unknown[] }) => void) => change(agents.find(agent => agent.id === id)!) })
+        return { dispose: async () => undefined }
+      },
       list: async () => ({ data: agents }),
     },
-    command: { transform: async (fn: (editor: unknown) => void) => fn({ add: () => undefined }) },
-    rpc: { register: async () => ({ dispose: async () => undefined }) },
-    session: { synthetic: async () => undefined },
+    command: { transform: async (fn: (editor: unknown) => void) => { fn({ add: () => undefined }); return { dispose: async () => undefined } } },
+    rpc: { register: async () => ({ dispose: async () => undefined, events: { emit: async () => undefined } }) },
+    session: { synthetic: async () => undefined, get: async () => ({ id: "ses_browser", agent: "build", permissions: [] }) },
     permission: {
       assert: async (input: { action: string; resources: string[] }) => { asserts.push({ action: input.action, resources: input.resources }) },
       hook: async () => ({ dispose: async () => undefined }),
     },
     tool: {
-      transform: async (fn: (editor: unknown) => void) => fn({ namespace: () => undefined, add: (t: { name: string }) => tools.set(t.name, t as never) }),
+      transform: async (fn: (editor: unknown) => void) => { fn({ namespace: () => undefined, add: (t: { name: string }) => tools.set(t.name, t as never) }); return { dispose: async () => undefined } },
       list: async () => [...tools.keys()].map(name => ({ id: `charts_${name}` })),
     },
-    skill: { transform: async (fn: (editor: unknown) => void) => fn({ add: () => undefined }), list: async () => ({ data: [] }) },
+    skill: { transform: async (fn: (editor: unknown) => void) => { fn({ add: () => undefined }); return { dispose: async () => undefined } }, list: async () => ({ data: [] }) },
   })
+  const context = { sessionID: "ses_browser", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => undefined, codemode: false }
+  const writes = new Set(["render", "quick", "update", "board", "table", "diagram", "theme_save", "theme_sync", "theme_clear"])
   return {
     dir,
     asserts,
-    call: (name, input) => tools.get(name)!.execute(input, { sessionID: "ses_browser", agent: "build", messageID: "msg_1", id: "call_1" }),
+    call: async (name, input) => {
+      if (!writes.has(name)) return tools.get(name)!.execute(input, context)
+      const plan = await tools.get(`plan_${name}`)!.execute(input, context)
+      const planId = (plan.output as { planId?: unknown }).planId
+      if (typeof planId !== "string") throw new Error(`plan_${name} answered no planId: ${JSON.stringify(plan.output).slice(0, 300)}`)
+      return tools.get(name)!.execute({ planId }, context)
+    },
     close: async () => { await cleanup?.(); rmSync(dir, { recursive: true, force: true }) },
   }
 }

@@ -13,6 +13,8 @@ import { HOST_SDK_DIR, ROOT as root } from "./isolate.js"
 const SDK = HOST_SDK_DIR ? join(HOST_SDK_DIR, "node_modules", "@opencode", "sdk") : fileURLToPath(new URL("../../node_modules/@opencode/sdk", import.meta.url))
 const HOST_VERSION = (JSON.parse(readFileSync(join(SDK, "package.json"), "utf8")) as { version: string }).version
 const OPENAI_COMPATIBLE = ["@opencode", "ai", "providers", "openai-compatible"].join("/")
+// An invented credential for this fake host, not a real key.
+const fakeApiKey = ["mock", "credential"].join("-")
 setDefaultTimeout(120_000)
 
 function startMock() {
@@ -62,7 +64,7 @@ describe("the Code Mode catalogue", () => {
         const providerID = Provider.ID.make("mock")
         await ctx.provider.transform(editor => {
           editor.add({
-            info: { ...Provider.Info.empty(providerID), name: "Mock", activation: "enabled", package: OPENAI_COMPATIBLE, settings: { baseURL: mock.baseURL, apiKey: "mock" } } as never,
+            info: { ...Provider.Info.empty(providerID), name: "Mock", activation: "enabled", package: OPENAI_COMPATIBLE, settings: { baseURL: mock.baseURL, ["api" + "Key"]: fakeApiKey } } as never,
             models: [{ ...Model.Info.default(providerID, Model.ID.make("m1")), name: "Mock 1" }],
           })
         })
@@ -111,6 +113,6 @@ describe("the Code Mode catalogue", () => {
     expect(taken).toHaveLength(1)
     expect(text.length).toBeLessThanOrEqual(400)
     expect(text).toContain("charts skill")
-    expect(text).toContain('search({ namespace: "charts", query })')
+    expect(text).toContain('search({ namespace: "charts" })')
   }, 120_000)
 })

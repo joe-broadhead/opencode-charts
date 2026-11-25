@@ -40,7 +40,7 @@ export const ARTIFACT_LIMITS = {
 }
 
 const REVISION_DOMAIN = `${ARTIFACT_FORMAT}/${ARTIFACT_VERSION}\n`
-const FINGERPRINT_DOMAIN = "opencode-charts-render/1\n"
+const FINGERPRINT_DOMAIN = "charts-render/1\n"
 
 // ---------------------------------------------------------------------------------------------------------------
 // Capture.
@@ -222,7 +222,7 @@ export function parseArtifact(input: string | Uint8Array, options: ParseArtifact
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw invalid("The artifact is not a JSON object.")
   const envelope = raw as JsonObject
   scanJson(envelope, { maxDepth: DOCUMENT_DEPTH, code: "ARTIFACT_INVALID", what: "The artifact" })
-  if (envelope.format !== ARTIFACT_FORMAT) throw invalid(`This is not a chart artifact (format ${JSON.stringify(envelope.format)}, expected "${ARTIFACT_FORMAT}").`, "/format", "Pass a .chart.json file. A .vl.json, .vg.json or .echarts.json file is a resolved engine spec, not an editable document: render it with charts_render's spec, or create a new document.")
+  if (envelope.format !== ARTIFACT_FORMAT) throw invalid(`This is not a chart artifact (format ${JSON.stringify(envelope.format)}, expected "${ARTIFACT_FORMAT}").`, "/format", "Pass a .chart.json file. A .vl.json, .vg.json or .echarts.json file is a resolved engine spec, not an editable document: render it with tools.charts.render's spec, or create a new document.")
   if (envelope.version !== ARTIFACT_VERSION) throw new ChartsError("DOCUMENT_VERSION_UNSUPPORTED", `Chart artifact version ${JSON.stringify(envelope.version)} is not supported; this plugin reads version ${ARTIFACT_VERSION} only.`, `Use a plugin release that reads version ${JSON.stringify(envelope.version)}, or create the chart again as a version ${ARTIFACT_VERSION} document. Nothing is converted automatically.`, "/version")
 
   // Each section under its own limit, before any of it is used.

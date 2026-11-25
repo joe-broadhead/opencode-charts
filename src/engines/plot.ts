@@ -190,7 +190,7 @@ export function validatePlotSpec(input: unknown): { spec: PlotSpec; issues: Issu
 
 const plotFunction = (name: string): ((...args: unknown[]) => unknown) => {
   const fn = (Plot as unknown as Record<string, unknown>)[name]
-  if (typeof fn !== "function") throw new ChartsError("RENDER_FAILED", `Observable Plot has no "${name}".`, "Use a mark from charts_capabilities; the plot engine lists the marks it supports.")
+  if (typeof fn !== "function") throw new ChartsError("RENDER_FAILED", `Observable Plot has no "${name}".`, "Use a mark from tools.charts.capabilities; the plot engine lists the marks it supports.")
   return fn as (...args: unknown[]) => unknown
 }
 
@@ -354,7 +354,7 @@ export function finalisePlotSvg(raw: string, theme: ThemeTokens, family: string,
   const c = theme.colors
   const svg = raw.replace(/<style\b[^>]*>[\s\S]*?<\/style>/g, "")
   const root = /^<svg\b([^>]*)>/.exec(svg)
-  if (!root) throw new ChartsError("RENDER_FAILED", "Observable Plot did not return an SVG document.", "Check the marks and channels; charts_catalogue has a working example for each chart type.")
+  if (!root) throw new ChartsError("RENDER_FAILED", "Observable Plot did not return an SVG document.", "Check the marks and channels; tools.charts.catalogue has a working example for each chart type.")
   const attribute = (name: string) => new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(root[1]!)?.[1]
   const width = Math.round(Number(attribute("width") ?? fallbackWidth) || fallbackWidth)
   const height = Math.round(Number(attribute("height") ?? fallbackHeight) || fallbackHeight)
@@ -476,7 +476,7 @@ export function renderPlot(input: unknown, ctx: PlotRenderContext): PlotRender {
     element = withSeededRandom(seed, () => Plot.plot(options as never))
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new ChartsError("RENDER_FAILED", `Observable Plot could not render the spec: ${message}`, "Check each mark's channels and the fields they name; charts_catalogue has a working example for each chart type.")
+    throw new ChartsError("RENDER_FAILED", `Observable Plot could not render the spec: ${message}`, "Check each mark's channels and the fields they name; tools.charts.catalogue has a working example for each chart type.")
   }
   const raw = (element as { outerHTML?: string }).outerHTML
   if (typeof raw !== "string") throw new ChartsError("RENDER_FAILED", "Observable Plot did not return an SVG element.", "Render a spec with at least one mark.")
