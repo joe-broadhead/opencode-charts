@@ -3,8 +3,10 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { join } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
-import { defaultRules } from "../src/permissions.ts"
-import { runTool, type ToolName } from "../src/tools.ts"
+import { rulesFor } from "@we-the-rebel-alliance/plugin-contract/access"
+import { manifest } from "../src/manifest.js"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolName } from "../src/registry.ts"
 import { ROOT, workspace } from "./helpers.ts"
 
 /**
@@ -36,7 +38,7 @@ function setup(options: { probe?: (step: Step, file?: string) => void; deny?: (a
     probe: (step: Step, file?: string) => probe?.(step, file),
   }
   const call = async (tool: ToolName, input: Record<string, unknown>) => (await runTool(env as never, tool, input)).output as Record<string, any>
-  const text = async (tool: ToolName, input: Record<string, unknown>) => (await runTool(env as never, tool, input)).content.flatMap(c => (c.type === "text" ? [c.text] : [])).join("\n")
+  const text = async (tool: ToolName, input: Record<string, unknown>) => JSON.stringify((await runTool(env as never, tool, input)).output)
   const refusal = async (tool: ToolName, input: Record<string, unknown>) => {
     const outcome: unknown = await runTool(env as never, tool, input).catch((error: unknown) => error)
     if (outcome instanceof ChartsError) return outcome
@@ -300,8 +302,9 @@ describe("charts_update: patch semantics", () => {
   test("formats without document draw the new revision without saving it, and say so", async () => {
     const t = setup()
     const { path, revision } = await create(t)
-    const text = await t.text("update", { documentPath: path, expectedRevision: revision, patch: { appearance: { theme: "dark" } }, formats: ["svg"] })
-    expect(text).toContain("No .chart.json was written")
+    const out = await t.call("update", { documentPath: path, expectedRevision: revision, patch: { appearance: { theme: "dark" } }, formats: ["svg"] })
+    expect(out.files.document).toBeUndefined()
+    expect(out.generation.directory).toBeDefined()
   })
 })
 
@@ -497,8 +500,9 @@ describe("charts_update: complete-generation publication", () => {
 
 describe("charts_update: access", () => {
   test("A32: it is a writer under every access value: allowed, asked, or denied with the other writers", () => {
-    expect(defaultRules("all")).toContainEqual({ action: "charts_update", resource: "*", effect: "allow" })
-    expect(defaultRules("ask-changes")).toContainEqual({ action: "charts_update", resource: "*", effect: "ask" })
-    expect(defaultRules("read-only")).toContainEqual({ action: "charts_update", resource: "*", effect: "deny" })
+    const effect = (level: "all" | "ask-changes" | "read-only") => rulesFor(manifest, level).find(rule => rule.action === "charts.update")?.effect
+    expect(effect("all")).toBe("allow")
+    expect(effect("ask-changes")).toBe("ask")
+    expect(effect("read-only")).toBe("deny")
   })
 })

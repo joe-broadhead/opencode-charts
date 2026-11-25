@@ -33,7 +33,7 @@ export const NAMESPACE_DESCRIPTION = TABLE.namespaceDescription
 export const TOOL_ENTRIES = TABLE.tools
 export const toolEntry = (name: ToolName): ToolEntry => BY_NAME.get(name)!
 
-/** The tool names and whether each only reads: what `src/plugin.ts`, `src/permissions.ts` and `src/status.ts` iterate. */
+/** The tool names and whether each only reads: what the handler table and `capabilities` iterate. */
 export const TOOLS: Readonly<Record<ToolName, { readonly readOnly: boolean; readonly class: ToolClass }>> = Object.fromEntries(
   TABLE.tools.map(tool => [tool.name, { readOnly: tool.readOnly, class: tool.class }]),
 ) as Readonly<Record<ToolName, { readonly readOnly: boolean; readonly class: ToolClass }>>

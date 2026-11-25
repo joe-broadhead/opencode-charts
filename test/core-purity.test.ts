@@ -63,7 +63,7 @@ describe("the document and recipe core", () => {
     const reached = [...closure().keys()].map(f => relative(ROOT, f)).sort()
     // The walk does follow imports out of the core (so the checks above are not vacuous).
     for (const module of ["src/themes/tokens.ts", "src/safety.ts", "src/errors.ts", "src/catalogue.ts", "src/constants.ts"]) expect(reached).toContain(module)
-    for (const adapter of ["src/pipeline.ts", "src/tools.ts", "src/plugin.ts", "src/data.ts", "src/fonts.ts", "src/paths.ts", "src/engines/common.ts"]) expect(reached).not.toContain(adapter)
+    for (const adapter of ["src/pipeline.ts", "src/tools.ts", "src/handlers/index.ts", "src/data.ts", "src/fonts.ts", "src/paths.ts", "src/engines/common.ts"]) expect(reached).not.toContain(adapter)
   })
 })
 

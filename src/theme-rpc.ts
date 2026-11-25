@@ -1,151 +1,21 @@
-import { createHash } from "node:crypto"
-import type { Plugin } from "@opencode/plugin"
 import { ChartsError, suggest } from "./errors.js"
-import { ChartsThemeContract, THEME_RPC_ID } from "./theme-contract.js"
-import { registerThemeContract, type HostThemeStore, type HostThemeValue, type RpcLike, type SyncedHostTheme, type SyncThemeInput, type ThemeHandlers, type ThemeNotify } from "./theme-session.js"
 import { checkThemeDefinition, resolveThemeAsked } from "./themes/chain.js"
+import type { HostThemeStore, HostThemeValue } from "./themes/host.js"
+import { hostThemeName, hostThemeRevision } from "./themes/host.js"
 import { builtinThemes, savedThemeNames, type ThemeSources } from "./themes/store.js"
 
 /**
- * The live host theme RPC: `charts.theme`.
+ * The one non-trivial theme write: resolving and validating a theme a host pushes for its session.
  *
- * A host (a TUI, the desktop app, an editor extension) knows the theme its reader is looking at, and it changes without
- * touching a file. It syncs that theme here once — a name, or the theme object itself — and every tool call in that
- * session resolves it, with no theme written to the workspace and nothing read from disk. The sync is held in memory,
- * per session and for the location as a whole, and bounded so a long-lived process cannot grow without limit.
- *
- * Nothing here is a render path: the registry holds strings and plain objects, and the store resolves them exactly as
- * it resolves an inline `theme` object.
+ * The method's handler loads this module on the first `theme_sync`, so an engine start and a render never read the theme
+ * chain. `theme_get` and `theme_clear` read the in-memory store directly.
  */
 
-export { ChartsThemeContract, ChartsThemeContract as ChartsThemeRpc, THEME_RPC_ID }
-export { effectiveThemeInput, type HostThemeStore, type HostThemeValue, type SyncedHostTheme, type SyncThemeInput } from "./theme-session.js"
-
-/** The most sessions whose synced theme is remembered: the least recently used is dropped first. */
-export const MAX_SYNCED_THEMES = 256
-
-/** A stable JSON text: keys sorted, so two equal themes hash to the same revision. */
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>
-    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`
-  }
-  return JSON.stringify(value) ?? "null"
-}
-
-/** The revision of a synced theme: the host's own when it gave one, else a digest of exactly what was synced. */
-export function hostThemeRevision(theme: HostThemeValue, mode: string): string {
-  return `sha256:${createHash("sha256").update(stableJson({ theme, mode })).digest("hex")}`
-}
-
-/** The name a synced theme is reported by: its own name, or the shape it arrived in. */
-export function hostThemeName(theme: HostThemeValue): string {
-  if (typeof theme === "string") return theme
-  const name = theme.name
-  if (typeof name === "string" && name.trim() !== "") return name.trim()
-  if (theme.seed !== undefined) return "seed-custom"
-  if (theme.variants !== undefined) return "variant-custom"
-  return "custom"
-}
-
-/**
- * The polarity a synced theme draws in: the caller's, else the theme's own resolved mode. A saved dark theme, a built-in
- * `dark` and an inline `{ mode: "dark" }` all answer `dark`; nothing is assumed from the fact that a name is not built in.
- */
-async function modeOf(sources: ThemeSources, input: SyncThemeInput & { readonly theme: HostThemeValue }): Promise<"light" | "dark"> {
+/** The polarity a synced theme draws in: the caller's, else the theme's own resolved mode. */
+async function modeOf(sources: ThemeSources, input: { readonly theme: HostThemeValue; readonly mode?: string }): Promise<"light" | "dark"> {
   if (input.mode === "light" || input.mode === "dark") return input.mode
   const resolved = await resolveThemeAsked(sources, input.theme as never)
   return resolved.mode
-}
-
-/** The polarity the store reads for an input it was handed directly, without a theme chain to resolve. */
-function storedModeOf(theme: HostThemeValue): "light" | "dark" {
-  if (typeof theme === "string") {
-    const builtin = builtinThemes()[theme.trim().toLowerCase()]
-    if (builtin) return builtin.mode
-  }
-  if (theme && typeof theme === "object" && theme.mode === "dark") return "dark"
-  return "light"
-}
-
-/** Validates one sync and copies the theme, so a caller that reuses its object cannot change what was stored. */
-function normalised(input: SyncThemeInput & { readonly theme: HostThemeValue }): SyncedHostTheme {
-  const theme = input.theme
-  let stored: HostThemeValue
-  if (typeof theme === "string") {
-    const name = theme.trim()
-    if (name === "") throw new ChartsError("THEME_INVALID", "The synced theme name is empty.", "Sync a theme name, or the theme object itself.", "/theme")
-    stored = name
-  } else if (theme && typeof theme === "object" && !Array.isArray(theme)) {
-    checkThemeDefinition(theme)
-    stored = { ...theme }
-  } else {
-    throw new ChartsError("THEME_INVALID", "The synced theme must be a theme name or a theme object.", "Sync a name such as \"dark\", or an object with colors, a seed, or variants.", "/theme")
-  }
-  const mode = input.mode === "light" || input.mode === "dark" ? input.mode : storedModeOf(stored)
-  const revision = typeof input.revision === "string" && input.revision.trim() !== "" ? input.revision.trim() : hostThemeRevision(stored, mode)
-  return { theme: stored, mode, revision, ...(input.sessionID !== undefined && input.sessionID !== "" ? { sessionID: input.sessionID } : {}) }
-}
-
-/**
- * The in-memory registry of synced themes. Per-session themes are held least-recently-used first, so the oldest is
- * dropped once MAX_SYNCED_THEMES sessions hold one; the location-wide theme is held beside them.
- */
-export function createHostThemeStore(limit = MAX_SYNCED_THEMES): HostThemeStore {
-  const bySession = new Map<string, SyncedHostTheme>()
-  let locationDefault: SyncedHostTheme | undefined
-  return {
-    get size() {
-      return bySession.size
-    },
-    sync(input) {
-      const synced = normalised(input)
-      if (synced.sessionID === undefined) {
-        locationDefault = synced
-        return synced
-      }
-      // Re-inserting moves a session to the most-recently-used end.
-      bySession.delete(synced.sessionID)
-      bySession.set(synced.sessionID, synced)
-      while (bySession.size > limit) {
-        const oldest = bySession.keys().next()
-        if (oldest.done) break
-        bySession.delete(oldest.value)
-      }
-      return synced
-    },
-    forSession(sessionID) {
-      if (sessionID === undefined) return undefined
-      const synced = bySession.get(sessionID)
-      if (synced === undefined) return undefined
-      bySession.delete(sessionID)
-      bySession.set(sessionID, synced)
-      return synced
-    },
-    default() {
-      return locationDefault
-    },
-    clear(sessionID) {
-      if (sessionID === undefined) {
-        const had = locationDefault !== undefined
-        locationDefault = undefined
-        return had
-      }
-      return bySession.delete(sessionID)
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------------------------------------------
-// The contract lives in theme-contract.ts and is declared there once; this module registers it.
-
-export type { ChartsThemeRpcType } from "./theme-session.js"
-
-/** What a failed method returns: the typed code and its one next step, as every other Charts refusal does. */
-function refusal<T>(cause: unknown, error: (type: "refused", message: string, data: { code: string; next: string }) => T): T {
-  if (cause instanceof ChartsError) return error("refused", cause.message, { code: cause.code, next: cause.hint })
-  throw cause
 }
 
 /** A named theme that a sync may use: a built-in, a saved theme, or one from the plugin's options. */
@@ -156,52 +26,34 @@ function checkThemeName(sources: ThemeSources, name: string): void {
   if (saved.includes(name)) return
   const all = [...Object.keys(builtins), ...saved]
   const close = suggest(name, all)
-  throw new ChartsError("THEME_NOT_FOUND", `There is no theme "${name}".${close.length ? ` Did you mean ${close.map(entry => `"${entry}"`).join(" or ")}?` : ""}`, `Use one of: ${all.join(", ")}; or sync the theme's own tokens as an object.`, "/theme")
+  throw new ChartsError("THEME_NOT_FOUND", `There is no theme "${name}".${close.length ? ` Did you mean ${close.map((entry) => `"${entry}"`).join(" or ")}?` : ""}`, `Use one of: ${all.join(", ")}; or sync the theme's own tokens as an object.`, "/theme")
 }
 
-/** The theme RPC's handlers over a store: the work behind `sync`, `get` and `clear`. */
-export function themeHandlers(store: HostThemeStore, sources: ThemeSources, notify: ThemeNotify): ThemeHandlers {
-  return {
-    sync: async (input, context) => {
-      try {
-        const sync = (input ?? {}) as SyncThemeInput
-        if (sync.theme === undefined) throw new ChartsError("THEME_INVALID", "A theme sync needs a theme.", "Sync a theme name, or the theme object itself.", "/theme")
-        if (typeof sync.theme === "string") {
-          const name = sync.theme.trim()
-          if (name === "") throw new ChartsError("THEME_INVALID", "The synced theme name is empty.", "Sync a theme name, or the theme object itself.", "/theme")
-          checkThemeName(sources, name)
-        }
-        // The theme is resolved here, so the polarity a saved dark theme draws in is read from the theme itself.
-        const mode = await modeOf(sources, { ...sync, theme: sync.theme })
-        const synced = store.sync({ ...sync, mode, theme: sync.theme })
-        const themeName = hostThemeName(synced.theme)
-        await notify("changed", { revision: synced.revision, mode: synced.mode, themeName, ...(synced.sessionID !== undefined ? { sessionID: synced.sessionID } : {}) })
-        return { ok: true, applied: true, revision: synced.revision, mode: synced.mode, themeName }
-      } catch (cause) {
-        return refusal(cause, context.error)
-      }
-    },
-    get: async (input) => {
-      const query = (input ?? {}) as { sessionID?: string }
-      const synced = store.forSession(query.sessionID) ?? store.default() ?? null
-      if (synced === null) return { found: false, revision: null, theme: null }
-      return {
-        found: true,
-        revision: synced.revision,
-        mode: synced.mode,
-        themeName: hostThemeName(synced.theme),
-        theme: { theme: synced.theme, mode: synced.mode, revision: synced.revision, ...(synced.sessionID !== undefined ? { sessionID: synced.sessionID } : {}) },
-      }
-    },
-    clear: async (input) => ({ cleared: store.clear(((input ?? {}) as { sessionID?: string }).sessionID) }),
+/** The theme a host syncs for a session, checked, stored and reported back. */
+export async function syncHostTheme(
+  store: HostThemeStore,
+  sources: ThemeSources,
+  sessionID: string,
+  input: { readonly theme?: HostThemeValue; readonly mode?: "light" | "dark"; readonly revision?: string },
+): Promise<{ ok: true; applied: true; revision: string; mode: "light" | "dark"; themeName: string }> {
+  const theme = input.theme
+  if (theme === undefined) throw new ChartsError("THEME_INVALID", "A theme sync needs a theme.", 'Sync a theme name, or the theme object itself.', "/theme")
+  let stored: HostThemeValue
+  if (typeof theme === "string") {
+    const name = theme.trim()
+    if (name === "") throw new ChartsError("THEME_INVALID", "The synced theme name is empty.", "Sync a theme name, or the theme object itself.", "/theme")
+    checkThemeName(sources, name)
+    stored = name
+  } else if (theme && typeof theme === "object" && !Array.isArray(theme)) {
+    checkThemeDefinition(theme)
+    // A copy, so a caller that reuses its object cannot change what was stored.
+    stored = { ...theme }
+  } else {
+    throw new ChartsError("THEME_INVALID", "The synced theme must be a theme name or a theme object.", 'Sync a name such as "dark", or an object with colors, a seed, or variants.', "/theme")
   }
-}
-
-/**
- * Registers `charts.theme` against a store. The returned function unregisters it, so the plugin's own cleanup can
- * await every registration it made. (The plugin itself registers it with `registerDeferredThemeRpc`, which makes the
- * store and loads this module on the first sync.)
- */
-export async function registerThemeRpc(rpc: RpcLike, store: HostThemeStore, sources: ThemeSources): Promise<() => Promise<void>> {
-  return registerThemeContract(rpc, notify => themeHandlers(store, sources, notify))
+  // The theme is resolved here, so the polarity a saved dark theme draws in is read from the theme itself.
+  const mode = await modeOf(sources, { theme: stored, ...(input.mode === undefined ? {} : { mode: input.mode }) })
+  const revision = typeof input.revision === "string" && input.revision.trim() !== "" ? input.revision.trim() : hostThemeRevision(stored, mode)
+  const synced = store.sync(sessionID, { theme: stored, mode, revision })
+  return { ok: true, applied: true, revision: synced.revision, mode: synced.mode, themeName: hostThemeName(synced.theme) }
 }

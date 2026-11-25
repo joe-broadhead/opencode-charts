@@ -5,7 +5,7 @@ import { BOARD_COOKBOOK_EXAMPLE } from "../scripts/cookbook.ts"
 import { parseBoardDocument } from "../src/board/schema.ts"
 import { ChartDocumentV1Schema } from "../src/document/schema.ts"
 import { TOOL_NAMES } from "../src/registry.ts"
-import { runTool } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
 import { ROOT, ROWS, workspace } from "./helpers.ts"
 
 const PLACEHOLDER_HANDLES = new Set(["handle", "user", "username", "someone", "person", "name", "theirs", "author", "channel", "email", "example"])
@@ -52,7 +52,7 @@ describe("shipped plugin skills", () => {
   })
 
   test("skills/charts/SKILL.md names all 12 tools and documents the exact interaction enums", () => {
-    for (const name of TOOL_NAMES) expect(charts.body).toContain(`charts_${name}`)
+    for (const name of TOOL_NAMES) expect(charts.body).toContain(`tools.charts.${name}`)
     for (const value of ['"auto"', '"off"', '"static"', '"highlight"', '"none"', '"x"', '"interval"']) {
       expect(charts.body).toContain(value)
     }

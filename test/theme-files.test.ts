@@ -3,7 +3,8 @@ import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { ChartsError } from "../src/errors.ts"
-import { runTool, type ToolName } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolName } from "../src/registry.ts"
 import { BAR, ROWS, workspace } from "./helpers.ts"
 
 /**

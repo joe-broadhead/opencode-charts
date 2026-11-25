@@ -7,7 +7,7 @@ import { closeVegaWorker } from "../src/engines/vega-pool.ts"
 import { recipeDefinition } from "../src/recipes/definitions.ts"
 import { contrast, parseColor } from "../src/themes/contrast.ts"
 import { BUILTIN_THEMES } from "../src/themes/tokens.ts"
-import { runTool } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
 import { workspace } from "./helpers.ts"
 import { draw } from "./support/documents.ts"
 

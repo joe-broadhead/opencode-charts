@@ -53,25 +53,28 @@ const AGENTS = {
     description: "charts host test reader",
     mode: "primary",
     permissions: [
-      { action: "charts_*", resource: "*", effect: "deny" },
-      { action: "charts_capabilities", resource: "*", effect: "allow" },
-      { action: "charts_catalogue", resource: "*", effect: "allow" },
-      { action: "charts_validate", resource: "*", effect: "allow" },
-      { action: "charts_recommend", resource: "*", effect: "allow" },
+      { action: "charts.*", resource: "*", effect: "deny" },
+      { action: "charts.capabilities", resource: "*", effect: "allow" },
+      { action: "charts.catalogue", resource: "*", effect: "allow" },
+      { action: "charts.validate", resource: "*", effect: "allow" },
+      { action: "charts.recommend", resource: "*", effect: "allow" },
+      { action: "charts.status", resource: "*", effect: "allow" },
+      { action: "charts.themes", resource: "*", effect: "allow" },
+      { action: "charts.theme_get", resource: "*", effect: "allow" },
     ],
   },
   writer: {
     description: "charts host test writer",
     mode: "primary",
     permissions: [
-      { action: "charts_*", resource: "*", effect: "allow" },
+      { action: "charts.*", resource: "*", effect: "allow" },
       { action: "edit", resource: "*", effect: "allow" },
       { action: "read", resource: "*", effect: "allow" },
     ],
   },
-  locked: { description: "charts host test locked", mode: "primary", permissions: [{ action: "charts_*", resource: "*", effect: "deny" }] },
+  locked: { description: "charts host test locked", mode: "primary", permissions: [{ action: "charts.*", resource: "*", effect: "deny" }] },
   // The plugin's own default block, as an agent's rules: every Charts action asks, which a script cannot answer.
-  asking: { description: "charts host test asking", mode: "primary", permissions: [{ action: "charts_*", resource: "*", effect: "ask" }] },
+  asking: { description: "charts host test asking", mode: "primary", permissions: [{ action: "charts.*", resource: "*", effect: "ask" }] },
 }
 
 export async function startHost(version: string): Promise<Host> {
@@ -163,13 +166,14 @@ export async function startHost(version: string): Promise<Host> {
     if (Date.now() > deadline) throw new Error(`server did not answer; log: ${log}`)
     await new Promise(resolveWait => setTimeout(resolveWait, 200))
   }
-  // Load location A, then wait for the plugin to register its RPC: a 200 from `describe` is the registration.
+  // Load location A, then wait for the plugin to register its one RPC: a status call on a real session is the check.
+  const probeSession = await session(host, "reader")
   for (;;) {
-    const described = await host.api("POST", "/api/rpc/charts.tools/describe", { input: {} }, a)
-    if (described.status === 200) break
+    const probed = await host.api("POST", "/api/rpc/charts/status", { input: { sessionID: probeSession, input: {} } }, a)
+    if (probed.status === 200) break
     if (Date.now() > deadline + 60_000) {
-      const probe = await host.api("POST", "/api/rpc/charts.tools/describe", { input: {} }, a)
-      throw new Error(`the charts plugin did not register its RPC (describe answered ${probe.status}: ${JSON.stringify(probe.data).slice(0, 400)}); log: ${log}`)
+      const again = await host.api("POST", "/api/rpc/charts/status", { input: { sessionID: probeSession, input: {} } }, a)
+      throw new Error(`the charts plugin did not register its RPC (status answered ${again.status}: ${JSON.stringify(again.data).slice(0, 400)}); log: ${log}`)
     }
     await new Promise(resolveWait => setTimeout(resolveWait, 250))
   }
@@ -186,10 +190,10 @@ export async function session(host: Host, agent: string, permissions?: readonly 
 
 /** Calls one method as the host does, in project A. */
 export async function rpc(host: Host, method: string, sessionID: string, input: unknown): Promise<{ status: number; data: unknown }> {
-  return host.api("POST", `/api/rpc/charts.tools/${method}`, { input: { sessionID, input } }, host.a)
+  return host.api("POST", `/api/rpc/charts/${method}`, { input: { sessionID, input } }, host.a)
 }
 
-/** The RPC's output, or the error body itself. */
+/** The RPC's output, or the error body itself: the transport nests a successful answer under `output`. */
 export const unwrap = (data: unknown) => ((data as { output?: unknown })?.output ?? data) as Record<string, any>
 /** The failure code of an RPC error: the body is the RpcError, with `data: { code, next }`. */
 export const refusedCode = (data: unknown) => (data as { data?: { code?: string } })?.data?.code

@@ -25,6 +25,6 @@ describe("generated documentation", () => {
 
   test("the cookbook labels its recipe rows as a shape example and points at the full fixture", () => {
     const text = cookbook()
-    for (const id of RECIPE_IDS) expect(text).toContain(`\`charts_catalogue {"id": "${id}"}\` returns this document with every row`)
+    for (const id of RECIPE_IDS) expect(text).toContain(`\`tools.charts.catalogue {"id": "${id}"}\` returns this document with every row`)
   })
 })

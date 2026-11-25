@@ -161,7 +161,7 @@ function savedFile(sources: ThemeSources, name: string) {
  */
 export function savedThemeExists(file: { readonly absolute: string; readonly relative: string }, name: string): boolean {
   if (!existsSync(file.absolute)) return false
-  if (!statSync(file.absolute).isFile()) throw new ChartsError("NOT_A_FILE", `The saved theme "${name}" (${file.relative}) is not a regular file: there is a folder or a device where its file goes.`, `Move or remove ${file.relative}, then save the theme again with charts_theme_save (or use another name).`)
+  if (!statSync(file.absolute).isFile()) throw new ChartsError("NOT_A_FILE", `The saved theme "${name}" (${file.relative}) is not a regular file: there is a folder or a device where its file goes.`, `Move or remove ${file.relative}, then save the theme again with tools.charts.theme_save (or use another name).`)
   return true
 }
 
@@ -173,7 +173,7 @@ function readSaved(sources: ThemeSources, name: string): ThemeDefinition | undef
   const file = savedFile(sources, name)
   if (!savedThemeExists(file, name)) return undefined
   try { return JSON.parse(readFileSync(file.absolute, "utf8")) as ThemeDefinition }
-  catch { throw new ChartsError("THEME_INVALID", `The saved theme "${name}" (${file.relative}) is not valid JSON.`, "Save it again with charts_theme_save.") }
+  catch { throw new ChartsError("THEME_INVALID", `The saved theme "${name}" (${file.relative}) is not valid JSON.`, "Save it again with tools.charts.theme_save.") }
 }
 
 export function savedThemeNames(sources: ThemeSources): string[] {
@@ -317,7 +317,7 @@ function validate(tokens: ThemeTokens): ThemeTokens {
   const parsed = ThemeTokensSchema.safeParse(normalised)
   if (!parsed.success) {
     const first = parsed.error.issues[0]!
-    throw new ChartsError("THEME_INVALID", `Theme token /${first.path.join("/")} is invalid: ${first.message}.`, "Fix that token; charts_themes shows a complete theme to copy from.", `/theme/${first.path.join("/")}`)
+    throw new ChartsError("THEME_INVALID", `Theme token /${first.path.join("/")} is invalid: ${first.message}.`, "Fix that token; tools.charts.themes shows a complete theme to copy from.", `/theme/${first.path.join("/")}`)
   }
   return parsed.data
 }

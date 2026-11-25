@@ -1,61 +1,33 @@
 import { basename } from "node:path"
-import { CATALOGUE, catalogueEntry, exampleCall } from "./catalogue.js"
 import { loadData } from "./data.js"
-import { ATLASES, isObject, type Json } from "./engines/common.js"
-import { ChartsError, SpecInvalid, formatIssues, suggest, type Issue } from "./errors.js"
+import { isObject, type Json } from "./engines/common.js"
+import { ChartsError, SpecInvalid, formatIssues, type Issue } from "./errors.js"
 import { DocumentInvalid } from "./document/issues.js"
 import { documentFields, documentFormats, documentRequest, fitDocument, fittedIssues, issueMapper, legacyDocument, pickDelivery, resolveArtifact, resolveFresh, resolveUpdate, selectArm, type Arm, type ChartTool, type ResolvedDocument } from "./document-tool.js"
 import { PATCH_FIELDS } from "./document/patch.js"
 import type { FittedRecipe } from "./layout/fit.js"
-import { capabilities, describeCapabilities } from "./capabilities.js"
 import { parseBoardDocument } from "./board/schema.js"
 import { renderBoard } from "./board/render-board.js"
-import { bundledFonts } from "./fonts.js"
-import { localeIds } from "./locale.js"
 import { renderChart, type Environment, type RenderRequest, type RenderResult } from "./pipeline.js"
-import { svgToPng } from "./png.js"
 import { quickSpec } from "./quick.js"
-import { recommend } from "./recommend/rank.js"
-import { isRecipeId, recipeCatalogue } from "./recipes/registry.js"
-import { figureJson, figureText } from "./figure.js"
-import { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, type ToolName } from "./registry.js"
-import { builtinThemes, saveTheme, savedThemeNames, THEME_DIR } from "./themes/store.js"
-import { approveThemeChain, resolveThemeAsked, resolveThemePairAsked } from "./themes/chain.js"
+import { figureJson } from "./figure.js"
+import type { ToolName } from "./registry.js"
 
-export { DESCRIPTIONS, INPUTS, NAMESPACE, NAMESPACE_DESCRIPTION, TOOLS, type ToolName }
-
-// ---------------------------------------------------------------------------------------------------------------
+/**
+ * The render core shared by the chart methods: one render path, one document resolution, one update and one board.
+ *
+ * A handler (`src/handlers/<method>.ts`) supplies the method's input and output; this module does the work. Every
+ * function returns the method's answer, the object the register checks against the handler's output schema.
+ */
 
 export interface ToolEnvironment extends Environment {
   /** Asks the host for permission on workspace files: `read` for inputs, `edit` for outputs. */
   readonly assertFiles: (action: "read" | "edit", resources: readonly string[]) => Promise<void>
 }
-export type Content = { type: "text"; text: string } | { type: "file"; uri: string; mime: string; name?: string }
+
 export interface ToolOutput {
   readonly output: Json
-  readonly content: Content[]
 }
-
-const SAVE_HINT = "To hand a file to the person, save it with your host's file-saving tool; files under outputs/ are also kept when the turn ends."
-
-function describeResult(r: RenderResult, wrote: boolean, issues: readonly Issue[] = r.issues): string {
-  const warnings = issues.filter(i => i.level === "warning")
-  const lines = [
-    `${wrote ? "Rendered" : "Checked"} "${r.title}" (${r.engine}, theme ${r.theme}, ${r.width}×${r.height}px) in ${r.ms} ms.`,
-    ...(r.markdown ? [`Show it inline: ${r.markdown}`] : []),
-    ...(wrote ? [`Files: ${[r.files.svg, ...r.files.png, r.files.gif, r.files.html, r.files.spec, r.files.document].filter(Boolean).join(", ")}`] : []),
-    `What it shows: ${r.summary}`,
-    ...(r.ascii ? [`Structure:\n${r.ascii}`] : []),
-    ...(r.notes.length ? [`Defaults applied: ${r.notes.join(" ")}`] : []),
-    warnings.length ? `Warnings (${warnings.length}) — fix these before showing it:\n${formatIssues(warnings)}` : "No warnings.",
-    `Layout: ${r.layout.texts} labels; ${r.layout.overlaps.length ? `${r.layout.overlaps.length} overlapping` : "none overlapping"}; ${r.layout.clipped.length ? `${r.layout.clipped.length} clipped` : "none clipped"}.`,
-    figureText(r.figure),
-    ...(wrote ? [SAVE_HINT] : []),
-  ]
-  return lines.join("\n")
-}
-
-const image = (png: Uint8Array, name: string): Content => ({ type: "file", uri: `data:image/png;base64,${Buffer.from(png).toString("base64")}`, mime: "image/png", name })
 
 /** How a document call shapes the shared render result: its issue paths, and the fields it adds. */
 interface Shape {
@@ -74,11 +46,11 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
   const map = shape.mapIssue ?? ((issue: Issue) => issue)
   try {
     if (write) await env.assertFiles("edit", [`${request.outDir ?? env.defaults.outDir}/*`])
-    // The 1x preview costs little; it is sent only when asked for, or when there is something to look at.
+    // The 1x preview costs little; it is sent only when asked for, or when there is something to look at. It is not
+    // part of the answer: the files on disk are what a caller shows.
     const result = await renderChart({ ...request, preview: inspect !== false }, env, write)
     const issues = [...(shape.issues ?? []), ...result.issues.map(map)]
     if (shape.preflight?.length) return invalid([...shape.preflight, ...issues])
-    const show = inspect ?? (!write || issues.some(i => i.level === "warning"))
     const output: Json = {
       ...(write ? {} : { valid: true }),
       engine: result.engine, theme: result.theme, title: result.title, description: result.description, width: result.width, height: result.height,
@@ -87,9 +59,7 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
       ...(result.ascii ? { ascii: result.ascii } : {}),
       figure: figureJson(result.figure), ms: result.ms, ...extra, ...(shape.decorate?.(result, issues) ?? {}),
     }
-    const content: Content[] = [{ type: "text", text: describeResult(result, write, issues) + (shape.note ? `\n${shape.note}` : "") + (extra.spec ? `\nSpec used (refine it with charts_render):\n${JSON.stringify(extra.spec)}` : "") }]
-    if (show && result.preview) content.push(image(result.preview, `${result.title}.png`))
-    return { output, content }
+    return { output }
   } catch (error) {
     // A preflight issue of the shared pipeline already carries a tool path; spec issues are pointed into the call.
     if (error instanceof SpecInvalid && !write) return invalid([...(shape.preflight ?? []), ...error.issues.map(map)])
@@ -97,7 +67,7 @@ async function run(env: ToolEnvironment, request: RenderRequest, write: boolean,
   }
 }
 
-const invalid = (issues: readonly Issue[]): ToolOutput => ({ output: { valid: false, issues: issues as unknown as Json }, content: [{ type: "text", text: `Not valid yet:\n${formatIssues(issues)}` }] })
+const invalid = (issues: readonly Issue[]): ToolOutput => ({ output: { valid: false, issues: issues as unknown as Json } })
 
 /**
  * A call with a chart document: an inline document, a saved artifact's path, or a legacy call that asks for document
@@ -153,14 +123,85 @@ async function runDocument(env: ToolEnvironment, name: ChartTool, input: Record<
   })
 }
 
-/** A path into the patched document, as a path into the update call: the patched sections are under /patch. */
-const intoPatch = (issue: Issue): Issue => {
-  const match = /^\/document\/([a-z]+)(\/.*)?$/i.exec(issue.path ?? "")
-  return match && (PATCH_FIELDS as readonly string[]).includes(match[1]!) ? { ...issue, path: `/patch/${match[1]}${match[2] ?? ""}` } : issue
+const pickOutputs = (input: Record<string, unknown>): Partial<RenderRequest> => {
+  const keys = ["theme", "locale", "currency", "currencyFields", "formats", "scales", "name", "title", "description", "outDir", "svgText", "seed", "width", "height", "marks", "kicker", "subtitle", "source", "notes", "annotations", "motion", "fps"] as const
+  return Object.fromEntries(keys.filter(k => input[k] !== undefined).map(k => [k, input[k]])) as Partial<RenderRequest>
+}
+
+/** The table spec a tools.charts.table call describes: its columns and presentation, with the rows kept out of the spec. */
+export const tableSpecOf = (input: Record<string, unknown>): Json => ({
+  columns: input.columns,
+  ...(input.title !== undefined ? { title: input.title } : {}),
+  ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
+  ...(input.kicker !== undefined ? { kicker: input.kicker } : {}),
+  ...(input.source !== undefined ? { source: input.source } : {}),
+  ...(input.notes !== undefined ? { notes: input.notes } : {}),
+  ...(input.rowGroupField !== undefined ? { rowGroupField: input.rowGroupField } : {}),
+  ...(input.summaryRow !== undefined ? { summaryRow: input.summaryRow } : {}),
+  ...(input.sortBy !== undefined ? { sortBy: input.sortBy } : {}),
+  ...(input.limit !== undefined ? { limit: input.limit } : {}),
+  ...(input.zebra !== undefined ? { zebra: input.zebra } : {}),
+  ...(input.highlightRows !== undefined ? { highlightRows: input.highlightRows } : {}),
+}) as Json
+
+/** The diagram spec a tools.charts.diagram call describes: Mermaid source or a structured kind, never both. */
+export const diagramSpecOf = (input: Record<string, unknown>): Json => ({
+  ...(input.dsl !== undefined ? { dsl: input.dsl } : {}),
+  ...(input.kind !== undefined ? { kind: input.kind } : {}),
+  ...(input.layout !== undefined ? { layout: input.layout } : {}),
+  ...(input.direction !== undefined ? { direction: input.direction } : {}),
+  ...(input.effect !== undefined ? { effect: input.effect } : {}),
+  ...(input.root !== undefined ? { root: input.root } : {}),
+  ...(input.nodes !== undefined ? { nodes: input.nodes } : {}),
+  ...(input.edges !== undefined ? { edges: input.edges } : {}),
+  ...(input.groups !== undefined ? { groups: input.groups } : {}),
+  ...(input.categories !== undefined ? { categories: input.categories } : {}),
+  ...(input.title !== undefined ? { title: input.title } : {}),
+  ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
+  ...(input.kicker !== undefined ? { kicker: input.kicker } : {}),
+  ...(input.source !== undefined ? { source: input.source } : {}),
+  ...(input.notes !== undefined ? { notes: input.notes } : {}),
+  ...(input.width !== undefined ? { width: input.width } : {}),
+  ...(input.height !== undefined ? { height: input.height } : {}),
+}) as Json
+
+/**
+ * tools.charts.board: the document parsed with its JSON paths, every dataset file read with permission, and the four files
+ * published together.
+ */
+async function runBoard(env: ToolEnvironment, input: Record<string, unknown>): Promise<ToolOutput> {
+  const given = isObject(input.board) ? input.board as Record<string, unknown> : {}
+  const board = parseBoardDocument({
+    ...given,
+    ...(input.theme !== undefined ? { theme: input.theme } : {}),
+    ...(input.locale !== undefined ? { locale: input.locale } : {}),
+    ...(input.currency !== undefined ? { currency: input.currency } : {}),
+  })
+  const paths = Object.values(board.datasets).map(dataset => dataset.path).filter((path): path is string => typeof path === "string")
+  if (paths.length) await env.assertFiles("read", paths)
+  const outDir = String(input.outDir ?? env.defaults.outDir)
+  await env.assertFiles("edit", [`${outDir}/*`])
+  const requested = Array.isArray(input.scales) ? input.scales as number[] : []
+  const scale = (requested[0] ?? 2) as 1 | 2 | 3
+  const result = await renderBoard(board, env, true, { ...(input.name !== undefined ? { name: String(input.name) } : {}), outDir, scale })
+  const warnings = result.issues.filter(issue => issue.level === "warning")
+  const output: Json = {
+    engine: "board", theme: result.theme, title: result.title, description: result.summary, width: result.width, height: result.height,
+    files: result.files, ...(result.markdown ? { markdown: result.markdown } : {}), summary: result.summary,
+    warnings, issues: result.issues as unknown as Json, panels: result.panels, rows: result.rows, ms: result.ms,
+  }
+  return { output }
+}
+
+/** Delivery fields without the frame's own text, which a table or a diagram draws inside its spec. */
+export const pickFrameless = (input: Record<string, unknown>): Partial<RenderRequest> => {
+  const picked = pickOutputs(input) as Record<string, unknown>
+  for (const key of ["kicker", "subtitle", "source", "notes"] as const) delete picked[key]
+  return picked as Partial<RenderRequest>
 }
 
 /**
- * charts_update: the saved artifact verified at expectedRevision, the patch applied, the new revision drawn through
+ * tools.charts.update: the saved artifact verified at expectedRevision, the patch applied, the new revision drawn through
  * the layout planner like any recipe document, and its files published as a new generation folder. A stale revision,
  * an invalid patch, a format list that contradicts an explicit interaction, or a size that cannot be met all stop the
  * call before anything is written; the source artifact and earlier generations are never touched.
@@ -193,120 +234,20 @@ async function runUpdate(env: ToolEnvironment, input: Record<string, unknown>): 
     note: `Updated ${origin.documentPath} (revision ${origin.revision}) to revision ${revision}: ${changed}${origin.theme.resolved ? `; theme "${resolved.settings.theme.name}" resolved anew${origin.theme.changed ? " with changed tokens" : ""}` : ""}. ${generationNote(formats)} The source artifact was not changed; data, bindings, aggregation and sorting are as saved. SVG and PNG are static pictures of the initial view.`,
   })
 }
+
+/** A path into the patched document, as a path into the update call: the patched sections are under /patch. */
+const intoPatch = (issue: Issue): Issue => {
+  const match = /^\/document\/([a-z]+)(\/.*)?$/i.exec(issue.path ?? "")
+  return match && (PATCH_FIELDS as readonly string[]).includes(match[1]!) ? { ...issue, path: `/patch/${match[1]}${match[2] ?? ""}` } : issue
+}
 const generationNote = (formats: readonly string[]) => formats.includes("document") ? "The new generation holds its own .chart.json: update that one next, with the new revision." : "No .chart.json was written (document is not in formats), so this revision cannot be updated again."
 
-const pickOutputs = (input: Record<string, unknown>): Partial<RenderRequest> => {
-  const keys = ["theme", "locale", "currency", "currencyFields", "formats", "scales", "name", "title", "description", "outDir", "svgText", "seed", "width", "height", "marks", "kicker", "subtitle", "source", "notes", "annotations", "motion", "fps"] as const
-  return Object.fromEntries(keys.filter(k => input[k] !== undefined).map(k => [k, input[k]])) as Partial<RenderRequest>
-}
-
-/** The table spec a charts_table call describes: its columns and presentation, with the rows kept out of the spec. */
-const tableSpecOf = (input: Record<string, unknown>): Json => ({
-  columns: input.columns,
-  ...(input.title !== undefined ? { title: input.title } : {}),
-  ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
-  ...(input.kicker !== undefined ? { kicker: input.kicker } : {}),
-  ...(input.source !== undefined ? { source: input.source } : {}),
-  ...(input.notes !== undefined ? { notes: input.notes } : {}),
-  ...(input.rowGroupField !== undefined ? { rowGroupField: input.rowGroupField } : {}),
-  ...(input.summaryRow !== undefined ? { summaryRow: input.summaryRow } : {}),
-  ...(input.sortBy !== undefined ? { sortBy: input.sortBy } : {}),
-  ...(input.limit !== undefined ? { limit: input.limit } : {}),
-  ...(input.zebra !== undefined ? { zebra: input.zebra } : {}),
-  ...(input.highlightRows !== undefined ? { highlightRows: input.highlightRows } : {}),
-}) as Json
-
-/** The diagram spec a charts_diagram call describes: Mermaid source or a structured kind, never both. */
-const diagramSpecOf = (input: Record<string, unknown>): Json => ({
-  ...(input.dsl !== undefined ? { dsl: input.dsl } : {}),
-  ...(input.kind !== undefined ? { kind: input.kind } : {}),
-  ...(input.layout !== undefined ? { layout: input.layout } : {}),
-  ...(input.direction !== undefined ? { direction: input.direction } : {}),
-  ...(input.effect !== undefined ? { effect: input.effect } : {}),
-  ...(input.root !== undefined ? { root: input.root } : {}),
-  ...(input.nodes !== undefined ? { nodes: input.nodes } : {}),
-  ...(input.edges !== undefined ? { edges: input.edges } : {}),
-  ...(input.groups !== undefined ? { groups: input.groups } : {}),
-  ...(input.categories !== undefined ? { categories: input.categories } : {}),
-  ...(input.title !== undefined ? { title: input.title } : {}),
-  ...(input.subtitle !== undefined ? { subtitle: input.subtitle } : {}),
-  ...(input.kicker !== undefined ? { kicker: input.kicker } : {}),
-  ...(input.source !== undefined ? { source: input.source } : {}),
-  ...(input.notes !== undefined ? { notes: input.notes } : {}),
-  ...(input.width !== undefined ? { width: input.width } : {}),
-  ...(input.height !== undefined ? { height: input.height } : {}),
-}) as Json
-
-/**
- * charts_board: the document parsed with its JSON paths, every dataset file read with permission, and the four files
- * published together. The poster PNG is the preview the model looks at, so it is rasterised from the same SVG the
- * board wrote.
- */
-async function runBoard(env: ToolEnvironment, input: Record<string, unknown>): Promise<ToolOutput> {
-  const given = isObject(input.board) ? input.board as Record<string, unknown> : {}
-  const board = parseBoardDocument({
-    ...given,
-    ...(input.theme !== undefined ? { theme: input.theme } : {}),
-    ...(input.locale !== undefined ? { locale: input.locale } : {}),
-    ...(input.currency !== undefined ? { currency: input.currency } : {}),
-  })
-  const paths = Object.values(board.datasets).map(dataset => dataset.path).filter((path): path is string => typeof path === "string")
-  if (paths.length) await env.assertFiles("read", paths)
-  const outDir = String(input.outDir ?? env.defaults.outDir)
-  await env.assertFiles("edit", [`${outDir}/*`])
-  const requested = Array.isArray(input.scales) ? input.scales as number[] : []
-  const scale = (requested[0] ?? 2) as 1 | 2 | 3
-  const result = await renderBoard(board, env, true, { ...(input.name !== undefined ? { name: String(input.name) } : {}), outDir, scale })
-  const warnings = result.issues.filter(issue => issue.level === "warning")
-  const output: Json = {
-    engine: "board", theme: result.theme, title: result.title, description: result.summary, width: result.width, height: result.height,
-    files: result.files, ...(result.markdown ? { markdown: result.markdown } : {}), summary: result.summary,
-    warnings, issues: result.issues as unknown as Json, panels: result.panels, rows: result.rows, ms: result.ms,
-  }
-  const text = [
-    `Rendered the board "${result.title}" (theme ${result.theme}, ${result.width}×${result.height}px, ${result.panels} panels, ${result.rows.toLocaleString("en-US")} rows) in ${result.ms} ms.`,
-    ...(result.markdown ? [`Show it inline: ${result.markdown}`] : []),
-    ...(result.files.board ? [`Files: ${[result.files.svg, result.files.png, result.files.html, result.files.board].filter(Boolean).join(", ")}`] : []),
-    ...(result.files.html ? [`Interactive dashboard (offline, self-contained): ${result.files.html}`] : []),
-    `What it shows: ${result.summary}`,
-    warnings.length ? `Warnings (${warnings.length}) — fix these before showing it:\n${formatIssues(warnings)}` : "No warnings.",
-    SAVE_HINT,
-  ].join("\n")
-  const content: Content[] = [{ type: "text", text }]
-  const show = input.inspect === true || ((input.inspect as boolean | undefined) === undefined && warnings.length > 0)
-  if (show) {
-    try {
-      const fonts = bundledFonts(env.packageRoot)
-      const { png } = await svgToPng(env.packageRoot, result.svg, fonts, 1, "Inter")
-      content.push(image(png, `${result.title}.png`))
-    } catch { /* a preview the host cannot rasterise leaves the files as they are */ }
-  }
-  return { output, content }
-}
-
-/** Delivery fields without the frame's own text, which a table or a diagram draws inside its spec. */
-const pickFrameless = (input: Record<string, unknown>): Partial<RenderRequest> => {
-  const picked = pickOutputs(input) as Record<string, unknown>
-  for (const key of ["kicker", "subtitle", "source", "notes"] as const) delete picked[key]
-  return picked as Partial<RenderRequest>
-}
-
-export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown): Promise<ToolOutput> {
-  const input = INPUTS[name].parse(raw) as Record<string, unknown> & { data?: RenderRequest["data"] }
-  if (name === "render" || name === "validate" || name === "quick") {
-    // Exactly one input arm per call, refused before any file is read or written.
-    const arm = selectArm(name, input)
-    if (arm !== "legacy" || (input.formats as readonly string[] | undefined)?.includes("document")) return runDocument(env, name, input, arm)
-  }
+/** The three chart methods: a document arm, an artifact arm, or a legacy spec. */
+export async function runChart(env: ToolEnvironment, name: "render" | "quick" | "validate", input: Record<string, unknown> & { data?: RenderRequest["data"] }): Promise<ToolOutput> {
+  // Exactly one input arm per call, refused before any file is read or written.
+  const arm = selectArm(name, input)
+  if (arm !== "legacy" || (input.formats as readonly string[] | undefined)?.includes("document")) return runDocument(env, name, input, arm)
   switch (name) {
-    case "update": return runUpdate(env, input)
-    case "board": return runBoard(env, input)
-    case "table": return run(env, { spec: tableSpecOf(input), engine: "table", ...(input.data ? { data: input.data } : {}), ...pickFrameless(input) }, true, input.inspect as boolean | undefined)
-    case "diagram": {
-      // A diagram's name comes from its title, or from the effect a fishbone explains when it has no title.
-      const named = input.name === undefined && input.title === undefined && typeof input.effect === "string" ? { name: input.effect } : {}
-      return run(env, { spec: diagramSpecOf(input), engine: "diagram", ...named, ...pickFrameless(input) }, true, input.inspect as boolean | undefined)
-    }
     case "render": return run(env, { spec: input.spec as Json, ...(input.engine ? { engine: input.engine as RenderRequest["engine"] } : {}), ...(input.data ? { data: input.data } : {}), ...pickOutputs(input) }, true, input.inspect as boolean | undefined)
     case "validate": return run(env, { spec: input.spec as Json, ...(input.engine ? { engine: input.engine as RenderRequest["engine"] } : {}), ...(input.data ? { data: input.data } : {}), ...pickOutputs(input) }, false, (input.inspect as boolean | undefined) ?? true)
     case "quick": {
@@ -315,58 +256,9 @@ export async function runTool(env: ToolEnvironment, name: ToolName, raw: unknown
       const spec = quickSpec(input as never, loaded.rows)
       return run(env, { spec, data: { rows: loaded.rows }, ...pickOutputs(input) }, true, input.inspect as boolean | undefined, { spec })
     }
-    case "recommend": {
-      if (input.data?.path) await env.assertFiles("read", [input.data.path])
-      const outcome = await recommend(input as never, env)
-      return { output: outcome.result as unknown as Json, content: [{ type: "text", text: outcome.text }] }
-    }
-    case "capabilities": {
-      const view = capabilities(env)
-      return { output: view as unknown as Json, content: [{ type: "text", text: describeCapabilities(view) }] }
-    }
-    case "catalogue": {
-      if (input.id) {
-        const entry = catalogueEntry(String(input.id))
-        if (!entry) throw new ChartsError("CHART_TYPE_UNKNOWN", `There is no chart type "${input.id}".${suggest(String(input.id), CATALOGUE.map(c => c.id)).map(s => ` Did you mean ${s}?`).join("")}`, "Call charts_catalogue without an id to list them.")
-        const call = exampleCall(entry)
-        const recipe = isRecipeId(entry.id) ? recipeCatalogue(entry.id) : undefined
-        const recipeText = recipe
-          ? `\n\nAlso a typed recipe (recommended): charts_quick with document.chart.recipe "${recipe.id}". Bindings: ${recipe.bindings.map(b => `${b.role} (${b.required === "always" ? "required" : b.required === "optional" ? "optional" : "required unless aggregate is count"})`).join(", ")}. Options: ${Object.keys(recipe.options).join(", ") || "none"}. Interactions: ${Object.entries(recipe.interactions).map(([k, v]) => `${k} ${v.join("/")}`).join("; ")}. ${recipe.dataRequirements}\nA working charts_quick call (the full tested rows):\n${JSON.stringify(recipe.examples[0]!.call.input)}`
-          : ""
-        return { output: { ...entry, example: call, ...(recipe ? { recipe } : {}) } as unknown as Json, content: [{ type: "text", text: `${entry.name} (${entry.engine}, ${entry.family}). Use it for: ${entry.when}${entry.avoid ? ` Avoid when: ${entry.avoid}` : ""}\nA working charts_render call — swap in your data and fields:\n${JSON.stringify(call)}${recipeText}` }] }
-      }
-      const list = CATALOGUE.filter(c => !input.family || c.family === input.family)
-      const text = [`${list.length} chart types. Call charts_catalogue with an id for a full working example. Types marked (recipe) are also typed recipes: draw them with charts_quick and a document.`, ...[...new Set(list.map(c => c.family))].map(f => `\n${f}:\n${list.filter(c => c.family === f).map(c => `- ${c.id} — ${c.name} [${c.engine}]${isRecipeId(c.id) ? " (recipe)" : ""}: ${c.when}${c.avoid ? ` Avoid: ${c.avoid}` : ""}`).join("\n")}`), `\nMaps use bundled atlases, never the network: ${Object.entries(ATLASES).map(([k, a]) => `${k} (${a.about} Join keys: ${a.keys})`).join("; ")}.`]
-      return { output: { types: list.map(c => ({ id: c.id, name: c.name, engine: c.engine, family: c.family, when: c.when, ...(c.avoid ? { avoid: c.avoid } : {}), ...(isRecipeId(c.id) ? { recipe: true } : {}) })) }, content: [{ type: "text", text: text.join("\n") }] }
-    }
-    case "themes": {
-      const sources = { workspace: env.workspace, configured: env.configuredThemes }
-      if (input.seed !== undefined) {
-        const resolved = await resolveThemePairAsked(sources, { seed: input.seed as never }, paths => env.assertFiles("read", paths))
-        const { themeContrastIssues } = await import("./themes/contrast.js")
-        const warnings = themeContrastIssues(resolved.active)
-        return {
-          output: { theme: resolved.active as unknown as Json, ...(resolved.paired ? { paired: resolved.paired as unknown as Json } : {}), warnings: warnings as unknown as Json },
-          content: [{ type: "text", text: `Synthesised ${resolved.active.mode} theme from seed (${warnings.length ? `${warnings.length} contrast warnings` : "contrast checks pass"}):\n${JSON.stringify(resolved.active, null, 1)}` }],
-        }
-      }
-      if (input.name) {
-        const theme = await resolveThemeAsked(sources, String(input.name), paths => env.assertFiles("read", paths))
-        return { output: { theme } as unknown as Json, content: [{ type: "text", text: `Theme ${theme.name}: ${theme.description ?? ""}\nTokens (copy any subset into a custom theme with "extends": "${theme.name}"):\n${JSON.stringify(theme, null, 1)}` }] }
-      }
-      const builtins = builtinThemes()
-      const saved = savedThemeNames(sources)
-      return { output: { builtin: Object.values(builtins).map(t => ({ name: t.name, mode: t.mode, description: t.description })), saved, locales: localeIds(env.packageRoot) }, content: [{ type: "text", text: `Built-in themes:\n${Object.values(builtins).map(t => `- ${t.name} (${t.mode}): ${t.description}`).join("\n")}\nSaved themes: ${saved.length ? saved.join(", ") : "none"} (charts_theme_save makes one from tokens or a UI seed).\nFonts bundled: Inter, Geist, JetBrains Mono, Geist Mono. A theme can add workspace .ttf/.otf files with font.files.` }] }
-    }
-    case "theme_save": {
-      await env.assertFiles("edit", [`${THEME_DIR}/${input.name}.json`])
-      const sources = { workspace: env.workspace, configured: env.configuredThemes }
-      // The themes it extends are read with permission first; the store reads only those.
-      const approved = await approveThemeChain(sources, input.theme as never, paths => env.assertFiles("read", paths))
-      const { file, theme } = saveTheme({ ...sources, approved }, String(input.name), input.theme as never)
-      const { themeContrastIssues } = await import("./themes/contrast.js")
-      const issues: Issue[] = themeContrastIssues(theme)
-      return { output: { file, theme: theme as unknown as Json, warnings: issues as unknown as Json }, content: [{ type: "text", text: `Saved theme "${theme.name}" to ${file}. Use it with theme: "${theme.name}".${issues.length ? `\nContrast warnings:\n${formatIssues(issues)}` : " Contrast checks pass."}` }] }
-    }
   }
 }
+
+/** The exported pieces a handler needs, so one file per method can call the same core. */
+export { run, runBoard, runUpdate }
+export type { Arm }

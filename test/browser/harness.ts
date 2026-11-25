@@ -37,26 +37,29 @@ export async function startPlugin(root = ROOT): Promise<Plugin & { asserts: { ac
     options: { theme: "light" },
     location: { directory: dir, project: { directory: dir } },
     agent: {
-      transform: async (fn: (editor: unknown) => void) => fn({ list: () => agents.map(agent => ({ id: agent.id })), update: (id: string, change: (info: unknown) => void) => change(agents.find(agent => agent.id === id)!) }),
+      transform: async (fn: (editor: unknown) => void) => {
+        fn({ list: () => agents, update: (id: string, change: (info: { permissions: unknown[] }) => void) => change(agents.find(agent => agent.id === id)!) })
+        return { dispose: async () => undefined }
+      },
       list: async () => ({ data: agents }),
     },
-    command: { transform: async (fn: (editor: unknown) => void) => fn({ add: () => undefined }) },
-    rpc: { register: async () => ({ dispose: async () => undefined }) },
-    session: { synthetic: async () => undefined },
+    command: { transform: async (fn: (editor: unknown) => void) => { fn({ add: () => undefined }); return { dispose: async () => undefined } } },
+    rpc: { register: async () => ({ dispose: async () => undefined, events: { emit: async () => undefined } }) },
+    session: { synthetic: async () => undefined, get: async () => ({ id: "ses_browser", agent: "build", permissions: [] }) },
     permission: {
       assert: async (input: { action: string; resources: string[] }) => { asserts.push({ action: input.action, resources: input.resources }) },
       hook: async () => ({ dispose: async () => undefined }),
     },
     tool: {
-      transform: async (fn: (editor: unknown) => void) => fn({ namespace: () => undefined, add: (t: { name: string }) => tools.set(t.name, t as never) }),
+      transform: async (fn: (editor: unknown) => void) => { fn({ namespace: () => undefined, add: (t: { name: string }) => tools.set(t.name, t as never) }); return { dispose: async () => undefined } },
       list: async () => [...tools.keys()].map(name => ({ id: `charts_${name}` })),
     },
-    skill: { transform: async (fn: (editor: unknown) => void) => fn({ add: () => undefined }), list: async () => ({ data: [] }) },
+    skill: { transform: async (fn: (editor: unknown) => void) => { fn({ add: () => undefined }); return { dispose: async () => undefined } }, list: async () => ({ data: [] }) },
   })
   return {
     dir,
     asserts,
-    call: (name, input) => tools.get(name)!.execute(input, { sessionID: "ses_browser", agent: "build", messageID: "msg_1", id: "call_1" }),
+    call: (name, input) => tools.get(name)!.execute(input, { sessionID: "ses_browser", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => undefined, codemode: false }),
     close: async () => { await cleanup?.(); rmSync(dir, { recursive: true, force: true }) },
   }
 }

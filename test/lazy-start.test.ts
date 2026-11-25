@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { manifest } from "../src/manifest.js"
 import { INPUTS, inputSchema, type ToolName } from "../src/registry.ts"
 import { loadedRenderer, renderer } from "../src/renderer-load.ts"
 import { toolTable } from "../src/tool-table-source.ts"
@@ -10,12 +11,12 @@ import { ROOT, workspace } from "./helpers.ts"
 /**
  * An engine start evaluates the plugin's entry, not its renderer (src/renderer-load.ts): the built dist/index.js is
  * loaded the way OpenCode loads it, with a fake host, in a process of its own whose module loader records every dist/
- * file it evaluates. A start, a status and a script's `describe` load no engine and no zod schema; the first tool call
- * loads dist/renderer.js, once.
+ * file it evaluates. A start, a status and a theme read load no engine and no chart schema; the first tool call loads
+ * dist/renderer.js, once. The contract's register validator is part of setup and is not an engine.
  */
 
 const ws = workspace()
-const START_BUDGET_BYTES = 400 * 1024
+const START_BUDGET_BYTES = 420 * 1024
 
 interface Probe {
   atStart: string[]
@@ -24,10 +25,11 @@ interface Probe {
   afterAll: string[]
   tools: Record<string, { description: string; output: unknown; input: unknown }>
   rpcInputs: Record<string, unknown>
+  status: unknown
+  theme: unknown
   first: { ok: boolean; output: unknown }
   second: { ok: boolean }
   invalid: unknown
-  valid: unknown
 }
 
 // The probe runs in its own process: the unit suites share one module registry, which other files fill with dist/.
@@ -43,41 +45,37 @@ Bun.plugin({ name: "load-spy", setup(build) {
   })
 } })
 const plugin = (await import(dist + "index.js")).default
-const tools = new Map(), rpcs = new Map(), commands = new Map()
+const tools = new Map(), rpcs = new Map(), definitions = new Map()
 const agents = [{ id: "build", permissions: [{ action: "*", resource: "*", effect: "allow" }] }]
-const context = { signal: new AbortController().signal, error: (type, message, data) => ({ type, message, data }) }
+const rpcContext = { signal: new AbortController().signal, error: (type, message, data) => ({ type, message, data }) }
 const ctx = {
   app: { version: "2.4.1" }, options: {},
   location: { directory: ws, project: { directory: ws } },
-  agent: { transform: async (fn) => fn({ list: () => agents, update: () => undefined }), list: async () => ({ data: agents }), get: async () => ({ data: agents[0] }) },
-  command: { transform: async (fn) => fn({ add: (c) => commands.set(c.name, c) }) },
+  agent: { transform: async (fn) => { fn({ list: () => agents, update: () => undefined }); return { dispose: async () => undefined } }, list: async () => ({ data: agents }), get: async () => ({ data: agents[0] }) },
+  command: { transform: async (fn) => fn({ add: () => undefined }) },
   session: { synthetic: async () => undefined, get: async () => ({ id: "ses_1", agent: "build", permissions: [] }) },
   permission: { assert: async () => undefined, hook: async () => ({ dispose: async () => undefined }) },
-  tool: { transform: async (fn) => fn({ namespace: () => undefined, add: (t) => tools.set(t.name, t) }), list: async () => [...tools.keys()].map((name) => ({ id: "charts_" + name })) },
+  tool: { transform: async (fn) => { fn({ namespace: () => undefined, add: (t) => tools.set(t.name, t) }); return { dispose: async () => undefined } }, list: async () => [...tools.keys()].map((name) => ({ id: "charts_" + name })) },
   skill: { transform: async (fn) => fn({ add: () => undefined }), list: async () => ({ data: [] }) },
-  rpc: { register: async (contract, handlers) => { rpcs.set(contract.id, handlers); return { dispose: async () => undefined, events: { emit: async () => undefined } } } },
+  rpc: { register: async (definition, handlers) => { definitions.set(definition.id, definition); rpcs.set(definition.id, handlers); return { dispose: async () => undefined, events: { emit: async () => undefined } } } },
 }
 const cleanup = await plugin.setup(ctx)
 const atStart = [...loads]
-// What a host does without calling a tool: list the tools, describe the RPC, ask for the status, read the synced theme.
-const described = await rpcs.get("charts.tools").describe({ sessionID: "ses_1" }, context)
-await rpcs.get("charts").status({}, context)
-await commands.get("charts-status").execute({ sessionID: "ses_1", delivery: "immediate", prompt: { text: "" } })
-await rpcs.get("charts.theme").get({}, context)
-const toolsSeen = Object.fromEntries([...tools].map(([name, tool]) => [name, { description: tool.description, output: tool.output, input: tool.input["~standard"].jsonSchema.input({ target: "draft-2020-12" }) }]))
-const rpcInputs = Object.fromEntries((described.output?.methods ?? described.methods ?? []).map((m) => [m.name, m.input]))
+// What a host does without calling a tool: read the status and the synced theme over the one RPC.
+const status = await rpcs.get("charts").status({ sessionID: "ses_1", input: {} }, rpcContext)
+const theme = await rpcs.get("charts").theme_get({ sessionID: "ses_1", input: {} }, rpcContext)
+const toolsSeen = Object.fromEntries([...tools].map(([name, tool]) => [name, { description: tool.description, output: tool.output, input: tool.input }]))
+const rpcInputs = Object.fromEntries(Object.entries(definitions.get("charts").methods).map(([name, method]) => [name, method.input.properties.input]))
 const beforeCall = [...loads]
-const call = { sessionID: "ses_1", agent: "build", messageID: "msg_1", id: "call_1" }
-const run = async (name, input) => { try { return { ok: true, output: (await tools.get(name).execute(input, call)).output } } catch (error) { return { ok: false, output: String(error) } } }
+const call = { sessionID: "ses_1", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => undefined, codemode: false }
+const run = async (name, input) => { try { return { ok: true, output: (await tools.get(name).execute(input, call)).output } } catch (error) { return { ok: false, output: String(error?.message ?? error) } } }
 const first = await run("capabilities", {})
 const afterFirst = [...loads]
 const second = await run("catalogue", { id: "bar" })
-// The host validates a call's input before it runs, through the Standard Schema it was given.
-const invalid = await tools.get("render").input["~standard"].validate({ banana: 1 })
-const valid = await tools.get("catalogue").input["~standard"].validate({ id: "bar" })
+const invalid = await run("render", { banana: 1 })
 const afterAll = [...loads]
 await cleanup()
-console.log(JSON.stringify({ atStart, beforeCall, afterFirst, afterAll, tools: toolsSeen, rpcInputs, first, second: { ok: second.ok }, invalid, valid }))
+console.log(JSON.stringify({ atStart, beforeCall, afterFirst, afterAll, tools: toolsSeen, rpcInputs, status, theme, first, second: { ok: second.ok }, invalid }))
 `
 
 let probe: Probe
@@ -102,9 +100,9 @@ describe("an engine start", () => {
     expect(bytes(probe.atStart)).toBeLessThan(START_BUDGET_BYTES)
   })
 
-  test("builds no zod schema and no engine", () => {
-    // A string each library's own code carries: zod's core, Vega's dataflow, ECharts' renderer, the diagram layout.
-    const markers = { zod: "$ZodType", vega: "Unrecognized signal", echarts: "zrender", elk: "org.eclipse.elk" }
+  test("builds no engine", () => {
+    // A string each engine's own code carries: Vega's dataflow, ECharts' renderer, the diagram layout.
+    const markers = { vega: "Unrecognized signal", echarts: "zrender", elk: "org.eclipse.elk" }
     for (const file of probe.atStart) {
       const text = readFileSync(join(ROOT, "dist", file), "utf8")
       expect({ file, found: Object.entries(markers).filter(([, marker]) => text.includes(marker)).map(([name]) => name) }).toEqual({ file, found: [] })
@@ -114,9 +112,11 @@ describe("an engine start", () => {
     for (const marker of Object.values(markers)) expect(all.includes(marker)).toBe(true)
   })
 
-  test("lists the tools, answers describe, the status and the theme RPC without loading the renderer", () => {
+  test("lists the tools, and answers status and the theme read over the one RPC, without loading the renderer", () => {
     expect(probe.beforeCall).not.toContain("renderer.js")
-    expect(Object.keys(probe.tools).sort()).toEqual(Object.keys(INPUTS).sort())
+    expect(Object.keys(probe.tools).sort()).toEqual(Object.keys(manifest.methods).sort())
+    expect(probe.status).toMatchObject({ name: "charts", state: "ready" })
+    expect(probe.theme).toEqual({ found: false, revision: null, theme: null, trust: "untrusted" })
   })
 })
 
@@ -128,26 +128,24 @@ describe("the first tool call", () => {
     expect(count(probe.afterAll, "renderer.js")).toBe(1)
   })
 
-  test("validates a call's input with the tool's zod schema, issues and parsed value alike", async () => {
-    expect(probe.invalid).toEqual(JSON.parse(JSON.stringify(await INPUTS.render["~standard"].validate({ banana: 1 }))))
-    expect(probe.valid).toEqual(JSON.parse(JSON.stringify(await INPUTS.catalogue["~standard"].validate({ id: "bar" }))))
+  test("refuses an input outside the schema, before the renderer runs", async () => {
+    expect(String((probe.invalid as { output?: unknown }).output)).toContain("INPUT_INVALID")
+    expect(probe.invalid).toMatchObject({ ok: false })
   })
 })
 
 describe("the compiled tool table", () => {
-  test("is the registry's: descriptions, output schemas, and zod's own input JSON Schema", () => {
+  test("is the registry's: descriptions, output schemas, and the input JSON Schema", () => {
     const table = toolTable()
     for (const tool of table.tools) {
       const seen = probe.tools[tool.name]!
       expect(seen.description).toBe(tool.description)
       expect(seen.output).toEqual(tool.output)
-      // What OpenCode asked zod for before this table existed: the input side, draft 2020-12.
-      expect(seen.input).toEqual(INPUTS[tool.name as ToolName]["~standard"].jsonSchema!.input({ target: "draft-2020-12" }))
       expect(seen.input).toEqual(inputSchema(tool.name as ToolName))
     }
   })
 
-  test("gives the tools RPC the same input schemas", () => {
+  test("the one RPC gives every method the table's input schema", () => {
     for (const name of Object.keys(INPUTS) as ToolName[]) expect(probe.rpcInputs[name]).toEqual(inputSchema(name))
   })
 })
@@ -157,6 +155,6 @@ describe("the renderer loader", () => {
     const first = await renderer()
     expect(await renderer()).toBe(first)
     expect(loadedRenderer()).toBe(first)
-    expect(typeof first.runTool).toBe("function")
+    expect(typeof first.runChart).toBe("function")
   })
 })

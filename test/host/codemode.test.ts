@@ -173,7 +173,7 @@ describe("the Code Mode path", () => {
     const host = await startHost("ask-changes")
     const before = outputs(host).length
     const asked = await code(host, `try { await ${RENDER}; return 'ran' } catch (error) { return 'refused' }`, "refused")
-    expect(asked.answered).toContain("charts_render")
+    expect(asked.answered).toContain("charts.render")
     expect(asked.text).toContain("after-tool: refused")
     expect(outputs(host)).toHaveLength(before)
   })
@@ -183,7 +183,7 @@ describe("the Code Mode path", () => {
     const host = await startHost("all")
     const before = outputs(host).length
     const denied = await code(host, `try { await ${RENDER}; return 'ran' } catch (error) { return 'refused' }`, "refused", {
-      permissions: [{ action: "charts_render", resource: "*", effect: "deny" }],
+      permissions: [{ action: "charts.render", resource: "*", effect: "deny" }],
     })
     expect(denied.answered).toEqual([])
     expect(denied.text).toContain("after-tool: refused")

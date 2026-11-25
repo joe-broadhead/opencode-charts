@@ -12,8 +12,8 @@ describe("the status dialog", () => {
   })
 
   test("shows a refusal's own message and next step", () => {
-    const message = viewMessage({ error: { type: "unavailable", message: "STATUS_UNAVAILABLE: Charts status could not be read.", data: { nextStep: "Run /charts-status again." } } })
-    expect(message).toContain("STATUS_UNAVAILABLE: Charts status could not be read. Next step: Run /charts-status again.")
+    const message = viewMessage({ error: { type: "failed", message: "UNAVAILABLE: Charts status could not be read. Next step: Restart OpenCode." } })
+    expect(message).toContain("UNAVAILABLE: Charts status could not be read. Next step: Restart OpenCode.")
     expect(message).toEndWith("r refresh · esc close")
   })
 

@@ -12,7 +12,8 @@ import { contentSecurityPolicy, scriptJson } from "../src/html.ts"
 import { ECHARTS_MODULES, ECHARTS_SERIES_TYPES, ECHARTS_UNBUNDLED, HTML_INTERACTIONS, RECIPE_INTERACTIONS } from "../src/runtime-support.ts"
 import { checkRenderedSvg, echartsMarkupIssues, tooltipMarkupProblem } from "../src/safety.ts"
 import { cssString, fontFaceCss } from "../src/svg.ts"
-import { runTool, type ToolEnvironment } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
+import type { ToolEnvironment } from "../src/tools.ts"
 import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
 
 const ws = workspace()

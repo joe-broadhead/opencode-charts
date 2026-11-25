@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, sy
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { closeVegaWorker } from "../src/engines/vega-pool.ts"
-import { runTool } from "../src/tools.ts"
+import { runTool } from "../src/handlers/index.ts"
 import { BAR, ROOT, ROWS, workspace } from "./helpers.ts"
 
 /**

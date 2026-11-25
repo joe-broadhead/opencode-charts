@@ -39,7 +39,7 @@ afterAll(async () => { await closeBrowser() })
 // The build.
 
 describe("the built bundles", () => {
-  test("dist/browser holds exactly the four runtimes and dist/ the GUI part", () => {
+  test("dist/browser holds exactly the four runtimes", () => {
     const browser = join(PACKAGE, "dist", "browser")
     expect(existsSync(join(browser, "vega.js"))).toBe(true)
     for (const name of RUNTIMES) {
@@ -49,8 +49,6 @@ describe("the built bundles", () => {
       expect(browserRuntime(PACKAGE, name)).toBe(readFileSync(file, "utf8"))
       expect(readFileSync(file, "utf8").length).toBeGreaterThan(1_000)
     }
-    expect(existsSync(join(PACKAGE, "dist", "gui.cjs"))).toBe(true)
-    expect(readFileSync(join(PACKAGE, "dist", "gui.cjs"), "utf8")).toContain("charts.codeBlock")
   })
 
   test("the plugin carries all four runtime hashes, so a swapped sibling is refused", () => {
