@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { BOARD_COOKBOOK_EXAMPLE } from "../scripts/cookbook.ts"
 import { parseBoardDocument } from "../src/board/schema.ts"
 import { ChartDocumentV1Schema } from "../src/document/schema.ts"
 import { manifest } from "../src/manifest.ts"
 import { runTool } from "../src/handlers/index.ts"
+import { loadSkills } from "../src/skills.ts"
 import { ROOT, ROWS, workspace } from "./helpers.ts"
 
 const PLACEHOLDER_HANDLES = new Set(["handle", "user", "username", "someone", "person", "name", "theirs", "author", "channel", "email", "example"])
@@ -68,6 +70,23 @@ describe("shipped plugin skills", () => {
     const parsed = parseBoardDocument(BOARD_COOKBOOK_EXAMPLE.board)
     expect(parsed.version).toBe(1)
     expect(parsed.panels).toHaveLength(2)
+  })
+
+  test("loadSkills registers a one-line description and skips block or empty ones", async () => {
+    const root = mkdtempSync(join(tmpdir(), "charts-skills-"))
+    try {
+      for (const [id, description] of [["folded", ">"], ["literal", "|"], ["empty", ""], ["good", "A one-line description."]] as const) {
+        mkdirSync(join(root, "skills", id), { recursive: true })
+        writeFileSync(join(root, "skills", id, "SKILL.md"), `---\nname: ${id}\ndescription: ${description}\n---\nBody\n`)
+      }
+      const warn = console.warn
+      console.warn = () => undefined
+      try {
+        const loaded = await loadSkills(root, ["folded", "literal", "empty", "good"])
+        expect(loaded.map(skill => String(skill.id))).toEqual(["good"])
+        expect(loaded[0]!.description).toBe("A one-line description.")
+      } finally { console.warn = warn }
+    } finally { rmSync(root, { recursive: true, force: true }) }
   })
 
   test("document calls support motion/fps delivery options and refuse authoring frame fields with INPUT_CONFLICT", async () => {

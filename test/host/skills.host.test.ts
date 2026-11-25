@@ -2,7 +2,7 @@
 // not. This test asks the real stock 2.4.1 server for its skills and checks that exactly the package's own two are
 // there. It runs in the host stage, which installs the stock binary.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { existsSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join, resolve, sep } from "node:path"
 import { startHost, TESTED_HOST, type Host } from "./harness.js"
 
@@ -26,7 +26,7 @@ describe(`the skills on stock ${TESTED_HOST}`, () => {
     expect(existsSync(join(host.a, "skills"))).toBe(false)
     const response = await host.api("GET", "/api/skill", undefined, host.a)
     expect(response.status).toBe(200)
-    const body = response.data as { data?: { id: string; name?: string; path?: string }[] } | { id: string; name?: string; path?: string }[]
+    const body = response.data as { data?: { id: string; name?: string; path?: string; description?: string }[] } | { id: string; name?: string; path?: string; description?: string }[]
     const skills = Array.isArray(body) ? body : body.data
     expect(Array.isArray(skills)).toBe(true)
     // The host also lists its own built-in skills (browser, opencode, report); this plugin's are the ones whose path is
@@ -34,8 +34,20 @@ describe(`the skills on stock ${TESTED_HOST}`, () => {
     const pluginSkills = (skills ?? []).filter((skill) => String(skill.path ?? "").startsWith(join(ROOT, "skills") + sep))
     expect(pluginSkills.map((skill) => String(skill.id)).sort()).toEqual(SHIPPED)
     for (const skill of pluginSkills) {
-      expect(String(skill.name ?? "")).toBe(String(skill.id))
-      expect(String(skill.path ?? "")).toContain(join("skills", String(skill.id), "SKILL.md"))
+      const id = String(skill.id)
+      expect(String(skill.name ?? "")).toBe(id)
+      expect(String(skill.path ?? "")).toContain(join("skills", id, "SKILL.md"))
+      // Parse the real front matter, not the host's rendering: a folded/block description must never arrive as ">"/"|".
+      const source = readFileSync(join(ROOT, "skills", id, "SKILL.md"), "utf8")
+      const front = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(source)
+      expect(front).not.toBeNull()
+      const parsed = Bun.YAML.parse(front![1]!) as { description?: unknown }
+      const description = typeof parsed.description === "string" ? parsed.description.trim() : ""
+      expect({ id, description }).not.toEqual({ id, description: "" })
+      expect({ id, description }).not.toEqual({ id, description: ">" })
+      expect({ id, description }).not.toEqual({ id, description: "|" })
+      expect({ id, startsWithBlock: /^[>|]/.test(description) }).toEqual({ id, startsWithBlock: false })
+      expect({ id, registered: String(skill.description ?? "") }).toEqual({ id, registered: description })
     }
     // And both are present in the whole list a client reads, not only in the filtered one.
     const ids = (skills ?? []).map((skill) => String(skill.id))

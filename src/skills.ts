@@ -16,8 +16,10 @@ export async function loadSkills(packageRoot: string, ids: readonly string[]): P
     try {
       const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(await readFile(path, "utf8"))
       const fields = Object.fromEntries((match?.[1] ?? "").split(/\r?\n/).map(line => /^(\w+):\s*(.+?)\s*$/.exec(line)).filter(m => m !== null).map(m => [m[1], m[2]]))
-      if (!match || fields.name !== id || !fields.description) throw new Error("bad front matter")
-      return Skill.Info.make({ id: Skill.ID.make(id), name: Skill.Name.make(id), description: fields.description, path: path as Skill.Info["path"], content: match[2]!.trim(), autoinvoke: true })
+      const description = fields.description?.trim()
+      // The description is one line: a YAML block scalar (>, |, >-, …) is rejected rather than registered as its marker.
+      if (!match || fields.name !== id || !description || /^[>|]/.test(description)) throw new Error("bad front matter")
+      return Skill.Info.make({ id: Skill.ID.make(id), name: Skill.Name.make(id), description, path: path as Skill.Info["path"], content: match[2]!.trim(), autoinvoke: true })
     } catch {
       console.warn(formatFailure("SKILLS_INVALID", `The skill ${id} is missing or malformed, so it was skipped.`, "Reinstall the plugin."))
       return undefined
