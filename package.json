@@ -38,8 +38,7 @@
     "LICENSE",
     "NOTICE",
     "THIRD_PARTY_NOTICES.md",
-    "licenses",
-    "CHANGELOG.md"
+    "licenses"
   ],
   "capabilities": {
     "version": 1,

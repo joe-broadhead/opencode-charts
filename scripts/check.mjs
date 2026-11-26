@@ -17,6 +17,8 @@ const stages = {
   typecheck: () => run("tsc", ["-p", "tsconfig.json"]),
   // The contract gate: conformance T0/T1, the doc file set, forbidden text, and no kit in a runtime build.
   kit: () => run("npx", ["--no-install", "plugin-kit", "check"]),
+  // The recorded fixture must hold no secret or personal data; CI and the release run the same gate.
+  record: () => run("npx", ["--no-install", "plugin-kit", "record", "--check"]),
   // The unit suites are the files directly in test/; test/host, test/browser and test/pack are their own stages.
   unit: () => run("bun", ["test", ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`)]),
   // Interactive HTML in a real browser: playwright-core's headless Chromium. A missing browser fails this stage, never
@@ -37,7 +39,7 @@ if (unknown.length) {
   console.error(`check: unknown stage ${unknown.map((name) => `"${name}"`).join(", ")}. Stages: ${Object.keys(stages).join(", ")}.`)
   process.exit(2)
 }
-const order = selected.length ? selected : ["bundle", "typecheck", "kit", "unit", "browser", "evals", "host", "pack"]
+const order = selected.length ? selected : ["bundle", "typecheck", "kit", "record", "unit", "browser", "evals", "host", "pack"]
 for (const name of order) {
   console.log(`\n[check] ${name}`)
   const code = stages[name]()
