@@ -19,8 +19,12 @@ const stages = {
   kit: () => run("npx", ["--no-install", "plugin-kit", "check"]),
   // The recorded fixture must hold no secret or personal data; CI and the release run the same gate.
   record: () => run("npx", ["--no-install", "plugin-kit", "record", "--check"]),
-  // The unit suites are the files directly in test/; test/host, test/browser and test/pack are their own stages.
-  unit: () => run("bun", ["test", ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`)]),
+  // The unit suites are the files directly in test/ and test/unit/; test/host, test/browser and test/pack are their own
+  // stages.
+  unit: () => run("bun", ["test",
+    ...readdirSync(join(root, "test")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/${name}`),
+    ...readdirSync(join(root, "test", "unit")).filter((name) => name.endsWith(".test.ts")).sort().map((name) => `./test/unit/${name}`),
+  ]),
   // Interactive HTML in a real browser: playwright-core's headless Chromium. A missing browser fails this stage, never
   // skips it; install it once with `npx playwright-core install --only-shell chromium` (on Linux add --with-deps).
   browser,
