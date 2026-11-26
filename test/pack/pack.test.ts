@@ -18,9 +18,9 @@ afterAll(() => rmSync(work, { recursive: true, force: true }), { timeout: 120_00
 
 const MAX_PACKED_BYTES = 12 * 1024 * 1024
 // Every path the tarball holds is under one of these, or is one of them.
-const SHIPPED = [/^package\.json$/, /^README\.md$/, /^LICENSE$/, /^NOTICE$/, /^THIRD_PARTY_NOTICES\.md$/, /^CHANGELOG\.md$/, /^dist\//, /^assets\//, /^skills\//, /^licenses\//]
+const SHIPPED = [/^package\.json$/, /^README\.md$/, /^LICENSE$/, /^NOTICE$/, /^THIRD_PARTY_NOTICES\.md$/, /^dist\//, /^assets\//, /^skills\//, /^licenses\//]
 const REQUIRED = [
-  "package.json", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md",
+  "package.json", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
   "dist/index.js", "dist/renderer.js", "dist/tui.js", "dist/vega-worker.js", "dist/resvg.wasm",
   "dist/browser/vega.js", "dist/browser/echarts.js", "dist/browser/plot.js", "dist/browser/ui.js",
   "assets/icon.svg", "assets/icon-128.png", "assets/icon-256.png",
