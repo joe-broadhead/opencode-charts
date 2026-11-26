@@ -37,7 +37,7 @@ describe("ECharts modules: one table for both runtimes", () => {
     for (const key of Object.keys(ECHARTS_UNBUNDLED)) expect(read.has(key)).toBe(false)
   })
   test("the browser runtime is built from the table's entry file", () => {
-    expect(readFileSync(join(ROOT, "scripts", "build.mjs"), "utf8")).toContain("src/browser/${name}.ts")
+    expect(readFileSync(join(ROOT, "scripts", "bundle-options.mjs"), "utf8")).toContain("src/browser/${name}.ts")
     expect(readFileSync(join(ROOT, "src", "browser", "echarts.ts"), "utf8")).toContain('echartsModules("browser")')
   })
 })
